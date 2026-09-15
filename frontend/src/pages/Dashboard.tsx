@@ -13,6 +13,7 @@ type Props = {
   onOpenPlayers: () => void;
   onOpenScoutingReports: () => void;
   onOpenWatchlist: () => void;
+  onOpenSquad: () => void;
 };
 
 export default function Dashboard({
@@ -27,7 +28,8 @@ export default function Dashboard({
   supabaseError,
   onOpenPlayers,
   onOpenScoutingReports,
-  onOpenWatchlist
+  onOpenWatchlist,
+  onOpenSquad
 }: Props) {
   return (
     <main className="page">
@@ -164,6 +166,7 @@ export default function Dashboard({
         <button
           className="card"
           type="button"
+          onClick={onOpenSquad}
         >
           Unser Kader
         </button>
