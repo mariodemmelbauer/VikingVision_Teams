@@ -3048,6 +3048,351 @@ export default {
       }
     }
 
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/academy/ideals'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        if (
+          !body.academy_player_id ||
+          !body.period_label
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'academy_player_id and period_label are required'
+            },
+            400
+          );
+        }
+
+        const scores =
+          Array.isArray(body.scores)
+            ? body.scores as Array<
+                Record<string, unknown>
+              >
+            : [];
+
+        const supabase =
+          createSupabase(env);
+
+        const assessmentPayload =
+          pickFields(
+            body,
+            [
+              'academy_player_id',
+              'period_label',
+              'assessment_date',
+              'player_role'
+            ]
+          );
+
+        const {
+          data: assessment,
+          error: assessmentError
+        } =
+          await supabase
+            .from(
+              'academy_ideal_assessments'
+            )
+            .insert(
+              assessmentPayload
+            )
+            .select('*')
+            .single();
+
+        if (assessmentError) {
+          return json(
+            {
+              ok: false,
+              error:
+                assessmentError.message
+            },
+            500
+          );
+        }
+
+        const scoreRows =
+          scores
+            .filter(
+              score =>
+                typeof score.ideal_code ===
+                  'string' &&
+                String(
+                  score.ideal_code
+                ).trim()
+            )
+            .map(score => ({
+              assessment_id:
+                assessment.id,
+              ideal_code:
+                String(
+                  score.ideal_code
+                ).trim(),
+              status_quo:
+                score.status_quo ?? null,
+              potential:
+                score.potential ?? null,
+              notes:
+                score.notes ?? null,
+              measured_value:
+                score.measured_value ??
+                null,
+              rating:
+                score.rating ?? null,
+              detail_ratings:
+                score.detail_ratings ??
+                {}
+            }));
+
+        if (
+          scoreRows.length > 0
+        ) {
+          const {
+            error: scoresError
+          } =
+            await supabase
+              .from(
+                'academy_ideal_scores'
+              )
+              .insert(scoreRows);
+
+          if (scoresError) {
+            await supabase
+              .from(
+                'academy_ideal_assessments'
+              )
+              .delete()
+              .eq(
+                'id',
+                assessment.id
+              );
+
+            return json(
+              {
+                ok: false,
+                error:
+                  scoresError.message
+              },
+              500
+            );
+          }
+        }
+
+        return json(
+          {
+            ok: true,
+            assessment
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Ideal assessment creation failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'PUT' &&
+      url.pathname.startsWith(
+        '/academy/ideals/'
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const assessmentId =
+          url.pathname
+            .substring(
+              '/academy/ideals/'.length
+            )
+            .trim();
+
+        if (!assessmentId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'assessment id is required'
+            },
+            400
+          );
+        }
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        const scores =
+          Array.isArray(body.scores)
+            ? body.scores as Array<
+                Record<string, unknown>
+              >
+            : [];
+
+        const supabase =
+          createSupabase(env);
+
+        const assessmentUpdate =
+          pickFields(
+            body,
+            [
+              'period_label',
+              'assessment_date',
+              'player_role'
+            ]
+          );
+
+        assessmentUpdate.updated_at =
+          new Date().toISOString();
+
+        const {
+          data: assessment,
+          error: updateError
+        } =
+          await supabase
+            .from(
+              'academy_ideal_assessments'
+            )
+            .update(
+              assessmentUpdate
+            )
+            .eq(
+              'id',
+              assessmentId
+            )
+            .select('*')
+            .single();
+
+        if (updateError) {
+          return json(
+            {
+              ok: false,
+              error:
+                updateError.message
+            },
+            500
+          );
+        }
+
+        const {
+          error: deleteScoresError
+        } =
+          await supabase
+            .from(
+              'academy_ideal_scores'
+            )
+            .delete()
+            .eq(
+              'assessment_id',
+              assessmentId
+            );
+
+        if (deleteScoresError) {
+          return json(
+            {
+              ok: false,
+              error:
+                deleteScoresError.message
+            },
+            500
+          );
+        }
+
+        const scoreRows =
+          scores
+            .filter(
+              score =>
+                typeof score.ideal_code ===
+                  'string' &&
+                String(
+                  score.ideal_code
+                ).trim()
+            )
+            .map(score => ({
+              assessment_id:
+                Number(assessmentId),
+              ideal_code:
+                String(
+                  score.ideal_code
+                ).trim(),
+              status_quo:
+                score.status_quo ?? null,
+              potential:
+                score.potential ?? null,
+              notes:
+                score.notes ?? null,
+              measured_value:
+                score.measured_value ??
+                null,
+              rating:
+                score.rating ?? null,
+              detail_ratings:
+                score.detail_ratings ??
+                {}
+            }));
+
+        if (
+          scoreRows.length > 0
+        ) {
+          const {
+            error: scoresError
+          } =
+            await supabase
+              .from(
+                'academy_ideal_scores'
+              )
+              .insert(scoreRows);
+
+          if (scoresError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  scoresError.message
+              },
+              500
+            );
+          }
+        }
+
+        return json({
+          ok: true,
+          assessment
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Ideal assessment update failed'
+          },
+          401
+        );
+      }
+    }
+
     return json(
       {
         ok: false,
