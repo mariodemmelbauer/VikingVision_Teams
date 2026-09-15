@@ -1,10 +1,14 @@
+import { createClient } from '@supabase/supabase-js';
 import {
   createRemoteJWKSet,
   decodeJwt,
   jwtVerify
 } from 'jose';
 
-interface Env {}
+interface Env {
+  SUPABASE_URL: string;
+  SUPABASE_SECRET_KEY: string;
+}
 
 const TENANT_ID =
   '1fcb46af-c475-4867-8c22-1ada8dd7cfdf';
@@ -18,10 +22,8 @@ const APPLICATION_ID_URI =
 const corsHeaders = {
   'Access-Control-Allow-Origin':
     'https://vikingvision-teams.pages.dev',
-
   'Access-Control-Allow-Headers':
     'Authorization, Content-Type',
-
   'Access-Control-Allow-Methods':
     'GET, OPTIONS'
 };
@@ -37,18 +39,9 @@ function json(
 }
 
 async function verifyTeamsToken(token: string) {
-  /*
-   * Teams/Entra can issue either v1 or v2 access tokens
-   * depending on the Entra configuration.
-   *
-   * We inspect only the "ver" claim here to select the
-   * correct Microsoft metadata/JWKS endpoint.
-   * Security validation happens afterwards in jwtVerify().
-   */
   const unverified = decodeJwt(token);
 
   const version = unverified.ver;
-
   const isV2 = version === '2.0';
 
   const issuer = isV2
@@ -63,13 +56,6 @@ async function verifyTeamsToken(token: string) {
     new URL(jwksUrl)
   );
 
-  /*
-   * For v2 tokens the aud is normally the API Client ID.
-   * For some v1 configurations Entra can use the
-   * Application ID URI instead.
-   *
-   * We allow only our two known resource identifiers.
-   */
   const allowedAudiences = [
     CLIENT_ID,
     APPLICATION_ID_URI
@@ -84,16 +70,10 @@ async function verifyTeamsToken(token: string) {
     }
   );
 
-  /*
-   * Tenant check in addition to issuer validation.
-   */
   if (payload.tid !== TENANT_ID) {
     throw new Error('Invalid tenant');
   }
 
-  /*
-   * The token must contain our delegated API scope.
-   */
   const scopes =
     typeof payload.scp === 'string'
       ? payload.scp.split(' ')
@@ -106,6 +86,20 @@ async function verifyTeamsToken(token: string) {
   }
 
   return payload;
+}
+
+async function authenticate(request: Request) {
+  const auth =
+    request.headers.get('Authorization');
+
+  if (!auth || !auth.startsWith('Bearer ')) {
+    throw new Error('Missing bearer token');
+  }
+
+  const token =
+    auth.substring('Bearer '.length);
+
+  return verifyTeamsToken(token);
 }
 
 export default {
@@ -123,38 +117,22 @@ export default {
 
     const url = new URL(request.url);
 
+    // -------------------------
+    // HEALTH
+    // -------------------------
+
     if (url.pathname === '/health') {
-      const auth =
-        request.headers.get('Authorization');
-
-      if (
-        !auth ||
-        !auth.startsWith('Bearer ')
-      ) {
-        return json(
-          {
-            ok: false,
-            authenticated: false,
-            error: 'Missing bearer token'
-          },
-          401
-        );
-      }
-
-      const token =
-        auth.substring('Bearer '.length);
-
       try {
         const payload =
-          await verifyTeamsToken(token);
+          await authenticate(request);
 
         return json({
           ok: true,
           authenticated: true,
-
-          service:
-            'VikingVision API',
-
+          service: 'VikingVision API',
+          supabaseConfigured:
+            Boolean(env.SUPABASE_URL) &&
+            Boolean(env.SUPABASE_SECRET_KEY),
           user: {
             name:
               payload.name ?? null,
@@ -171,12 +149,8 @@ export default {
               payload.tid ?? null
           }
         });
-      } catch (error) {
-        console.error(
-          'Token validation failed:',
-          error
-        );
 
+      } catch (error) {
         return json(
           {
             ok: false,
@@ -184,12 +158,100 @@ export default {
             error:
               error instanceof Error
                 ? error.message
-                : 'Token validation failed'
+                : 'Authentication failed'
           },
           401
         );
       }
     }
+
+    // -------------------------
+    // PLAYERS
+    // -------------------------
+
+    if (url.pathname === '/players') {
+      try {
+        const payload =
+          await authenticate(request);
+
+        const supabase = createClient(
+          env.SUPABASE_URL,
+          env.SUPABASE_SECRET_KEY,
+          {
+            auth: {
+              persistSession: false,
+              autoRefreshToken: false
+            }
+          }
+        );
+
+        const { data, error } =
+          await supabase
+            .from('players')
+            .select('*')
+            .order('name', {
+              ascending: true
+            })
+            .limit(100);
+
+        if (error) {
+          console.error(
+            'Supabase error:',
+            error
+          );
+
+          return json(
+            {
+              ok: false,
+              authenticated: true,
+              supabase: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          authenticated: true,
+          supabase: true,
+
+          user: {
+            name:
+              payload.name ?? null,
+
+            username:
+              payload.preferred_username ??
+              payload.upn ??
+              null
+          },
+
+          count:
+            data?.length ?? 0,
+
+          players:
+            data ?? []
+        });
+
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            authenticated: false,
+            supabase: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Request failed'
+          },
+          401
+        );
+      }
+    }
+
+    // -------------------------
+    // NOT FOUND
+    // -------------------------
 
     return json(
       {
