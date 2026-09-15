@@ -668,6 +668,9 @@ export default function AKAVision({
           idealAssessments={idealAssessments}
           sportScienceTests={sportScienceTests}
           skillAcForms={skillAcForms}
+          accessToken={accessToken}
+          apiBase={apiBase}
+          onSaved={loadTeamData}
           onClose={() =>
             setSelectedAcademyPlayerId(
               null
@@ -1020,6 +1023,9 @@ function AcademyPlayerProfile({
   idealAssessments,
   sportScienceTests,
   skillAcForms,
+  accessToken,
+  apiBase,
+  onSaved,
   onClose
 }: {
   player: AcademyPlayer;
@@ -1028,8 +1034,79 @@ function AcademyPlayerProfile({
   idealAssessments: IdealAssessment[];
   sportScienceTests: SportScienceTest[];
   skillAcForms: SkillAcForm[];
+  accessToken?: string;
+  apiBase: string;
+  onSaved: () => Promise<void>;
   onClose: () => void;
 }) {
+  const [editing, setEditing] =
+    useState(false);
+
+  const [savingPlayer, setSavingPlayer] =
+    useState(false);
+
+  const [showSportScienceForm, setShowSportScienceForm] =
+    useState(false);
+
+  const [savingSportScience, setSavingSportScience] =
+    useState(false);
+
+  const [profileError, setProfileError] =
+    useState<string | undefined>();
+
+  const [profileSuccess, setProfileSuccess] =
+    useState<string | undefined>();
+
+  const [playerForm, setPlayerForm] =
+    useState({
+      name: player.name ?? '',
+      birth_date: player.birth_date ?? '',
+      primary_position:
+        player.primary_position ?? '',
+      player_role:
+        player.player_role ?? '',
+      preferred_foot:
+        player.preferred_foot ?? '',
+      jersey_number:
+        player.jersey_number ?? '',
+      nationality:
+        player.nationality ?? '',
+      height:
+        player.height ?? '',
+      current_club:
+        player.current_club ?? '',
+      squad_status:
+        player.squad_status ?? '',
+      school_type:
+        player.school_type ?? '',
+      school_class:
+        player.school_class ?? '',
+      boarding_school:
+        Boolean(player.boarding_school),
+      bus_use:
+        Boolean(player.bus_use),
+      bus_route:
+        player.bus_route ?? 'KEINE',
+      notes:
+        player.notes ?? ''
+    });
+
+  const [sportScienceForm, setSportScienceForm] =
+    useState({
+      test_date:
+        new Date()
+          .toISOString()
+          .slice(0, 10),
+      body_weight_kg: '',
+      body_fat_percent: '',
+      sprint_10m_seconds: '',
+      sprint_30m_seconds: '',
+      cmj_cm: '',
+      aerobic_value: '',
+      readiness: '',
+      notes: ''
+    });
+
   const playerTraining =
     trainingAttendance.filter(
       row =>
@@ -1095,6 +1172,232 @@ function AcademyPlayerProfile({
         )
     )[0];
 
+  function updatePlayerField(
+    field: keyof typeof playerForm,
+    value: string | boolean
+  ) {
+    setPlayerForm(current => ({
+      ...current,
+      [field]: value
+    }));
+  }
+
+  function updateSportScienceField(
+    field: keyof typeof sportScienceForm,
+    value: string
+  ) {
+    setSportScienceForm(current => ({
+      ...current,
+      [field]: value
+    }));
+  }
+
+  async function savePlayer() {
+    if (!accessToken) {
+      setProfileError(
+        'Kein Teams-SSO-Token vorhanden.'
+      );
+      return;
+    }
+
+    setSavingPlayer(true);
+    setProfileError(undefined);
+    setProfileSuccess(undefined);
+
+    try {
+      const response =
+        await fetch(
+          `${apiBase}/academy/player/${player.id}`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`,
+              'Content-Type':
+                'application/json'
+            },
+            body: JSON.stringify({
+              name:
+                playerForm.name || null,
+              birth_date:
+                playerForm.birth_date || null,
+              primary_position:
+                playerForm.primary_position || null,
+              player_role:
+                playerForm.player_role || null,
+              preferred_foot:
+                playerForm.preferred_foot || null,
+              jersey_number:
+                playerForm.jersey_number || null,
+              nationality:
+                playerForm.nationality || null,
+              height:
+                playerForm.height || null,
+              current_club:
+                playerForm.current_club || 'SV Ried',
+              squad_status:
+                playerForm.squad_status || 'Aktiv',
+              school_type:
+                playerForm.school_type || null,
+              school_class:
+                playerForm.school_class || null,
+              boarding_school:
+                playerForm.boarding_school,
+              bus_use:
+                playerForm.bus_use,
+              bus_route:
+                playerForm.bus_use
+                  ? playerForm.bus_route || 'KEINE'
+                  : 'KEINE',
+              notes:
+                playerForm.notes || null
+            })
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+          'Spielerprofil konnte nicht gespeichert werden.'
+        );
+      }
+
+      setEditing(false);
+      setProfileSuccess(
+        'Spielerprofil wurde gespeichert.'
+      );
+
+      await onSaved();
+    } catch (err) {
+      setProfileError(
+        err instanceof Error
+          ? err.message
+          : 'Speichern fehlgeschlagen.'
+      );
+    } finally {
+      setSavingPlayer(false);
+    }
+  }
+
+  async function saveSportScienceTest() {
+    if (!accessToken) {
+      setProfileError(
+        'Kein Teams-SSO-Token vorhanden.'
+      );
+      return;
+    }
+
+    if (!sportScienceForm.test_date) {
+      setProfileError(
+        'Bitte ein Testdatum angeben.'
+      );
+      return;
+    }
+
+    const numberOrNull =
+      (value: string) =>
+        value === ''
+          ? null
+          : Number(value.replace(',', '.'));
+
+    setSavingSportScience(true);
+    setProfileError(undefined);
+    setProfileSuccess(undefined);
+
+    try {
+      const response =
+        await fetch(
+          `${apiBase}/academy/sport-science`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`,
+              'Content-Type':
+                'application/json'
+            },
+            body: JSON.stringify({
+              academy_player_id:
+                player.id,
+              test_date:
+                sportScienceForm.test_date,
+              body_weight_kg:
+                numberOrNull(
+                  sportScienceForm.body_weight_kg
+                ),
+              body_fat_percent:
+                numberOrNull(
+                  sportScienceForm.body_fat_percent
+                ),
+              sprint_10m_seconds:
+                numberOrNull(
+                  sportScienceForm.sprint_10m_seconds
+                ),
+              sprint_30m_seconds:
+                numberOrNull(
+                  sportScienceForm.sprint_30m_seconds
+                ),
+              cmj_cm:
+                numberOrNull(
+                  sportScienceForm.cmj_cm
+                ),
+              aerobic_value:
+                numberOrNull(
+                  sportScienceForm.aerobic_value
+                ),
+              readiness:
+                sportScienceForm.readiness || null,
+              notes:
+                sportScienceForm.notes || null
+            })
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+          'Sport-Science-Test konnte nicht gespeichert werden.'
+        );
+      }
+
+      setSportScienceForm({
+        test_date:
+          new Date()
+            .toISOString()
+            .slice(0, 10),
+        body_weight_kg: '',
+        body_fat_percent: '',
+        sprint_10m_seconds: '',
+        sprint_30m_seconds: '',
+        cmj_cm: '',
+        aerobic_value: '',
+        readiness: '',
+        notes: ''
+      });
+
+      setShowSportScienceForm(false);
+      setProfileSuccess(
+        'Sport-Science-Test wurde gespeichert.'
+      );
+
+      await onSaved();
+    } catch (err) {
+      setProfileError(
+        err instanceof Error
+          ? err.message
+          : 'Speichern fehlgeschlagen.'
+      );
+    } finally {
+      setSavingSportScience(false);
+    }
+  }
+
   return (
     <div style={modalBackdrop}>
       <div style={modalPanel}>
@@ -1105,7 +1408,8 @@ function AcademyPlayerProfile({
               'space-between',
             gap: '12px',
             alignItems:
-              'flex-start'
+              'flex-start',
+            flexWrap: 'wrap'
           }}
         >
           <div>
@@ -1141,14 +1445,477 @@ function AcademyPlayerProfile({
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={onClose}
-            style={secondaryButton}
+          <div
+            style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap'
+            }}
           >
-            ✕ Schließen
-          </button>
+            <button
+              type="button"
+              onClick={() =>
+                setEditing(
+                  value => !value
+                )
+              }
+              style={primaryButton}
+            >
+              {editing
+                ? 'Bearbeiten schließen'
+                : 'Spieler bearbeiten'}
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setShowSportScienceForm(
+                  value => !value
+                )
+              }
+              style={primaryButton}
+            >
+              + Sport-Science-Test
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              style={secondaryButton}
+            >
+              ✕ Schließen
+            </button>
+          </div>
         </div>
+
+        {profileError && (
+          <div style={errorBox}>
+            {profileError}
+          </div>
+        )}
+
+        {profileSuccess && (
+          <div style={successBox}>
+            {profileSuccess}
+          </div>
+        )}
+
+        {editing && (
+          <section
+            style={{
+              ...panel,
+              marginTop: '18px'
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>
+              Spielerprofil bearbeiten
+            </h3>
+
+            <div style={profileFormGrid}>
+              <TextInput
+                label="Name"
+                value={playerForm.name}
+                onChange={value =>
+                  updatePlayerField(
+                    'name',
+                    value
+                  )
+                }
+              />
+
+              <Field label="Geburtsdatum">
+                <input
+                  type="date"
+                  value={
+                    playerForm.birth_date
+                  }
+                  onChange={event =>
+                    updatePlayerField(
+                      'birth_date',
+                      event.target.value
+                    )
+                  }
+                  style={inputStyle}
+                />
+              </Field>
+
+              <TextInput
+                label="Position"
+                value={
+                  playerForm.primary_position
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'primary_position',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Rolle"
+                value={
+                  playerForm.player_role
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'player_role',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Fuß"
+                value={
+                  playerForm.preferred_foot
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'preferred_foot',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Trikotnummer"
+                value={
+                  playerForm.jersey_number
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'jersey_number',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Nationalität"
+                value={
+                  playerForm.nationality
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'nationality',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Größe"
+                value={
+                  playerForm.height
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'height',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Verein"
+                value={
+                  playerForm.current_club
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'current_club',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Status"
+                value={
+                  playerForm.squad_status
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'squad_status',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Schultyp"
+                value={
+                  playerForm.school_type
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'school_type',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Schulklasse"
+                value={
+                  playerForm.school_class
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'school_class',
+                    value
+                  )
+                }
+              />
+
+              <Field label="Internat">
+                <select
+                  value={
+                    playerForm.boarding_school
+                      ? 'ja'
+                      : 'nein'
+                  }
+                  onChange={event =>
+                    updatePlayerField(
+                      'boarding_school',
+                      event.target.value === 'ja'
+                    )
+                  }
+                  style={inputStyle}
+                >
+                  <option value="nein">
+                    Nein
+                  </option>
+                  <option value="ja">
+                    Ja
+                  </option>
+                </select>
+              </Field>
+
+              <Field label="Busnutzung">
+                <select
+                  value={
+                    playerForm.bus_use
+                      ? 'ja'
+                      : 'nein'
+                  }
+                  onChange={event =>
+                    updatePlayerField(
+                      'bus_use',
+                      event.target.value === 'ja'
+                    )
+                  }
+                  style={inputStyle}
+                >
+                  <option value="nein">
+                    Nein
+                  </option>
+                  <option value="ja">
+                    Ja
+                  </option>
+                </select>
+              </Field>
+
+              <TextInput
+                label="Busroute"
+                value={
+                  playerForm.bus_route
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'bus_route',
+                    value
+                  )
+                }
+              />
+            </div>
+
+            <div style={{ marginTop: '12px' }}>
+              <Area
+                label="Notizen"
+                value={
+                  playerForm.notes
+                }
+                onChange={value =>
+                  updatePlayerField(
+                    'notes',
+                    value
+                  )
+                }
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={savePlayer}
+              disabled={savingPlayer}
+              style={{
+                ...primaryButton,
+                marginTop: '14px'
+              }}
+            >
+              {savingPlayer
+                ? 'Speichert…'
+                : 'Spielerprofil speichern'}
+            </button>
+          </section>
+        )}
+
+        {showSportScienceForm && (
+          <section
+            style={{
+              ...panel,
+              marginTop: '18px'
+            }}
+          >
+            <h3 style={{ marginTop: 0 }}>
+              Neuer Sport-Science-Test
+            </h3>
+
+            <div style={profileFormGrid}>
+              <Field label="Testdatum">
+                <input
+                  type="date"
+                  value={
+                    sportScienceForm.test_date
+                  }
+                  onChange={event =>
+                    updateSportScienceField(
+                      'test_date',
+                      event.target.value
+                    )
+                  }
+                  style={inputStyle}
+                />
+              </Field>
+
+              <TextInput
+                label="Gewicht (kg)"
+                value={
+                  sportScienceForm.body_weight_kg
+                }
+                onChange={value =>
+                  updateSportScienceField(
+                    'body_weight_kg',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Körperfett (%)"
+                value={
+                  sportScienceForm.body_fat_percent
+                }
+                onChange={value =>
+                  updateSportScienceField(
+                    'body_fat_percent',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="10 m Sprint (s)"
+                value={
+                  sportScienceForm.sprint_10m_seconds
+                }
+                onChange={value =>
+                  updateSportScienceField(
+                    'sprint_10m_seconds',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="30 m Sprint (s)"
+                value={
+                  sportScienceForm.sprint_30m_seconds
+                }
+                onChange={value =>
+                  updateSportScienceField(
+                    'sprint_30m_seconds',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="CMJ (cm)"
+                value={
+                  sportScienceForm.cmj_cm
+                }
+                onChange={value =>
+                  updateSportScienceField(
+                    'cmj_cm',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Aerobic Value"
+                value={
+                  sportScienceForm.aerobic_value
+                }
+                onChange={value =>
+                  updateSportScienceField(
+                    'aerobic_value',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Readiness"
+                value={
+                  sportScienceForm.readiness
+                }
+                onChange={value =>
+                  updateSportScienceField(
+                    'readiness',
+                    value
+                  )
+                }
+              />
+            </div>
+
+            <div style={{ marginTop: '12px' }}>
+              <Area
+                label="Notizen"
+                value={
+                  sportScienceForm.notes
+                }
+                onChange={value =>
+                  updateSportScienceField(
+                    'notes',
+                    value
+                  )
+                }
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                saveSportScienceTest
+              }
+              disabled={
+                savingSportScience
+              }
+              style={{
+                ...primaryButton,
+                marginTop: '14px'
+              }}
+            >
+              {savingSportScience
+                ? 'Speichert…'
+                : 'Test speichern'}
+            </button>
+          </section>
+        )}
 
         <section
           style={{
@@ -3685,6 +4452,23 @@ const secondaryButton:
   borderRadius: '10px',
   cursor: 'pointer',
   fontWeight: 700
+};
+
+const successBox:
+  React.CSSProperties = {
+  marginTop: '14px',
+  padding: '12px 16px',
+  background: '#eef9f2',
+  color: '#0b6b35',
+  borderRadius: '10px'
+};
+
+const profileFormGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(2, minmax(0, 1fr))',
+  gap: '12px'
 };
 
 const errorBox:
