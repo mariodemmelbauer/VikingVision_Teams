@@ -2402,6 +2402,255 @@ export default {
       }
     }
 
+
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/academy/sport-science'
+    ) {
+      try {
+        await authenticate(request);
+
+        const team =
+          url.searchParams.get('team');
+
+        if (!team) {
+          return json(
+            {
+              ok: false,
+              error: 'team is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: players,
+          error: playersError
+        } =
+          await supabase
+            .from('academy_players')
+            .select('id,name')
+            .eq('team', team);
+
+        if (playersError) {
+          return json(
+            {
+              ok: false,
+              error: playersError.message
+            },
+            500
+          );
+        }
+
+        const playerIds =
+          (players ?? [])
+            .map(player => player.id);
+
+        if (playerIds.length === 0) {
+          return json({
+            ok: true,
+            tests: []
+          });
+        }
+
+        const {
+          data: tests,
+          error: testsError
+        } =
+          await supabase
+            .from(
+              'academy_sport_science_tests'
+            )
+            .select('*')
+            .in(
+              'academy_player_id',
+              playerIds
+            )
+            .order(
+              'test_date',
+              {
+                ascending: false
+              }
+            )
+            .limit(1000);
+
+        if (testsError) {
+          return json(
+            {
+              ok: false,
+              error: testsError.message
+            },
+            500
+          );
+        }
+
+        const playerMap =
+          new Map(
+            (players ?? []).map(
+              player => [
+                String(player.id),
+                player.name
+              ]
+            )
+          );
+
+        const enriched =
+          (tests ?? []).map(test => ({
+            ...test,
+            player_name:
+              test.academy_player_id
+                ? playerMap.get(
+                    String(
+                      test.academy_player_id
+                    )
+                  )
+                : undefined
+          }));
+
+        return json({
+          ok: true,
+          tests: enriched
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Sport science request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/academy/skill-ac'
+    ) {
+      try {
+        await authenticate(request);
+
+        const team =
+          url.searchParams.get('team');
+
+        if (!team) {
+          return json(
+            {
+              ok: false,
+              error: 'team is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: players,
+          error: playersError
+        } =
+          await supabase
+            .from('academy_players')
+            .select('id,name')
+            .eq('team', team);
+
+        if (playersError) {
+          return json(
+            {
+              ok: false,
+              error: playersError.message
+            },
+            500
+          );
+        }
+
+        const playerIds =
+          (players ?? [])
+            .map(player => player.id);
+
+        if (playerIds.length === 0) {
+          return json({
+            ok: true,
+            forms: []
+          });
+        }
+
+        const {
+          data: forms,
+          error: formsError
+        } =
+          await supabase
+            .from(
+              'academy_skill_ac_forms'
+            )
+            .select('*')
+            .in(
+              'academy_player_id',
+              playerIds
+            )
+            .order(
+              'updated_at',
+              {
+                ascending: false
+              }
+            )
+            .limit(500);
+
+        if (formsError) {
+          return json(
+            {
+              ok: false,
+              error: formsError.message
+            },
+            500
+          );
+        }
+
+        const playerMap =
+          new Map(
+            (players ?? []).map(
+              player => [
+                String(player.id),
+                player.name
+              ]
+            )
+          );
+
+        const enriched =
+          (forms ?? []).map(form => ({
+            ...form,
+            player_name:
+              playerMap.get(
+                String(
+                  form.academy_player_id
+                )
+              )
+          }));
+
+        return json({
+          ok: true,
+          forms: enriched
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Skill/AC request failed'
+          },
+          401
+        );
+      }
+    }
+
     return json(
       {
         ok: false,
