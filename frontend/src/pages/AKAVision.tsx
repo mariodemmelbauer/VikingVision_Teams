@@ -166,6 +166,16 @@ type SkillAcForm = {
   biggest_changes?: string;
 };
 
+
+type IdealScoreForm = {
+  ideal_code: string;
+  status_quo: string;
+  potential: string;
+  rating: string;
+  measured_value: string;
+  notes: string;
+};
+
 type Overview = {
   team: string;
   playerCount: number;
@@ -1058,6 +1068,68 @@ function AcademyPlayerProfile({
   const [profileSuccess, setProfileSuccess] =
     useState<string | undefined>();
 
+  const [showIdealForm, setShowIdealForm] =
+    useState(false);
+
+  const [savingIdeal, setSavingIdeal] =
+    useState(false);
+
+  const [editingIdealId, setEditingIdealId] =
+    useState<number | null>(null);
+
+  const [idealForm, setIdealForm] =
+    useState({
+      period_label: '',
+      assessment_date:
+        new Date()
+          .toISOString()
+          .slice(0, 10),
+      player_role:
+        player.player_role ?? '',
+      scores: [
+        {
+          ideal_code: 'OFF1',
+          status_quo: '',
+          potential: '',
+          rating: '',
+          measured_value: '',
+          notes: ''
+        },
+        {
+          ideal_code: 'OFF2',
+          status_quo: '',
+          potential: '',
+          rating: '',
+          measured_value: '',
+          notes: ''
+        },
+        {
+          ideal_code: 'OFF3',
+          status_quo: '',
+          potential: '',
+          rating: '',
+          measured_value: '',
+          notes: ''
+        },
+        {
+          ideal_code: 'DEF1',
+          status_quo: '',
+          potential: '',
+          rating: '',
+          measured_value: '',
+          notes: ''
+        },
+        {
+          ideal_code: 'DEF3',
+          status_quo: '',
+          potential: '',
+          rating: '',
+          measured_value: '',
+          notes: ''
+        }
+      ] as IdealScoreForm[]
+    });
+
   const [playerForm, setPlayerForm] =
     useState({
       name: player.name ?? '',
@@ -1399,6 +1471,270 @@ function AcademyPlayerProfile({
     }
   }
 
+  function resetIdealForm() {
+    setEditingIdealId(null);
+    setIdealForm({
+      period_label: '',
+      assessment_date:
+        new Date()
+          .toISOString()
+          .slice(0, 10),
+      player_role:
+        player.player_role ?? '',
+      scores: [
+        {
+          ideal_code: 'OFF1',
+          status_quo: '',
+          potential: '',
+          rating: '',
+          measured_value: '',
+          notes: ''
+        },
+        {
+          ideal_code: 'OFF2',
+          status_quo: '',
+          potential: '',
+          rating: '',
+          measured_value: '',
+          notes: ''
+        },
+        {
+          ideal_code: 'OFF3',
+          status_quo: '',
+          potential: '',
+          rating: '',
+          measured_value: '',
+          notes: ''
+        },
+        {
+          ideal_code: 'DEF1',
+          status_quo: '',
+          potential: '',
+          rating: '',
+          measured_value: '',
+          notes: ''
+        },
+        {
+          ideal_code: 'DEF3',
+          status_quo: '',
+          potential: '',
+          rating: '',
+          measured_value: '',
+          notes: ''
+        }
+      ]
+    });
+  }
+
+  function updateIdealScore(
+    index: number,
+    field: keyof IdealScoreForm,
+    value: string
+  ) {
+    setIdealForm(current => ({
+      ...current,
+      scores: current.scores.map(
+        (score, scoreIndex) =>
+          scoreIndex === index
+            ? {
+                ...score,
+                [field]: value
+              }
+            : score
+      )
+    }));
+  }
+
+  function editIdealAssessment(
+    assessment: IdealAssessment
+  ) {
+    const knownCodes = [
+      'OFF1',
+      'OFF2',
+      'OFF3',
+      'DEF1',
+      'DEF3'
+    ];
+
+    const byCode =
+      new Map(
+        assessment.scores.map(
+          score => [
+            score.ideal_code,
+            score
+          ]
+        )
+      );
+
+    setEditingIdealId(
+      assessment.id
+    );
+
+    setIdealForm({
+      period_label:
+        assessment.period_label ?? '',
+      assessment_date:
+        assessment.assessment_date ?? '',
+      player_role:
+        assessment.player_role ??
+        player.player_role ??
+        '',
+      scores: knownCodes.map(code => {
+        const existing =
+          byCode.get(code);
+
+        return {
+          ideal_code: code,
+          status_quo:
+            existing?.status_quo != null
+              ? String(
+                  existing.status_quo
+                )
+              : '',
+          potential:
+            existing?.potential != null
+              ? String(
+                  existing.potential
+                )
+              : '',
+          rating:
+            existing?.rating != null
+              ? String(
+                  existing.rating
+                )
+              : '',
+          measured_value:
+            existing?.measured_value ??
+            '',
+          notes:
+            existing?.notes ?? ''
+        };
+      })
+    });
+
+    setShowIdealForm(true);
+    setProfileError(undefined);
+    setProfileSuccess(undefined);
+  }
+
+  async function saveIdealAssessment() {
+    if (!accessToken) {
+      setProfileError(
+        'Kein Teams-SSO-Token vorhanden.'
+      );
+      return;
+    }
+
+    if (
+      !idealForm.period_label.trim()
+    ) {
+      setProfileError(
+        'Bitte eine Bewertungsperiode angeben.'
+      );
+      return;
+    }
+
+    const numberOrNull =
+      (value: string) =>
+        value === ''
+          ? null
+          : Number(value);
+
+    const payload = {
+      academy_player_id:
+        player.id,
+      period_label:
+        idealForm.period_label.trim(),
+      assessment_date:
+        idealForm.assessment_date || null,
+      player_role:
+        idealForm.player_role || null,
+      scores:
+        idealForm.scores.map(
+          score => ({
+            ideal_code:
+              score.ideal_code,
+            status_quo:
+              numberOrNull(
+                score.status_quo
+              ),
+            potential:
+              numberOrNull(
+                score.potential
+              ),
+            rating:
+              numberOrNull(
+                score.rating
+              ),
+            measured_value:
+              score.measured_value ||
+              null,
+            notes:
+              score.notes || null
+          })
+        )
+    };
+
+    setSavingIdeal(true);
+    setProfileError(undefined);
+    setProfileSuccess(undefined);
+
+    try {
+      const isEdit =
+        editingIdealId != null;
+
+      const response =
+        await fetch(
+          isEdit
+            ? `${apiBase}/academy/ideals/${editingIdealId}`
+            : `${apiBase}/academy/ideals`,
+          {
+            method:
+              isEdit ? 'PUT' : 'POST',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`,
+              'Content-Type':
+                'application/json'
+            },
+            body: JSON.stringify(
+              payload
+            )
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+          'Ideale-Bewertung konnte nicht gespeichert werden.'
+        );
+      }
+
+      setShowIdealForm(false);
+      resetIdealForm();
+
+      setProfileSuccess(
+        isEdit
+          ? 'Ideale-Bewertung wurde aktualisiert.'
+          : 'Ideale-Bewertung wurde gespeichert.'
+      );
+
+      await onSaved();
+    } catch (err) {
+      setProfileError(
+        err instanceof Error
+          ? err.message
+          : 'Speichern fehlgeschlagen.'
+      );
+    } finally {
+      setSavingIdeal(false);
+    }
+  }
+
+
   return (
     <div style={modalBackdrop}>
       <div style={modalPanel}>
@@ -1477,6 +1813,19 @@ function AcademyPlayerProfile({
               style={primaryButton}
             >
               + Sport-Science-Test
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                resetIdealForm();
+                setShowIdealForm(
+                  value => !value
+                );
+              }}
+              style={primaryButton}
+            >
+              + Ideale-Bewertung
             </button>
 
             <button
@@ -1918,6 +2267,223 @@ function AcademyPlayerProfile({
           </section>
         )}
 
+
+        {showIdealForm && (
+          <section
+            style={{
+              ...panel,
+              marginTop: '18px'
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent:
+                  'space-between',
+                gap: '12px',
+                flexWrap: 'wrap',
+                alignItems: 'center'
+              }}
+            >
+              <h3
+                style={{
+                  margin: 0
+                }}
+              >
+                {editingIdealId != null
+                  ? 'Ideale-Bewertung bearbeiten'
+                  : 'Neue Ideale-Bewertung'}
+              </h3>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowIdealForm(false);
+                  resetIdealForm();
+                }}
+                style={secondaryButton}
+              >
+                Abbrechen
+              </button>
+            </div>
+
+            <div
+              style={{
+                ...profileFormGrid,
+                marginTop: '14px'
+              }}
+            >
+              <TextInput
+                label="Periode"
+                value={
+                  idealForm.period_label
+                }
+                onChange={value =>
+                  setIdealForm(
+                    current => ({
+                      ...current,
+                      period_label: value
+                    })
+                  )
+                }
+              />
+
+              <Field label="Bewertungsdatum">
+                <input
+                  type="date"
+                  value={
+                    idealForm.assessment_date
+                  }
+                  onChange={event =>
+                    setIdealForm(
+                      current => ({
+                        ...current,
+                        assessment_date:
+                          event.target.value
+                      })
+                    )
+                  }
+                  style={inputStyle}
+                />
+              </Field>
+
+              <TextInput
+                label="Spielerrolle"
+                value={
+                  idealForm.player_role
+                }
+                onChange={value =>
+                  setIdealForm(
+                    current => ({
+                      ...current,
+                      player_role: value
+                    })
+                  )
+                }
+              />
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gap: '10px',
+                marginTop: '16px'
+              }}
+            >
+              {idealForm.scores.map(
+                (score, index) => (
+                  <div
+                    key={score.ideal_code}
+                    style={idealEditRow}
+                  >
+                    <div
+                      style={{
+                        fontWeight: 800,
+                        fontSize: '16px'
+                      }}
+                    >
+                      {score.ideal_code}
+                    </div>
+
+                    <Field label="Status quo">
+                      <input
+                        type="number"
+                        value={
+                          score.status_quo
+                        }
+                        onChange={event =>
+                          updateIdealScore(
+                            index,
+                            'status_quo',
+                            event.target.value
+                          )
+                        }
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Potenzial">
+                      <input
+                        type="number"
+                        value={
+                          score.potential
+                        }
+                        onChange={event =>
+                          updateIdealScore(
+                            index,
+                            'potential',
+                            event.target.value
+                          )
+                        }
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <Field label="Rating">
+                      <input
+                        type="number"
+                        value={score.rating}
+                        onChange={event =>
+                          updateIdealScore(
+                            index,
+                            'rating',
+                            event.target.value
+                          )
+                        }
+                        style={inputStyle}
+                      />
+                    </Field>
+
+                    <TextInput
+                      label="Messwert"
+                      value={
+                        score.measured_value
+                      }
+                      onChange={value =>
+                        updateIdealScore(
+                          index,
+                          'measured_value',
+                          value
+                        )
+                      }
+                    />
+
+                    <TextInput
+                      label="Notiz"
+                      value={score.notes}
+                      onChange={value =>
+                        updateIdealScore(
+                          index,
+                          'notes',
+                          value
+                        )
+                      }
+                    />
+                  </div>
+                )
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                saveIdealAssessment
+              }
+              disabled={savingIdeal}
+              style={{
+                ...primaryButton,
+                marginTop: '16px'
+              }}
+            >
+              {savingIdeal
+                ? 'Speichert…'
+                : editingIdealId != null
+                  ? 'Bewertung aktualisieren'
+                  : 'Bewertung speichern'}
+            </button>
+          </section>
+        )}
+
         <section
           style={{
             display: 'grid',
@@ -2124,6 +2690,22 @@ function AcademyPlayerProfile({
                       : undefined
                   }
                 />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    editIdealAssessment(
+                      latestIdeal
+                    )
+                  }
+                  style={{
+                    ...secondaryButton,
+                    marginTop: '12px',
+                    padding: '8px 12px'
+                  }}
+                >
+                  Bewertung bearbeiten
+                </button>
 
                 <div
                   style={{
@@ -4277,6 +4859,18 @@ function formatDate(
 }
 
 
+
+const idealEditRow:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    '100px repeat(5, minmax(0, 1fr))',
+  gap: '10px',
+  alignItems: 'end',
+  background: '#f7f8f7',
+  padding: '12px',
+  borderRadius: '10px'
+};
 
 const modalBackdrop:
   React.CSSProperties = {
