@@ -130,9 +130,14 @@ export default {
           ok: true,
           authenticated: true,
           service: 'VikingVision API',
-          supabaseConfigured:
-            Boolean(env.SUPABASE_URL) &&
-            Boolean(env.SUPABASE_SECRET_KEY),
+
+          supabaseDebug: {
+            hasUrl:
+              Boolean(env.SUPABASE_URL),
+            hasSecret:
+              Boolean(env.SUPABASE_SECRET_KEY)
+          },
+
           user: {
             name:
               payload.name ?? null,
@@ -173,6 +178,32 @@ export default {
       try {
         const payload =
           await authenticate(request);
+
+        if (!env.SUPABASE_URL) {
+          return json(
+            {
+              ok: false,
+              authenticated: true,
+              supabase: false,
+              error:
+                'SUPABASE_URL is missing'
+            },
+            500
+          );
+        }
+
+        if (!env.SUPABASE_SECRET_KEY) {
+          return json(
+            {
+              ok: false,
+              authenticated: true,
+              supabase: false,
+              error:
+                'SUPABASE_SECRET_KEY is missing'
+            },
+            500
+          );
+        }
 
         const supabase = createClient(
           env.SUPABASE_URL,
