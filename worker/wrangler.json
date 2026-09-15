@@ -5,7 +5,7 @@
   "keep_vars": true,
 
   "vars": {
-    "SUPABASE_URL": "http://wgtfhfbqnecwdrstxfwd.supabase.co"
+    "SUPABASE_URL": "https://wgtfhfbqnecwdrstxfwd.supabase.co"
   },
 
   "secrets": {
