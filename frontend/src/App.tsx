@@ -6,6 +6,7 @@ import PlayerProfile, {
   Player
 } from './pages/PlayerProfile';
 import ScoutingReports from './pages/ScoutingReports';
+import Watchlist from './pages/Watchlist';
 
 import {
   initTeams,
@@ -20,7 +21,8 @@ type Page =
   | 'dashboard'
   | 'players'
   | 'playerProfile'
-  | 'scoutingReports';
+  | 'scoutingReports'
+  | 'watchlist';
 
 export default function App() {
   const [page, setPage] =
@@ -94,7 +96,6 @@ export default function App() {
           );
 
         setApiOk(response.ok);
-
       } catch (error) {
         console.error(
           'Health API error:',
@@ -209,6 +210,14 @@ export default function App() {
     return loadedPlayers;
   }
 
+  async function ensurePlayersLoaded() {
+    if (players.length === 0) {
+      return await loadPlayers();
+    }
+
+    return players;
+  }
+
   async function openPlayers() {
     setPage('players');
     setPlayersLoading(true);
@@ -229,10 +238,21 @@ export default function App() {
 
   async function openScoutingReports() {
     try {
-      if (players.length === 0) {
-        await loadPlayers();
-      }
+      await ensurePlayersLoaded();
       setPage('scoutingReports');
+    } catch (error) {
+      setSupabaseError(
+        error instanceof Error
+          ? error.message
+          : 'Spieler konnten nicht geladen werden'
+      );
+    }
+  }
+
+  async function openWatchlist() {
+    try {
+      await ensurePlayersLoaded();
+      setPage('watchlist');
     } catch (error) {
       setSupabaseError(
         error instanceof Error
@@ -315,6 +335,18 @@ export default function App() {
     );
   }
 
+  if (page === 'watchlist') {
+    return (
+      <Watchlist
+        accessToken={user.accessToken}
+        apiBase={API_BASE}
+        players={players}
+        onBack={backToDashboard}
+        onOpenPlayer={openPlayer}
+      />
+    );
+  }
+
   return (
     <Dashboard
       displayName={
@@ -343,6 +375,9 @@ export default function App() {
       }
       onOpenScoutingReports={
         openScoutingReports
+      }
+      onOpenWatchlist={
+        openWatchlist
       }
     />
   );
