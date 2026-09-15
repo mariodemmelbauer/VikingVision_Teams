@@ -14,6 +14,7 @@ type Props = {
   onOpenScoutingReports: () => void;
   onOpenWatchlist: () => void;
   onOpenSquad: () => void;
+  onOpenAKAVision: () => void;
 };
 
 export default function Dashboard({
@@ -29,7 +30,8 @@ export default function Dashboard({
   onOpenPlayers,
   onOpenScoutingReports,
   onOpenWatchlist,
-  onOpenSquad
+  onOpenSquad,
+  onOpenAKAVision
 }: Props) {
   return (
     <main className="page">
@@ -174,6 +176,7 @@ export default function Dashboard({
         <button
           className="card"
           type="button"
+          onClick={onOpenAKAVision}
         >
           AKAVision
         </button>
