@@ -2835,6 +2835,219 @@ export default {
       }
     }
 
+
+    if (
+      request.method === 'PUT' &&
+      url.pathname.startsWith(
+        '/academy/player/'
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          url.pathname
+            .substring(
+              '/academy/player/'.length
+            )
+            .trim();
+
+        if (!playerId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'academy player id is required'
+            },
+            400
+          );
+        }
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        const updateData =
+          pickFields(
+            body,
+            [
+              'name',
+              'birth_date',
+              'primary_position',
+              'player_role',
+              'preferred_foot',
+              'jersey_number',
+              'nationality',
+              'height',
+              'current_club',
+              'squad_status',
+              'notes',
+              'boarding_school',
+              'school_type',
+              'school_class',
+              'bus_use',
+              'bus_route'
+            ]
+          );
+
+        if (
+          Object.keys(
+            updateData
+          ).length === 0
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'No valid fields supplied'
+            },
+            400
+          );
+        }
+
+        updateData.updated_at =
+          new Date().toISOString();
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_players'
+            )
+            .update(updateData)
+            .eq(
+              'id',
+              playerId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          player: data
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy player update failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/academy/sport-science'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        if (
+          !body.academy_player_id ||
+          !body.test_date
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'academy_player_id and test_date are required'
+            },
+            400
+          );
+        }
+
+        const payload =
+          pickFields(
+            body,
+            [
+              'academy_player_id',
+              'test_date',
+              'body_weight_kg',
+              'body_fat_percent',
+              'sprint_10m_seconds',
+              'sprint_30m_seconds',
+              'cmj_cm',
+              'aerobic_value',
+              'readiness',
+              'notes'
+            ]
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_sport_science_tests'
+            )
+            .insert(payload)
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            test: data
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Sport science test creation failed'
+          },
+          401
+        );
+      }
+    }
+
     return json(
       {
         ok: false,
