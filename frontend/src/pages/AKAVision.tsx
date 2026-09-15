@@ -48,12 +48,57 @@ type AcademyMatch = {
   notes?: string;
 };
 
+type TrainingSession = {
+  id: number;
+  team: string;
+  session_date: string;
+  title?: string;
+  session_type?: string;
+  duration_minutes: number;
+  notes?: string;
+};
+
+type TrainingAttendance = {
+  session_id: number;
+  academy_player_id: number;
+  present: boolean;
+  minutes: number;
+  comment?: string;
+  player_name?: string;
+  session_date?: string;
+  session_title?: string;
+  session_type?: string;
+};
+
+type IdealScore = {
+  assessment_id: number;
+  ideal_code: string;
+  status_quo?: number;
+  potential?: number;
+  notes?: string;
+  measured_value?: string;
+  rating?: number;
+  detail_ratings?: Record<string, unknown>;
+};
+
+type IdealAssessment = {
+  id: number;
+  academy_player_id: number;
+  period_label: string;
+  assessment_date?: string;
+  player_role?: string;
+  player_name?: string;
+  scores: IdealScore[];
+};
+
 type Overview = {
   team: string;
   playerCount: number;
   upcomingFixtureCount: number;
   playedMatchCount: number;
   totalMinutes: number;
+  trainingSessionCount?: number;
+  trainingMinutes?: number;
 };
 
 type Props = {
@@ -62,7 +107,12 @@ type Props = {
   onBack: () => void;
 };
 
-type Tab = 'overview' | 'players' | 'matches';
+type Tab =
+  | 'overview'
+  | 'players'
+  | 'matches'
+  | 'training'
+  | 'ideals';
 
 const teams: AcademyTeam[] = [
   'U15',
@@ -93,6 +143,15 @@ export default function AKAVision({
 
   const [matches, setMatches] =
     useState<AcademyMatch[]>([]);
+
+  const [trainingSessions, setTrainingSessions] =
+    useState<TrainingSession[]>([]);
+
+  const [trainingAttendance, setTrainingAttendance] =
+    useState<TrainingAttendance[]>([]);
+
+  const [idealAssessments, setIdealAssessments] =
+    useState<IdealAssessment[]>([]);
 
   const [loading, setLoading] =
     useState(true);
@@ -147,7 +206,9 @@ export default function AKAVision({
         overviewData,
         playerData,
         fixtureData,
-        matchData
+        matchData,
+        trainingData,
+        idealsData
       ] =
         await Promise.all([
           apiGet(
@@ -161,6 +222,12 @@ export default function AKAVision({
           ),
           apiGet(
             `/academy/matches?team=${encodedTeam}`
+          ),
+          apiGet(
+            `/academy/training?team=${encodedTeam}`
+          ),
+          apiGet(
+            `/academy/ideals?team=${encodedTeam}`
           )
         ]);
 
@@ -189,6 +256,30 @@ export default function AKAVision({
           matchData.matches
         )
           ? matchData.matches
+          : []
+      );
+
+      setTrainingSessions(
+        Array.isArray(
+          trainingData.sessions
+        )
+          ? trainingData.sessions
+          : []
+      );
+
+      setTrainingAttendance(
+        Array.isArray(
+          trainingData.attendance
+        )
+          ? trainingData.attendance
+          : []
+      );
+
+      setIdealAssessments(
+        Array.isArray(
+          idealsData.assessments
+        )
+          ? idealsData.assessments
           : []
       );
     } catch (err) {
@@ -226,7 +317,7 @@ export default function AKAVision({
 
           <p>
             Akademie-Dashboard für Spieler,
-            Spiele und Einsatzdaten
+            Spiele, Training und Ideale
           </p>
         </div>
 
@@ -274,11 +365,7 @@ export default function AKAVision({
       {error && (
         <section style={errorBox}>
           <strong>Fehler:</strong>
-          <div
-            style={{
-              marginTop: '4px'
-            }}
-          >
+          <div style={{ marginTop: '4px' }}>
             {error}
           </div>
         </section>
@@ -293,36 +380,38 @@ export default function AKAVision({
         }}
       >
         <TabButton
-          active={
-            tab === 'overview'
-          }
-          onClick={() =>
-            setTab('overview')
-          }
+          active={tab === 'overview'}
+          onClick={() => setTab('overview')}
         >
           Übersicht
         </TabButton>
 
         <TabButton
-          active={
-            tab === 'players'
-          }
-          onClick={() =>
-            setTab('players')
-          }
+          active={tab === 'players'}
+          onClick={() => setTab('players')}
         >
           Spieler
         </TabButton>
 
         <TabButton
-          active={
-            tab === 'matches'
-          }
-          onClick={() =>
-            setTab('matches')
-          }
+          active={tab === 'matches'}
+          onClick={() => setTab('matches')}
         >
           Spiele
+        </TabButton>
+
+        <TabButton
+          active={tab === 'training'}
+          onClick={() => setTab('training')}
+        >
+          Training
+        </TabButton>
+
+        <TabButton
+          active={tab === 'ideals'}
+          onClick={() => setTab('ideals')}
+        >
+          Ideale
         </TabButton>
       </section>
 
@@ -344,19 +433,34 @@ export default function AKAVision({
               players={activePlayers}
               fixtures={fixtures}
               matches={matches}
+              trainingSessions={trainingSessions}
+              trainingAttendance={trainingAttendance}
             />
           )}
 
           {tab === 'players' && (
-            <PlayersTab
-              players={players}
-            />
+            <PlayersTab players={players} />
           )}
 
           {tab === 'matches' && (
             <MatchesTab
               fixtures={fixtures}
               matches={matches}
+            />
+          )}
+
+          {tab === 'training' && (
+            <TrainingTab
+              players={players}
+              sessions={trainingSessions}
+              attendance={trainingAttendance}
+            />
+          )}
+
+          {tab === 'ideals' && (
+            <IdealsTab
+              players={players}
+              assessments={idealAssessments}
             />
           )}
         </>
@@ -370,19 +474,30 @@ function OverviewTab({
   overview,
   players,
   fixtures,
-  matches
+  matches,
+  trainingSessions,
+  trainingAttendance
 }: {
   team: AcademyTeam;
   overview: Overview | null;
   players: AcademyPlayer[];
   fixtures: AcademyFixture[];
   matches: AcademyMatch[];
+  trainingSessions: TrainingSession[];
+  trainingAttendance: TrainingAttendance[];
 }) {
   const upcoming =
     fixtures.slice(0, 5);
 
   const recent =
     matches.slice(0, 5);
+
+  const trainingMinutes =
+    trainingAttendance.reduce(
+      (sum, item) =>
+        sum + Number(item.minutes ?? 0),
+      0
+    );
 
   return (
     <>
@@ -406,8 +521,7 @@ function OverviewTab({
         <Kpi
           label="Kommende Spiele"
           value={
-            overview
-              ?.upcomingFixtureCount ??
+            overview?.upcomingFixtureCount ??
             fixtures.length
           }
         />
@@ -415,8 +529,7 @@ function OverviewTab({
         <Kpi
           label="Erfasste Spiele"
           value={
-            overview
-              ?.playedMatchCount ??
+            overview?.playedMatchCount ??
             matches.length
           }
         />
@@ -424,9 +537,24 @@ function OverviewTab({
         <Kpi
           label="Einsatzminuten"
           value={
-            overview
-              ?.totalMinutes ??
+            overview?.totalMinutes ??
             0
+          }
+        />
+
+        <Kpi
+          label="Trainingseinheiten"
+          value={
+            overview?.trainingSessionCount ??
+            trainingSessions.length
+          }
+        />
+
+        <Kpi
+          label="Trainingsminuten"
+          value={
+            overview?.trainingMinutes ??
+            trainingMinutes
           }
         />
       </section>
@@ -441,52 +569,32 @@ function OverviewTab({
         }}
       >
         <div style={panel}>
-          <h2
-            style={{
-              marginTop: 0
-            }}
-          >
+          <h2 style={{ marginTop: 0 }}>
             Nächste Spiele {team}
           </h2>
 
           {upcoming.length === 0 ? (
-            <div
-              style={{
-                color: '#666'
-              }}
-            >
-              Keine kommenden Spiele
-              vorhanden.
+            <div style={{ color: '#666' }}>
+              Keine kommenden Spiele vorhanden.
             </div>
           ) : (
-            upcoming.map(
-              fixture => (
-                <FixtureRow
-                  key={fixture.id}
-                  fixture={fixture}
-                />
-              )
-            )
+            upcoming.map(fixture => (
+              <FixtureRow
+                key={fixture.id}
+                fixture={fixture}
+              />
+            ))
           )}
         </div>
 
         <div style={panel}>
-          <h2
-            style={{
-              marginTop: 0
-            }}
-          >
+          <h2 style={{ marginTop: 0 }}>
             Letzte Spiele {team}
           </h2>
 
           {recent.length === 0 ? (
-            <div
-              style={{
-                color: '#666'
-              }}
-            >
-              Noch keine Spiele
-              vorhanden.
+            <div style={{ color: '#666' }}>
+              Noch keine Spiele vorhanden.
             </div>
           ) : (
             recent.map(match => (
@@ -505,11 +613,7 @@ function OverviewTab({
           marginTop: '18px'
         }}
       >
-        <h2
-          style={{
-            marginTop: 0
-          }}
-        >
+        <h2 style={{ marginTop: 0 }}>
           Kader {team}
         </h2>
 
@@ -536,11 +640,9 @@ function OverviewTab({
 
                 <div
                   style={{
-                    marginTop:
-                      '4px',
+                    marginTop: '4px',
                     color: '#666',
-                    fontSize:
-                      '13px'
+                    fontSize: '13px'
                   }}
                 >
                   {player.primary_position ??
@@ -564,26 +666,15 @@ function PlayersTab({
     [...players].sort(
       (a, b) => {
         const numberA =
-          Number(
-            a.jersey_number
-          );
+          Number(a.jersey_number);
         const numberB =
-          Number(
-            b.jersey_number
-          );
+          Number(b.jersey_number);
 
         if (
-          Number.isFinite(
-            numberA
-          ) &&
-          Number.isFinite(
-            numberB
-          )
+          Number.isFinite(numberA) &&
+          Number.isFinite(numberB)
         ) {
-          return (
-            numberA -
-            numberB
-          );
+          return numberA - numberB;
         }
 
         return a.name.localeCompare(
@@ -594,11 +685,7 @@ function PlayersTab({
     );
 
   return (
-    <section
-      style={{
-        marginTop: '18px'
-      }}
-    >
+    <section style={{ marginTop: '18px' }}>
       <div
         style={{
           marginBottom: '12px',
@@ -624,18 +711,13 @@ function PlayersTab({
             <div
               style={{
                 display: 'flex',
-                alignItems:
-                  'baseline',
+                alignItems: 'baseline',
                 gap: '8px'
               }}
             >
               {player.jersey_number && (
-                <span
-                  style={numberBadge}
-                >
-                  {
-                    player.jersey_number
-                  }
+                <span style={numberBadge}>
+                  {player.jersey_number}
                 </span>
               )}
 
@@ -650,40 +732,30 @@ function PlayersTab({
 
             <InfoLine
               label="Position"
-              value={
-                player.primary_position
-              }
+              value={player.primary_position}
             />
 
             <InfoLine
               label="Rolle"
-              value={
-                player.player_role
-              }
+              value={player.player_role}
             />
 
             <InfoLine
               label="Fuß"
-              value={
-                player.preferred_foot
-              }
+              value={player.preferred_foot}
             />
 
             <InfoLine
               label="Status"
-              value={
-                player.squad_status
-              }
+              value={player.squad_status}
             />
 
             {player.birth_date && (
               <InfoLine
                 label="Geburtsdatum"
-                value={
-                  formatDate(
-                    player.birth_date
-                  )
-                }
+                value={formatDate(
+                  player.birth_date
+                )}
               />
             )}
 
@@ -723,43 +795,29 @@ function MatchesTab({
       }}
     >
       <div style={panel}>
-        <h2
-          style={{
-            marginTop: 0
-          }}
-        >
+        <h2 style={{ marginTop: 0 }}>
           Spielplan
         </h2>
 
         {fixtures.length === 0 ? (
-          <div>
-            Keine Spielplan-Daten.
-          </div>
+          <div>Keine Spielplan-Daten.</div>
         ) : (
-          fixtures.map(
-            fixture => (
-              <FixtureRow
-                key={fixture.id}
-                fixture={fixture}
-              />
-            )
-          )
+          fixtures.map(fixture => (
+            <FixtureRow
+              key={fixture.id}
+              fixture={fixture}
+            />
+          ))
         )}
       </div>
 
       <div style={panel}>
-        <h2
-          style={{
-            marginTop: 0
-          }}
-        >
+        <h2 style={{ marginTop: 0 }}>
           Gespielte Matches
         </h2>
 
         {matches.length === 0 ? (
-          <div>
-            Keine Match-Daten.
-          </div>
+          <div>Keine Match-Daten.</div>
         ) : (
           matches.map(match => (
             <MatchRow
@@ -769,6 +827,470 @@ function MatchesTab({
           ))
         )}
       </div>
+    </section>
+  );
+}
+
+function TrainingTab({
+  players,
+  sessions,
+  attendance
+}: {
+  players: AcademyPlayer[];
+  sessions: TrainingSession[];
+  attendance: TrainingAttendance[];
+}) {
+  const playerById =
+    new Map(
+      players.map(player => [
+        String(player.id),
+        player
+      ])
+    );
+
+  const stats =
+    players
+      .map(player => {
+        const rows =
+          attendance.filter(
+            item =>
+              String(
+                item.academy_player_id
+              ) === String(player.id)
+          );
+
+        const present =
+          rows.filter(
+            row => row.present
+          ).length;
+
+        const minutes =
+          rows.reduce(
+            (sum, row) =>
+              sum +
+              Number(row.minutes ?? 0),
+            0
+          );
+
+        const rate =
+          sessions.length > 0
+            ? Math.round(
+                (present /
+                  sessions.length) *
+                  100
+              )
+            : 0;
+
+        return {
+          player,
+          present,
+          minutes,
+          rate
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.minutes - a.minutes
+      );
+
+  return (
+    <section style={{ marginTop: '18px' }}>
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: '12px'
+        }}
+      >
+        <Kpi
+          label="Einheiten"
+          value={sessions.length}
+        />
+
+        <Kpi
+          label="Anwesenheitseinträge"
+          value={attendance.length}
+        />
+
+        <Kpi
+          label="Gesamtminuten"
+          value={attendance.reduce(
+            (sum, row) =>
+              sum +
+              Number(row.minutes ?? 0),
+            0
+          )}
+        />
+      </section>
+
+      <section
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            'repeat(auto-fit, minmax(330px, 1fr))',
+          gap: '16px',
+          marginTop: '18px'
+        }}
+      >
+        <div style={panel}>
+          <h2 style={{ marginTop: 0 }}>
+            Trainingseinheiten
+          </h2>
+
+          {sessions.length === 0 ? (
+            <div>
+              Noch keine Trainingseinheiten vorhanden.
+            </div>
+          ) : (
+            sessions.map(session => (
+              <div
+                key={session.id}
+                style={rowStyle}
+              >
+                <div>
+                  <strong>
+                    {formatDate(
+                      session.session_date
+                    )}
+                  </strong>
+
+                  <div
+                    style={{
+                      marginTop: '3px'
+                    }}
+                  >
+                    {session.title ??
+                      session.session_type ??
+                      'Training'}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: '3px',
+                      color: '#777',
+                      fontSize: '12px'
+                    }}
+                  >
+                    {[
+                      session.session_type,
+                      `${session.duration_minutes} Min.`
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        <div style={panel}>
+          <h2 style={{ marginTop: 0 }}>
+            Trainingsbeteiligung
+          </h2>
+
+          {stats.length === 0 ? (
+            <div>Keine Daten vorhanden.</div>
+          ) : (
+            stats.map(item => (
+              <div
+                key={item.player.id}
+                style={rowStyle}
+              >
+                <div>
+                  <strong>
+                    {item.player.name}
+                  </strong>
+                  <div
+                    style={{
+                      marginTop: '3px',
+                      color: '#777',
+                      fontSize: '12px'
+                    }}
+                  >
+                    {item.present} Einheiten · {item.minutes} Min.
+                  </div>
+                </div>
+
+                <strong>
+                  {item.rate} %
+                </strong>
+              </div>
+            ))
+          )}
+        </div>
+      </section>
+
+      {attendance.some(
+        item => item.comment
+      ) && (
+        <section
+          style={{
+            ...panel,
+            marginTop: '18px'
+          }}
+        >
+          <h2 style={{ marginTop: 0 }}>
+            Kommentare
+          </h2>
+
+          {attendance
+            .filter(item => item.comment)
+            .map((item, index) => (
+              <div
+                key={`${item.session_id}-${item.academy_player_id}-${index}`}
+                style={rowStyle}
+              >
+                <div>
+                  <strong>
+                    {item.player_name ??
+                      playerById.get(
+                        String(
+                          item.academy_player_id
+                        )
+                      )?.name ??
+                      `Spieler ${item.academy_player_id}`}
+                  </strong>
+
+                  <div
+                    style={{
+                      marginTop: '3px',
+                      color: '#777',
+                      fontSize: '12px'
+                    }}
+                  >
+                    {item.session_date
+                      ? formatDate(
+                          item.session_date
+                        )
+                      : ''}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: '5px'
+                    }}
+                  >
+                    {item.comment}
+                  </div>
+                </div>
+              </div>
+            ))}
+        </section>
+      )}
+    </section>
+  );
+}
+
+function IdealsTab({
+  players,
+  assessments
+}: {
+  players: AcademyPlayer[];
+  assessments: IdealAssessment[];
+}) {
+  const playerById =
+    new Map(
+      players.map(player => [
+        String(player.id),
+        player
+      ])
+    );
+
+  const sorted =
+    [...assessments].sort(
+      (a, b) => {
+        const dateA =
+          a.assessment_date ?? '';
+        const dateB =
+          b.assessment_date ?? '';
+        return dateB.localeCompare(
+          dateA
+        );
+      }
+    );
+
+  return (
+    <section style={{ marginTop: '18px' }}>
+      <div
+        style={{
+          marginBottom: '12px',
+          fontWeight: 700
+        }}
+      >
+        {sorted.length} Bewertungen
+      </div>
+
+      {sorted.length === 0 ? (
+        <section style={panel}>
+          Noch keine Ideale-Bewertungen vorhanden.
+        </section>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fill, minmax(320px, 1fr))',
+            gap: '14px'
+          }}
+        >
+          {sorted.map(
+            assessment => {
+              const player =
+                playerById.get(
+                  String(
+                    assessment.academy_player_id
+                  )
+                );
+
+              return (
+                <article
+                  key={assessment.id}
+                  style={panel}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent:
+                        'space-between',
+                      gap: '12px',
+                      alignItems:
+                        'flex-start'
+                    }}
+                  >
+                    <div>
+                      <strong
+                        style={{
+                          fontSize: '18px'
+                        }}
+                      >
+                        {assessment.player_name ??
+                          player?.name ??
+                          `Spieler ${assessment.academy_player_id}`}
+                      </strong>
+
+                      <div
+                        style={{
+                          marginTop: '4px',
+                          color: '#777',
+                          fontSize: '13px'
+                        }}
+                      >
+                        {assessment.period_label}
+                        {assessment.assessment_date
+                          ? ` · ${formatDate(
+                              assessment.assessment_date
+                            )}`
+                          : ''}
+                      </div>
+                    </div>
+
+                    {assessment.player_role && (
+                      <span style={roleBadge}>
+                        {assessment.player_role}
+                      </span>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: '8px',
+                      marginTop: '14px'
+                    }}
+                  >
+                    {assessment.scores.length === 0 ? (
+                      <div
+                        style={{
+                          color: '#777'
+                        }}
+                      >
+                        Keine Detailwerte vorhanden.
+                      </div>
+                    ) : (
+                      assessment.scores.map(
+                        score => (
+                          <div
+                            key={`${assessment.id}-${score.ideal_code}`}
+                            style={scoreRow}
+                          >
+                            <div>
+                              <strong>
+                                {score.ideal_code}
+                              </strong>
+
+                              {score.notes && (
+                                <div
+                                  style={{
+                                    marginTop:
+                                      '3px',
+                                    color:
+                                      '#777',
+                                    fontSize:
+                                      '12px'
+                                  }}
+                                >
+                                  {score.notes}
+                                </div>
+                              )}
+                            </div>
+
+                            <div
+                              style={{
+                                textAlign:
+                                  'right',
+                                fontSize:
+                                  '12px'
+                              }}
+                            >
+                              {score.rating != null && (
+                                <div>
+                                  Rating:{' '}
+                                  <strong>
+                                    {score.rating}
+                                  </strong>
+                                </div>
+                              )}
+
+                              {score.status_quo != null && (
+                                <div>
+                                  Status:{' '}
+                                  <strong>
+                                    {score.status_quo}
+                                  </strong>
+                                </div>
+                              )}
+
+                              {score.potential != null && (
+                                <div>
+                                  Potenzial:{' '}
+                                  <strong>
+                                    {score.potential}
+                                  </strong>
+                                </div>
+                              )}
+
+                              {score.measured_value && (
+                                <div>
+                                  Wert:{' '}
+                                  <strong>
+                                    {score.measured_value}
+                                  </strong>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      )
+                    )}
+                  </div>
+                </article>
+              );
+            }
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -790,11 +1312,7 @@ function FixtureRow({
             : ''}
         </strong>
 
-        <div
-          style={{
-            marginTop: '3px'
-          }}
-        >
+        <div style={{ marginTop: '3px' }}>
           {fixture.home_away ===
           'Auswärts'
             ? `${fixture.opponent} – SV Ried`
@@ -845,11 +1363,7 @@ function MatchRow({
           )}
         </strong>
 
-        <div
-          style={{
-            marginTop: '3px'
-          }}
-        >
+        <div style={{ marginTop: '3px' }}>
           {match.opponent}
         </div>
 
@@ -860,8 +1374,7 @@ function MatchRow({
             fontSize: '12px'
           }}
         >
-          {match.competition ??
-            '–'}
+          {match.competition ?? '–'}
         </div>
       </div>
 
@@ -889,8 +1402,7 @@ function Kpi({
         style={{
           color: '#666',
           fontSize: '12px',
-          textTransform:
-            'uppercase'
+          textTransform: 'uppercase'
         }}
       >
         {label}
@@ -934,11 +1446,7 @@ function InfoLine({
         fontSize: '13px'
       }}
     >
-      <span
-        style={{
-          color: '#777'
-        }}
-      >
+      <span style={{ color: '#777' }}>
         {label}
       </span>
 
@@ -1041,6 +1549,26 @@ const numberBadge:
   padding: '3px 7px',
   fontSize: '12px',
   fontWeight: 800
+};
+
+const roleBadge:
+  React.CSSProperties = {
+  background: '#f0f4f2',
+  borderRadius: '999px',
+  padding: '5px 9px',
+  fontSize: '11px',
+  fontWeight: 700
+};
+
+const scoreRow:
+  React.CSSProperties = {
+  display: 'flex',
+  justifyContent:
+    'space-between',
+  gap: '14px',
+  background: '#f7f8f7',
+  borderRadius: '9px',
+  padding: '10px'
 };
 
 const teamButton:
