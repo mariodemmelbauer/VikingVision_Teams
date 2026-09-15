@@ -29,7 +29,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers':
     'Authorization, Content-Type',
   'Access-Control-Allow-Methods':
-    'GET, POST, PUT, OPTIONS'
+    'GET, POST, PUT, DELETE, OPTIONS'
 };
 
 function json(
@@ -790,6 +790,419 @@ export default {
               error instanceof Error
                 ? error.message
                 : 'Report update failed'
+          },
+          401
+        );
+      }
+    }
+
+
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/watchlist'
+    ) {
+      try {
+        await authenticate(request);
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: entries,
+          error: entriesError
+        } =
+          await supabase
+            .from('watchlist')
+            .select('*')
+            .order(
+              'added_at',
+              {
+                ascending: false
+              }
+            )
+            .limit(500);
+
+        if (entriesError) {
+          return json(
+            {
+              ok: false,
+              error:
+                entriesError.message
+            },
+            500
+          );
+        }
+
+        const playerIds =
+          Array.from(
+            new Set(
+              (entries ?? [])
+                .map(entry =>
+                  entry.player_id
+                )
+                .filter(Boolean)
+            )
+          );
+
+        const nameMap =
+          new Map<
+            string,
+            string
+          >();
+
+        if (
+          playerIds.length > 0
+        ) {
+          const {
+            data: playerRows,
+            error: playersError
+          } =
+            await supabase
+              .from('players')
+              .select('id,name')
+              .in(
+                'id',
+                playerIds
+              );
+
+          if (playersError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  playersError.message
+              },
+              500
+            );
+          }
+
+          for (
+            const player of
+            playerRows ?? []
+          ) {
+            nameMap.set(
+              String(player.id),
+              player.name ??
+                `Spieler ${player.id}`
+            );
+          }
+        }
+
+        const enriched =
+          (entries ?? []).map(
+            entry => ({
+              ...entry,
+              player_name:
+                nameMap.get(
+                  String(
+                    entry.player_id
+                  )
+                ) ??
+                `Spieler ${entry.player_id}`
+            })
+          );
+
+        return json({
+          ok: true,
+          count:
+            enriched.length,
+          entries:
+            enriched
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/watchlist'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        if (!body.player_id) {
+          return json(
+            {
+              ok: false,
+              error:
+                'player_id is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: existing,
+          error: existingError
+        } =
+          await supabase
+            .from('watchlist')
+            .select('id')
+            .eq(
+              'player_id',
+              body.player_id
+            )
+            .maybeSingle();
+
+        if (existingError) {
+          return json(
+            {
+              ok: false,
+              error:
+                existingError.message
+            },
+            500
+          );
+        }
+
+        if (existing) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Spieler ist bereits auf der Watchlist'
+            },
+            409
+          );
+        }
+
+        const insertData =
+          pickFields(
+            body,
+            [
+              'player_id',
+              'status',
+              'priority',
+              'reason'
+            ]
+          );
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('watchlist')
+            .insert(insertData)
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            entry: data
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Watchlist creation failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'PUT' &&
+      url.pathname.startsWith(
+        '/watchlist/'
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const entryId =
+          url.pathname
+            .substring(
+              '/watchlist/'.length
+            )
+            .trim();
+
+        if (!entryId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Watchlist ID missing'
+            },
+            400
+          );
+        }
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        const updateData =
+          pickFields(
+            body,
+            [
+              'status',
+              'priority',
+              'reason'
+            ]
+          );
+
+        if (
+          Object.keys(
+            updateData
+          ).length === 0
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'No valid fields supplied'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('watchlist')
+            .update(updateData)
+            .eq(
+              'id',
+              entryId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          entry: data
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Watchlist update failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'DELETE' &&
+      url.pathname.startsWith(
+        '/watchlist/'
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const entryId =
+          url.pathname
+            .substring(
+              '/watchlist/'.length
+            )
+            .trim();
+
+        if (!entryId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Watchlist ID missing'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          error
+        } =
+          await supabase
+            .from('watchlist')
+            .delete()
+            .eq(
+              'id',
+              entryId
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Watchlist delete failed'
           },
           401
         );
