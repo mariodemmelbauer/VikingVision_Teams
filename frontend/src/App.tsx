@@ -8,6 +8,7 @@ import PlayerProfile, {
 import ScoutingReports from './pages/ScoutingReports';
 import Watchlist from './pages/Watchlist';
 import Squad from './pages/Squad';
+import AKAVision from './pages/AKAVision';
 
 import {
   initTeams,
@@ -24,7 +25,8 @@ type Page =
   | 'playerProfile'
   | 'scoutingReports'
   | 'watchlist'
-  | 'squad';
+  | 'squad'
+  | 'akavision';
 
 export default function App() {
   const [page, setPage] =
@@ -277,6 +279,10 @@ export default function App() {
     }
   }
 
+  function openAKAVision() {
+    setPage('akavision');
+  }
+
   function openPlayer(
     player: Player
   ) {
@@ -372,6 +378,16 @@ export default function App() {
     );
   }
 
+  if (page === 'akavision') {
+    return (
+      <AKAVision
+        accessToken={user.accessToken}
+        apiBase={API_BASE}
+        onBack={backToDashboard}
+      />
+    );
+  }
+
   return (
     <Dashboard
       displayName={
@@ -406,6 +422,9 @@ export default function App() {
       }
       onOpenSquad={
         openSquad
+      }
+      onOpenAKAVision={
+        openAKAVision
       }
     />
   );
