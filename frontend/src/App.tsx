@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Dashboard from './pages/Dashboard';
 import Players from './pages/Players';
+import PlayerProfile from './pages/PlayerProfile';
 import { initTeams, TeamsUser } from './teams/context';
 
 const API_BASE =
@@ -9,7 +10,33 @@ const API_BASE =
 
 type Page =
   | 'dashboard'
-  | 'players';
+  | 'players'
+  | 'playerProfile';
+
+type Player = {
+  id: number | string;
+  name?: string;
+  birth_date?: string;
+  birth_year?: number;
+  primary_position?: string;
+  secondary_position?: string;
+  preferred_foot?: string;
+  nationality?: string;
+  height_cm?: number;
+  height?: number;
+  current_club?: string;
+  market_value?: string | number;
+  image_path?: string;
+  contract_until?: string;
+  contract_end?: string;
+  agent_agency?: string;
+  squad_status?: string;
+  priority?: string | number;
+  potential?: string | number;
+  notes?: string;
+  transfermarkt_url?: string;
+  video_url?: string;
+};
 
 export default function App() {
   const [page, setPage] =
@@ -36,13 +63,16 @@ export default function App() {
     useState<string | undefined>();
 
   const [players, setPlayers] =
-    useState<any[]>([]);
+    useState<Player[]>([]);
 
   const [playersLoading, setPlayersLoading] =
     useState(false);
 
   const [playersError, setPlayersError] =
     useState<string | undefined>();
+
+  const [selectedPlayer, setSelectedPlayer] =
+    useState<Player | null>(null);
 
   useEffect(() => {
     async function start() {
@@ -139,30 +169,30 @@ export default function App() {
           return;
         }
 
+        const loadedPlayers =
+          Array.isArray(playersData.players)
+            ? playersData.players
+            : [];
+
         setSupabaseOk(
           playersData.supabase === true
         );
 
         setPlayerCount(
-          typeof playersData.count ===
-          'number'
+          typeof playersData.count === 'number'
             ? playersData.count
-            : 0
+            : loadedPlayers.length
         );
 
         setPlayers(
-          Array.isArray(
-            playersData.players
-          )
-            ? playersData.players
-            : []
+          loadedPlayers
         );
 
         setSupabaseError(undefined);
 
         console.log(
           'VikingVision players:',
-          playersData.players
+          loadedPlayers
         );
 
       } catch (error) {
@@ -226,9 +256,7 @@ export default function App() {
       }
 
       const loadedPlayers =
-        Array.isArray(
-          data.players
-        )
+        Array.isArray(data.players)
           ? data.players
           : [];
 
@@ -237,8 +265,7 @@ export default function App() {
       );
 
       setPlayerCount(
-        typeof data.count ===
-        'number'
+        typeof data.count === 'number'
           ? data.count
           : loadedPlayers.length
       );
@@ -263,8 +290,33 @@ export default function App() {
     }
   }
 
+  function openPlayer(player: Player) {
+    setSelectedPlayer(player);
+    setPage('playerProfile');
+  }
+
   function backToDashboard() {
     setPage('dashboard');
+  }
+
+  function backToPlayers() {
+    setPage('players');
+  }
+
+  // -------------------------
+  // PLAYER PROFILE
+  // -------------------------
+
+  if (
+    page === 'playerProfile' &&
+    selectedPlayer
+  ) {
+    return (
+      <PlayerProfile
+        player={selectedPlayer}
+        onBack={backToPlayers}
+      />
+    );
   }
 
   // -------------------------
@@ -278,6 +330,7 @@ export default function App() {
         loading={playersLoading}
         error={playersError}
         onBack={backToDashboard}
+        onOpenPlayer={openPlayer}
       />
     );
   }
