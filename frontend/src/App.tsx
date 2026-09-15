@@ -1,8 +1,15 @@
 import { useEffect, useState } from 'react';
+
 import Dashboard from './pages/Dashboard';
 import Players from './pages/Players';
-import PlayerProfile from './pages/PlayerProfile';
-import { initTeams, TeamsUser } from './teams/context';
+import PlayerProfile, {
+  Player
+} from './pages/PlayerProfile';
+
+import {
+  initTeams,
+  TeamsUser
+} from './teams/context';
 
 const API_BASE =
   (import.meta as any).env?.VITE_API_BASE ??
@@ -12,31 +19,6 @@ type Page =
   | 'dashboard'
   | 'players'
   | 'playerProfile';
-
-type Player = {
-  id: number | string;
-  name?: string;
-  birth_date?: string;
-  birth_year?: number;
-  primary_position?: string;
-  secondary_position?: string;
-  preferred_foot?: string;
-  nationality?: string;
-  height_cm?: number;
-  height?: number;
-  current_club?: string;
-  market_value?: string | number;
-  image_path?: string;
-  contract_until?: string;
-  contract_end?: string;
-  agent_agency?: string;
-  squad_status?: string;
-  priority?: string | number;
-  potential?: string | number;
-  notes?: string;
-  transfermarkt_url?: string;
-  video_url?: string;
-};
 
 export default function App() {
   const [page, setPage] =
@@ -59,27 +41,50 @@ export default function App() {
   const [playerCount, setPlayerCount] =
     useState<number | null>(null);
 
-  const [supabaseError, setSupabaseError] =
+  const [
+    supabaseError,
+    setSupabaseError
+  ] =
     useState<string | undefined>();
 
   const [players, setPlayers] =
     useState<Player[]>([]);
 
-  const [playersLoading, setPlayersLoading] =
+  const [
+    playersLoading,
+    setPlayersLoading
+  ] =
     useState(false);
 
-  const [playersError, setPlayersError] =
+  const [
+    playersError,
+    setPlayersError
+  ] =
     useState<string | undefined>();
 
-  const [selectedPlayer, setSelectedPlayer] =
+  const [
+    selectedPlayer,
+    setSelectedPlayer
+  ] =
     useState<Player | null>(null);
+
+  // =====================================================
+  // INITIAL LOAD
+  // Teams + API + Supabase Test
+  // =====================================================
 
   useEffect(() => {
     async function start() {
-      const result = await initTeams();
+      const result =
+        await initTeams();
 
-      setInTeams(result.inTeams);
-      setUser(result.user);
+      setInTeams(
+        result.inTeams
+      );
+
+      setUser(
+        result.user
+      );
 
       const token =
         result.user.accessToken;
@@ -101,11 +106,11 @@ export default function App() {
       };
 
       // -------------------------
-      // API HEALTH
+      // HEALTH
       // -------------------------
 
       try {
-        const healthResponse =
+        const response =
           await fetch(
             `${API_BASE}/health`,
             {
@@ -115,15 +120,15 @@ export default function App() {
           );
 
         setApiOk(
-          healthResponse.ok
+          response.ok
         );
 
-        const healthData =
-          await healthResponse.json();
+        const data =
+          await response.json();
 
         console.log(
           'VikingVision API health:',
-          healthData
+          data
         );
 
       } catch (error) {
@@ -136,11 +141,11 @@ export default function App() {
       }
 
       // -------------------------
-      // SUPABASE / PLAYERS TEST
+      // PLAYERS / SUPABASE TEST
       // -------------------------
 
       try {
-        const playersResponse =
+        const response =
           await fetch(
             `${API_BASE}/players`,
             {
@@ -149,46 +154,52 @@ export default function App() {
             }
           );
 
-        const playersData =
-          await playersResponse.json();
+        const data =
+          await response.json();
 
-        if (!playersResponse.ok) {
+        if (!response.ok) {
           setSupabaseOk(false);
+
           setPlayerCount(null);
 
           setSupabaseError(
-            playersData?.error ??
+            data?.error ??
             'Supabase-Anfrage fehlgeschlagen'
           );
 
           console.error(
             'Players API error:',
-            playersData
+            data
           );
 
           return;
         }
 
         const loadedPlayers =
-          Array.isArray(playersData.players)
-            ? playersData.players
+          Array.isArray(
+            data.players
+          )
+            ? data.players
             : [];
-
-        setSupabaseOk(
-          playersData.supabase === true
-        );
-
-        setPlayerCount(
-          typeof playersData.count === 'number'
-            ? playersData.count
-            : loadedPlayers.length
-        );
 
         setPlayers(
           loadedPlayers
         );
 
-        setSupabaseError(undefined);
+        setSupabaseOk(
+          data.supabase === true
+        );
+
+        setPlayerCount(
+          typeof data.count ===
+          'number'
+            ? data.count
+            : loadedPlayers.length
+        );
+
+        setSupabaseError(
+          undefined
+        );
 
         console.log(
           'VikingVision players:',
@@ -202,6 +213,7 @@ export default function App() {
         );
 
         setSupabaseOk(false);
+
         setPlayerCount(null);
 
         setSupabaseError(
@@ -213,11 +225,15 @@ export default function App() {
     start();
   }, []);
 
+  // =====================================================
+  // OPEN PLAYERS
+  // =====================================================
+
   async function openPlayers() {
+    setPage('players');
+
     const token =
       user.accessToken;
-
-    setPage('players');
 
     if (!token) {
       setPlayersError(
@@ -228,6 +244,7 @@ export default function App() {
     }
 
     setPlayersLoading(true);
+
     setPlayersError(undefined);
 
     try {
@@ -236,6 +253,7 @@ export default function App() {
           `${API_BASE}/players`,
           {
             method: 'GET',
+
             headers: {
               Authorization:
                 `Bearer ${token}`
@@ -256,7 +274,9 @@ export default function App() {
       }
 
       const loadedPlayers =
-        Array.isArray(data.players)
+        Array.isArray(
+          data.players
+        )
           ? data.players
           : [];
 
@@ -265,7 +285,8 @@ export default function App() {
       );
 
       setPlayerCount(
-        typeof data.count === 'number'
+        typeof data.count ===
+        'number'
           ? data.count
           : loadedPlayers.length
       );
@@ -274,7 +295,9 @@ export default function App() {
         data.supabase === true
       );
 
-      setSupabaseError(undefined);
+      setSupabaseError(
+        undefined
+      );
 
     } catch (error) {
       console.error(
@@ -285,59 +308,132 @@ export default function App() {
       setPlayersError(
         'Verbindung zur Spieler-Datenbank fehlgeschlagen'
       );
+
     } finally {
-      setPlayersLoading(false);
+      setPlayersLoading(
+        false
+      );
     }
   }
 
-  function openPlayer(player: Player) {
-    setSelectedPlayer(player);
-    setPage('playerProfile');
+  // =====================================================
+  // OPEN PLAYER PROFILE
+  // =====================================================
+
+  function openPlayer(
+    player: Player
+  ) {
+    setSelectedPlayer(
+      player
+    );
+
+    setPage(
+      'playerProfile'
+    );
   }
 
+  // =====================================================
+  // PLAYER UPDATED
+  // =====================================================
+
+  function handlePlayerUpdated(
+    updatedPlayer: Player
+  ) {
+    setSelectedPlayer(
+      updatedPlayer
+    );
+
+    setPlayers(
+      currentPlayers =>
+        currentPlayers.map(
+          player =>
+            String(player.id) ===
+            String(
+              updatedPlayer.id
+            )
+              ? updatedPlayer
+              : player
+        )
+    );
+  }
+
+  // =====================================================
+  // NAVIGATION
+  // =====================================================
+
   function backToDashboard() {
-    setPage('dashboard');
+    setPage(
+      'dashboard'
+    );
   }
 
   function backToPlayers() {
-    setPage('players');
+    setPage(
+      'players'
+    );
   }
 
-  // -------------------------
+  // =====================================================
   // PLAYER PROFILE
-  // -------------------------
+  // =====================================================
 
   if (
-    page === 'playerProfile' &&
+    page ===
+      'playerProfile' &&
     selectedPlayer
   ) {
     return (
       <PlayerProfile
-        player={selectedPlayer}
-        onBack={backToPlayers}
+        player={
+          selectedPlayer
+        }
+        accessToken={
+          user.accessToken
+        }
+        apiBase={
+          API_BASE
+        }
+        onBack={
+          backToPlayers
+        }
+        onPlayerUpdated={
+          handlePlayerUpdated
+        }
       />
     );
   }
 
-  // -------------------------
-  // PLAYERS PAGE
-  // -------------------------
+  // =====================================================
+  // PLAYERS
+  // =====================================================
 
-  if (page === 'players') {
+  if (
+    page === 'players'
+  ) {
     return (
       <Players
-        players={players}
-        loading={playersLoading}
-        error={playersError}
-        onBack={backToDashboard}
-        onOpenPlayer={openPlayer}
+        players={
+          players
+        }
+        loading={
+          playersLoading
+        }
+        error={
+          playersError
+        }
+        onBack={
+          backToDashboard
+        }
+        onOpenPlayer={
+          openPlayer
+        }
       />
     );
   }
 
-  // -------------------------
+  // =====================================================
   // DASHBOARD
-  // -------------------------
+  // =====================================================
 
   return (
     <Dashboard
@@ -345,31 +441,40 @@ export default function App() {
         user.displayName ??
         'VikingVision User'
       }
+
       userPrincipalName={
         user.userPrincipalName
       }
+
       inTeams={
         inTeams
       }
+
       ssoOk={
         user.tokenOk ??
         false
       }
+
       ssoError={
         user.tokenError
       }
+
       apiOk={
         apiOk
       }
+
       supabaseOk={
         supabaseOk
       }
+
       playerCount={
         playerCount
       }
+
       supabaseError={
         supabaseError
       }
+
       onOpenPlayers={
         openPlayers
       }
