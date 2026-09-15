@@ -1663,6 +1663,81 @@ export default {
               );
         }
 
+        const {
+          data: trainingSessions,
+          error: trainingSessionsError
+        } =
+          await supabase
+            .from(
+              'academy_training_sessions'
+            )
+            .select('id')
+            .eq(
+              'team',
+              team
+            );
+
+        if (trainingSessionsError) {
+          return json(
+            {
+              ok: false,
+              error:
+                trainingSessionsError.message
+            },
+            500
+          );
+        }
+
+        const trainingSessionIds =
+          (trainingSessions ?? [])
+            .map(row => row.id);
+
+        let trainingMinutes = 0;
+
+        if (
+          trainingSessionIds.length > 0
+        ) {
+          const {
+            data: trainingRows,
+            error: trainingRowsError
+          } =
+            await supabase
+              .from(
+                'academy_training_attendance'
+              )
+              .select('minutes')
+              .in(
+                'session_id',
+                trainingSessionIds
+              );
+
+          if (trainingRowsError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  trainingRowsError.message
+              },
+              500
+            );
+          }
+
+          trainingMinutes =
+            (trainingRows ?? [])
+              .reduce(
+                (
+                  total,
+                  row
+                ) =>
+                  total +
+                  Number(
+                    row.minutes ??
+                    0
+                  ),
+                0
+              );
+        }
+
         return json({
           ok: true,
           overview: {
@@ -1676,7 +1751,11 @@ export default {
             playedMatchCount:
               matchesResult.data
                 ?.length ?? 0,
-            totalMinutes
+            totalMinutes,
+            trainingSessionCount:
+              trainingSessions
+                ?.length ?? 0,
+            trainingMinutes
           }
         });
       } catch (error) {
@@ -1687,6 +1766,432 @@ export default {
               error instanceof Error
                 ? error.message
                 : 'Academy overview request failed'
+          },
+          401
+        );
+      }
+    }
+
+
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/academy/training'
+    ) {
+      try {
+        await authenticate(request);
+
+        const team =
+          url.searchParams.get('team');
+
+        if (!team) {
+          return json(
+            {
+              ok: false,
+              error:
+                'team is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: sessions,
+          error: sessionsError
+        } =
+          await supabase
+            .from(
+              'academy_training_sessions'
+            )
+            .select('*')
+            .eq(
+              'team',
+              team
+            )
+            .order(
+              'session_date',
+              {
+                ascending: false
+              }
+            )
+            .limit(100);
+
+        if (sessionsError) {
+          return json(
+            {
+              ok: false,
+              error:
+                sessionsError.message
+            },
+            500
+          );
+        }
+
+        const sessionIds =
+          (sessions ?? [])
+            .map(row => row.id);
+
+        let attendance:
+          Array<Record<string, unknown>> = [];
+
+        if (sessionIds.length > 0) {
+          const {
+            data: attendanceRows,
+            error: attendanceError
+          } =
+            await supabase
+              .from(
+                'academy_training_attendance'
+              )
+              .select('*')
+              .in(
+                'session_id',
+                sessionIds
+              );
+
+          if (attendanceError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  attendanceError.message
+              },
+              500
+            );
+          }
+
+          attendance =
+            attendanceRows ?? [];
+        }
+
+        const playerIds =
+          Array.from(
+            new Set(
+              attendance
+                .map(
+                  row =>
+                    row.academy_player_id
+                )
+                .filter(Boolean)
+            )
+          );
+
+        const playerMap =
+          new Map<
+            string,
+            string
+          >();
+
+        if (playerIds.length > 0) {
+          const {
+            data: playerRows,
+            error: playerError
+          } =
+            await supabase
+              .from(
+                'academy_players'
+              )
+              .select('id,name')
+              .in(
+                'id',
+                playerIds
+              );
+
+          if (playerError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  playerError.message
+              },
+              500
+            );
+          }
+
+          for (
+            const player of
+            playerRows ?? []
+          ) {
+            playerMap.set(
+              String(player.id),
+              player.name
+            );
+          }
+        }
+
+        const sessionMap =
+          new Map<
+            string,
+            Record<string, unknown>
+          >();
+
+        for (
+          const session of
+          sessions ?? []
+        ) {
+          sessionMap.set(
+            String(session.id),
+            session
+          );
+        }
+
+        const enrichedAttendance =
+          attendance.map(row => {
+            const session =
+              sessionMap.get(
+                String(
+                  row.session_id
+                )
+              );
+
+            return {
+              ...row,
+              player_name:
+                playerMap.get(
+                  String(
+                    row.academy_player_id
+                  )
+                ),
+              session_date:
+                session?.session_date,
+              session_title:
+                session?.title,
+              session_type:
+                session?.session_type
+            };
+          });
+
+        return json({
+          ok: true,
+          sessions:
+            sessions ?? [],
+          attendance:
+            enrichedAttendance
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy training request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/academy/ideals'
+    ) {
+      try {
+        await authenticate(request);
+
+        const team =
+          url.searchParams.get('team');
+
+        if (!team) {
+          return json(
+            {
+              ok: false,
+              error:
+                'team is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: players,
+          error: playersError
+        } =
+          await supabase
+            .from(
+              'academy_players'
+            )
+            .select('id,name')
+            .eq(
+              'team',
+              team
+            );
+
+        if (playersError) {
+          return json(
+            {
+              ok: false,
+              error:
+                playersError.message
+            },
+            500
+          );
+        }
+
+        const playerIds =
+          (players ?? [])
+            .map(player => player.id);
+
+        if (playerIds.length === 0) {
+          return json({
+            ok: true,
+            assessments: []
+          });
+        }
+
+        const {
+          data: assessments,
+          error: assessmentsError
+        } =
+          await supabase
+            .from(
+              'academy_ideal_assessments'
+            )
+            .select('*')
+            .in(
+              'academy_player_id',
+              playerIds
+            )
+            .order(
+              'assessment_date',
+              {
+                ascending: false,
+                nullsFirst: false
+              }
+            )
+            .limit(500);
+
+        if (assessmentsError) {
+          return json(
+            {
+              ok: false,
+              error:
+                assessmentsError.message
+            },
+            500
+          );
+        }
+
+        const assessmentIds =
+          (assessments ?? [])
+            .map(row => row.id);
+
+        let scores:
+          Array<Record<string, unknown>> = [];
+
+        if (
+          assessmentIds.length > 0
+        ) {
+          const {
+            data: scoreRows,
+            error: scoresError
+          } =
+            await supabase
+              .from(
+                'academy_ideal_scores'
+              )
+              .select('*')
+              .in(
+                'assessment_id',
+                assessmentIds
+              );
+
+          if (scoresError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  scoresError.message
+              },
+              500
+            );
+          }
+
+          scores =
+            scoreRows ?? [];
+        }
+
+        const playerMap =
+          new Map<
+            string,
+            string
+          >(
+            (players ?? [])
+              .map(player => [
+                String(player.id),
+                player.name
+              ])
+          );
+
+        const groupedScores =
+          new Map<
+            string,
+            Array<Record<string, unknown>>
+          >();
+
+        for (
+          const score of
+          scores
+        ) {
+          const key =
+            String(
+              score.assessment_id
+            );
+
+          if (
+            !groupedScores.has(
+              key
+            )
+          ) {
+            groupedScores.set(
+              key,
+              []
+            );
+          }
+
+          groupedScores
+            .get(key)
+            ?.push(score);
+        }
+
+        const enriched =
+          (assessments ?? [])
+            .map(
+              assessment => ({
+                ...assessment,
+                player_name:
+                  playerMap.get(
+                    String(
+                      assessment.academy_player_id
+                    )
+                  ),
+                scores:
+                  groupedScores.get(
+                    String(
+                      assessment.id
+                    )
+                  ) ?? []
+              })
+            );
+
+        return json({
+          ok: true,
+          assessments:
+            enriched
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy ideals request failed'
           },
           401
         );
