@@ -1,152 +1,808 @@
 import { createClient } from '@supabase/supabase-js';
-import { createRemoteJWKSet, decodeJwt, jwtVerify } from 'jose';
+
+import {
+  createRemoteJWKSet,
+  decodeJwt,
+  jwtVerify
+} from 'jose';
 
 interface Env {
   SUPABASE_URL: string;
   SUPABASE_SECRET_KEY: string;
 }
 
-const TENANT_ID = '1fcb46af-c475-4867-8c22-1ada8dd7cfdf';
-const CLIENT_ID = 'dd10d321-ec5e-425f-897f-1634fcf3c309';
-const APPLICATION_ID_URI = `api://vikingvision-teams.pages.dev/${CLIENT_ID}`;
-const FRONTEND_URL = 'https://vikingvision-teams.pages.dev';
+const TENANT_ID =
+  '1fcb46af-c475-4867-8c22-1ada8dd7cfdf';
+
+const CLIENT_ID =
+  'dd10d321-ec5e-425f-897f-1634fcf3c309';
+
+const APPLICATION_ID_URI =
+  `api://vikingvision-teams.pages.dev/${CLIENT_ID}`;
+
+const FRONTEND_URL =
+  'https://vikingvision-teams.pages.dev';
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': FRONTEND_URL,
-  'Access-Control-Allow-Headers': 'Authorization, Content-Type',
-  'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS'
+  'Access-Control-Allow-Origin':
+    FRONTEND_URL,
+  'Access-Control-Allow-Headers':
+    'Authorization, Content-Type',
+  'Access-Control-Allow-Methods':
+    'GET, POST, PUT, OPTIONS'
 };
 
-function json(data: unknown, status = 200): Response {
-  return Response.json(data, { status, headers: corsHeaders });
+function json(
+  data: unknown,
+  status = 200
+): Response {
+  return Response.json(
+    data,
+    {
+      status,
+      headers: corsHeaders
+    }
+  );
 }
 
 function createSupabase(env: Env) {
-  if (!env.SUPABASE_URL) throw new Error('SUPABASE_URL is missing');
-  if (!env.SUPABASE_SECRET_KEY) throw new Error('SUPABASE_SECRET_KEY is missing');
-  return createClient(env.SUPABASE_URL, env.SUPABASE_SECRET_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
+  if (!env.SUPABASE_URL) {
+    throw new Error(
+      'SUPABASE_URL is missing'
+    );
+  }
+
+  if (!env.SUPABASE_SECRET_KEY) {
+    throw new Error(
+      'SUPABASE_SECRET_KEY is missing'
+    );
+  }
+
+  return createClient(
+    env.SUPABASE_URL,
+    env.SUPABASE_SECRET_KEY,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false
+      }
+    }
+  );
 }
 
-async function verifyTeamsToken(token: string) {
-  const unverified = decodeJwt(token);
-  const isV2 = unverified.ver === '2.0';
-  const issuer = isV2
-    ? `https://login.microsoftonline.com/${TENANT_ID}/v2.0`
-    : `https://sts.windows.net/${TENANT_ID}/`;
-  const jwksUrl = isV2
-    ? `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`
-    : `https://login.microsoftonline.com/${TENANT_ID}/discovery/keys`;
-  const JWKS = createRemoteJWKSet(new URL(jwksUrl));
-  const { payload } = await jwtVerify(token, JWKS, {
-    issuer,
-    audience: [CLIENT_ID, APPLICATION_ID_URI]
-  });
-  if (payload.tid !== TENANT_ID) throw new Error('Invalid tenant');
-  const scopes = typeof payload.scp === 'string' ? payload.scp.split(' ') : [];
-  if (!scopes.includes('access_as_user')) throw new Error('Required scope access_as_user missing');
+async function verifyTeamsToken(
+  token: string
+) {
+  const unverified =
+    decodeJwt(token);
+
+  const isV2 =
+    unverified.ver === '2.0';
+
+  const issuer =
+    isV2
+      ? `https://login.microsoftonline.com/${TENANT_ID}/v2.0`
+      : `https://sts.windows.net/${TENANT_ID}/`;
+
+  const jwksUrl =
+    isV2
+      ? `https://login.microsoftonline.com/${TENANT_ID}/discovery/v2.0/keys`
+      : `https://login.microsoftonline.com/${TENANT_ID}/discovery/keys`;
+
+  const JWKS =
+    createRemoteJWKSet(
+      new URL(jwksUrl)
+    );
+
+  const { payload } =
+    await jwtVerify(
+      token,
+      JWKS,
+      {
+        issuer,
+        audience: [
+          CLIENT_ID,
+          APPLICATION_ID_URI
+        ]
+      }
+    );
+
+  if (payload.tid !== TENANT_ID) {
+    throw new Error(
+      'Invalid tenant'
+    );
+  }
+
+  const scopes =
+    typeof payload.scp === 'string'
+      ? payload.scp.split(' ')
+      : [];
+
+  if (
+    !scopes.includes(
+      'access_as_user'
+    )
+  ) {
+    throw new Error(
+      'Required scope access_as_user missing'
+    );
+  }
+
   return payload;
 }
 
-async function authenticate(request: Request) {
-  const auth = request.headers.get('Authorization');
-  if (!auth || !auth.startsWith('Bearer ')) throw new Error('Missing bearer token');
-  return verifyTeamsToken(auth.substring('Bearer '.length));
+async function authenticate(
+  request: Request
+) {
+  const auth =
+    request.headers.get(
+      'Authorization'
+    );
+
+  if (
+    !auth ||
+    !auth.startsWith(
+      'Bearer '
+    )
+  ) {
+    throw new Error(
+      'Missing bearer token'
+    );
+  }
+
+  return verifyTeamsToken(
+    auth.substring(
+      'Bearer '.length
+    )
+  );
 }
 
+function pickFields(
+  body: Record<string, unknown>,
+  allowedFields: string[]
+) {
+  const result:
+    Record<string, unknown> = {};
+
+  for (const field of allowedFields) {
+    if (
+      Object.prototype
+        .hasOwnProperty
+        .call(body, field)
+    ) {
+      result[field] =
+        body[field];
+    }
+  }
+
+  return result;
+}
+
+const scoutingFields = [
+  'player_id',
+  'scout_name',
+  'observation_date',
+  'competition',
+  'match_name',
+  'opponent',
+  'observed_position',
+  'minutes_played',
+  'technical_rating',
+  'tactical_rating',
+  'athletic_rating',
+  'mentality_rating',
+  'potential_rating',
+  'strengths',
+  'development_areas',
+  'overall_impression',
+  'recommendation',
+  'next_action'
+];
+
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    if (request.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: corsHeaders });
+  async fetch(
+    request: Request,
+    env: Env
+  ): Promise<Response> {
+    if (
+      request.method === 'OPTIONS'
+    ) {
+      return new Response(
+        null,
+        {
+          status: 204,
+          headers: corsHeaders
+        }
+      );
     }
 
-    const url = new URL(request.url);
+    const url =
+      new URL(request.url);
 
-    if (request.method === 'GET' && url.pathname === '/health') {
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/health'
+    ) {
       try {
-        const payload = await authenticate(request);
+        const payload =
+          await authenticate(
+            request
+          );
+
         return json({
           ok: true,
           authenticated: true,
-          service: 'VikingVision API',
-          supabaseConfigured: Boolean(env.SUPABASE_URL) && Boolean(env.SUPABASE_SECRET_KEY),
+          service:
+            'VikingVision API',
+          supabaseConfigured:
+            Boolean(
+              env.SUPABASE_URL
+            ) &&
+            Boolean(
+              env.SUPABASE_SECRET_KEY
+            ),
           user: {
-            name: payload.name ?? null,
-            username: payload.preferred_username ?? payload.upn ?? null,
-            objectId: payload.oid ?? null,
-            tenantId: payload.tid ?? null
+            name:
+              payload.name ??
+              null,
+            username:
+              payload
+                .preferred_username ??
+              payload.upn ??
+              null,
+            objectId:
+              payload.oid ??
+              null,
+            tenantId:
+              payload.tid ??
+              null
           }
         });
       } catch (error) {
-        return json({ ok: false, authenticated: false, error: error instanceof Error ? error.message : 'Authentication failed' }, 401);
+        return json(
+          {
+            ok: false,
+            authenticated: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Authentication failed'
+          },
+          401
+        );
       }
     }
 
-    if (request.method === 'GET' && url.pathname === '/players') {
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/players'
+    ) {
       try {
-        const payload = await authenticate(request);
-        const supabase = createSupabase(env);
-        const { data, error } = await supabase.from('players').select('*').order('name', { ascending: true }).limit(500);
-        if (error) return json({ ok: false, authenticated: true, supabase: false, error: error.message }, 500);
+        await authenticate(
+          request
+        );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .select('*')
+            .order(
+              'name',
+              {
+                ascending: true
+              }
+            )
+            .limit(500);
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              supabase: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
         return json({
           ok: true,
-          authenticated: true,
           supabase: true,
-          user: { name: payload.name ?? null, username: payload.preferred_username ?? payload.upn ?? null },
-          count: data?.length ?? 0,
-          players: data ?? []
+          count:
+            data?.length ?? 0,
+          players:
+            data ?? []
         });
       } catch (error) {
-        return json({ ok: false, authenticated: false, supabase: false, error: error instanceof Error ? error.message : 'Request failed' }, 401);
+        return json(
+          {
+            ok: false,
+            supabase: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Request failed'
+          },
+          401
+        );
       }
     }
 
-    if (request.method === 'PUT' && url.pathname.startsWith('/players/')) {
+    if (
+      request.method === 'PUT' &&
+      url.pathname.startsWith(
+        '/players/'
+      )
+    ) {
       try {
-        const payload = await authenticate(request);
-        const playerId = url.pathname.substring('/players/'.length).trim();
-        if (!playerId) return json({ ok: false, error: 'Player ID missing' }, 400);
+        await authenticate(
+          request
+        );
 
-        let body: Record<string, unknown>;
-        try {
-          body = await request.json<Record<string, unknown>>();
-        } catch {
-          return json({ ok: false, error: 'Invalid JSON body' }, 400);
+        const playerId =
+          url.pathname
+            .substring(
+              '/players/'.length
+            )
+            .trim();
+
+        if (!playerId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Player ID missing'
+            },
+            400
+          );
         }
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
 
         const allowedFields = [
-          'name', 'birth_date', 'primary_position', 'secondary_position',
-          'preferred_foot', 'nationality', 'height_cm', 'current_club',
-          'contract_until', 'market_value', 'agent_agency', 'squad_status',
-          'priority', 'potential', 'notes', 'transfermarkt_url', 'video_url'
+          'name',
+          'birth_date',
+          'primary_position',
+          'secondary_position',
+          'preferred_foot',
+          'nationality',
+          'height_cm',
+          'current_club',
+          'contract_until',
+          'market_value',
+          'agent_agency',
+          'squad_status',
+          'priority',
+          'potential',
+          'notes',
+          'transfermarkt_url',
+          'video_url'
         ];
 
-        const updateData: Record<string, unknown> = {};
-        for (const field of allowedFields) {
-          if (Object.prototype.hasOwnProperty.call(body, field)) updateData[field] = body[field];
+        const updateData =
+          pickFields(
+            body,
+            allowedFields
+          );
+
+        if (
+          Object.keys(
+            updateData
+          ).length === 0
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'No valid fields supplied'
+            },
+            400
+          );
         }
-        if (Object.keys(updateData).length === 0) return json({ ok: false, error: 'No valid fields supplied' }, 400);
 
-        updateData.updated_at = new Date().toISOString();
+        updateData.updated_at =
+          new Date()
+            .toISOString();
 
-        const supabase = createSupabase(env);
-        const { data, error } = await supabase.from('players').update(updateData).eq('id', playerId).select('*').single();
-        if (error) return json({ ok: false, authenticated: true, supabase: false, error: error.message }, 500);
-        if (!data) return json({ ok: false, authenticated: true, error: 'Player not found' }, 404);
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .update(updateData)
+            .eq(
+              'id',
+              playerId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
 
         return json({
           ok: true,
-          authenticated: true,
-          supabase: true,
-          user: { name: payload.name ?? null, username: payload.preferred_username ?? payload.upn ?? null },
-          player: data
+          player:
+            data
         });
       } catch (error) {
-        return json({ ok: false, authenticated: false, error: error instanceof Error ? error.message : 'Player update failed' }, 401);
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Player update failed'
+          },
+          401
+        );
       }
     }
 
-    return json({ ok: false, error: 'Not found' }, 404);
+    if (
+      request.method === 'GET' &&
+      url.pathname ===
+        '/scouting-reports'
+    ) {
+      try {
+        await authenticate(
+          request
+        );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: reports,
+          error: reportsError
+        } =
+          await supabase
+            .from(
+              'scouting_reports'
+            )
+            .select('*')
+            .order(
+              'observation_date',
+              {
+                ascending: false,
+                nullsFirst: false
+              }
+            )
+            .order(
+              'created_at',
+              {
+                ascending: false
+              }
+            )
+            .limit(500);
+
+        if (reportsError) {
+          return json(
+            {
+              ok: false,
+              error:
+                reportsError.message
+            },
+            500
+          );
+        }
+
+        const playerIds =
+          Array.from(
+            new Set(
+              (reports ?? [])
+                .map(report =>
+                  report.player_id
+                )
+                .filter(Boolean)
+            )
+          );
+
+        const nameMap =
+          new Map<
+            string,
+            string
+          >();
+
+        if (
+          playerIds.length > 0
+        ) {
+          const {
+            data: playerRows,
+            error: playersError
+          } =
+            await supabase
+              .from('players')
+              .select(
+                'id,name'
+              )
+              .in(
+                'id',
+                playerIds
+              );
+
+          if (playersError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  playersError.message
+              },
+              500
+            );
+          }
+
+          for (
+            const player of
+            playerRows ?? []
+          ) {
+            nameMap.set(
+              String(player.id),
+              player.name ??
+                `Spieler ${player.id}`
+            );
+          }
+        }
+
+        const enrichedReports =
+          (reports ?? []).map(
+            report => ({
+              ...report,
+              player_name:
+                nameMap.get(
+                  String(
+                    report.player_id
+                  )
+                ) ??
+                `Spieler ${report.player_id}`
+            })
+          );
+
+        return json({
+          ok: true,
+          count:
+            enrichedReports.length,
+          reports:
+            enrichedReports
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/scouting-reports'
+    ) {
+      try {
+        await authenticate(
+          request
+        );
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        const insertData =
+          pickFields(
+            body,
+            scoutingFields
+          );
+
+        if (
+          !insertData.player_id
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'player_id is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'scouting_reports'
+            )
+            .insert(
+              insertData
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            report:
+              data
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Report creation failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'PUT' &&
+      url.pathname.startsWith(
+        '/scouting-reports/'
+      )
+    ) {
+      try {
+        await authenticate(
+          request
+        );
+
+        const reportId =
+          url.pathname
+            .substring(
+              '/scouting-reports/'
+                .length
+            )
+            .trim();
+
+        if (!reportId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Report ID missing'
+            },
+            400
+          );
+        }
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        const updateData =
+          pickFields(
+            body,
+            scoutingFields
+          );
+
+        if (
+          Object.keys(
+            updateData
+          ).length === 0
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'No valid fields supplied'
+            },
+            400
+          );
+        }
+
+        updateData.updated_at =
+          new Date()
+            .toISOString();
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'scouting_reports'
+            )
+            .update(
+              updateData
+            )
+            .eq(
+              'id',
+              reportId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          report:
+            data
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Report update failed'
+          },
+          401
+        );
+      }
+    }
+
+    return json(
+      {
+        ok: false,
+        error:
+          'Not found'
+      },
+      404
+    );
   }
 };
