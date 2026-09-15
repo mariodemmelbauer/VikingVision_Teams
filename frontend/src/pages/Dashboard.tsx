@@ -5,6 +5,7 @@ type Props = {
   ssoOk: boolean;
   ssoError?: string;
   apiOk: boolean | null;
+
   supabaseOk: boolean | null;
   playerCount: number | null;
   supabaseError?: string;
@@ -21,16 +22,9 @@ export default function Dashboard({
   apiOk,
   supabaseOk,
   playerCount,
-  supabaseError
+  supabaseError,
+  onOpenPlayers
 }: Props) {
-  const cards = [
-    'Spieler',
-    'Scoutingberichte',
-    'Watchlist',
-    'Unser Kader',
-    'AKAVision'
-  ];
-
   return (
     <main className="page">
       <section className="hero">
@@ -88,9 +82,10 @@ export default function Dashboard({
           {supabaseOk === null
             ? 'prüfe…'
             : supabaseOk
-              ? `✓ verbunden${playerCount !== null
-                  ? ` · ${playerCount} Spieler`
-                  : ''
+              ? `✓ verbunden${
+                  playerCount !== null
+                    ? ` · ${playerCount} Spieler`
+                    : ''
                 }`
               : '✕ nicht verbunden'}
         </span>
@@ -138,14 +133,36 @@ export default function Dashboard({
         )}
 
       <section className="grid">
-        {cards.map(c => (
-          <button
-            key={c}
-            className="card"
-          >
-            {c}
-          </button>
-        ))}
+        <button
+          className="card"
+          onClick={onOpenPlayers}
+        >
+          Spieler
+        </button>
+
+        <button
+          className="card"
+        >
+          Scoutingberichte
+        </button>
+
+        <button
+          className="card"
+        >
+          Watchlist
+        </button>
+
+        <button
+          className="card"
+        >
+          Unser Kader
+        </button>
+
+        <button
+          className="card"
+        >
+          AKAVision
+        </button>
       </section>
     </main>
   );
