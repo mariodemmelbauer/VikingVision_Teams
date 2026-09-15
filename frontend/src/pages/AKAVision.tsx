@@ -129,6 +129,42 @@ type AcademyScoutingReport = {
   next_action?: string;
 };
 
+
+type SportScienceTest = {
+  id: number;
+  academy_player_id?: number;
+  p12_player_id?: number;
+  player_name?: string;
+  test_date: string;
+  body_weight_kg?: number;
+  body_fat_percent?: number;
+  sprint_10m_seconds?: number;
+  sprint_30m_seconds?: number;
+  cmj_cm?: number;
+  aerobic_value?: number;
+  readiness?: string;
+  notes?: string;
+};
+
+type SkillAcForm = {
+  id: number;
+  academy_player_id: number;
+  player_name?: string;
+  period_old?: string;
+  period_new?: string;
+  team_old?: string;
+  team_new?: string;
+  author_old?: string;
+  author_new?: string;
+  skill_old?: string;
+  ac_old?: string;
+  consequence_general?: string;
+  skill_new?: string;
+  ac_new?: string;
+  reflection?: string;
+  biggest_changes?: string;
+};
+
 type Overview = {
   team: string;
   playerCount: number;
@@ -151,7 +187,9 @@ type Tab =
   | 'matches'
   | 'training'
   | 'ideals'
-  | 'scouting';
+  | 'scouting'
+  | 'sportScience'
+  | 'skillAc';
 
 const teams: AcademyTeam[] = [
   'U15',
@@ -197,6 +235,12 @@ export default function AKAVision({
 
   const [scoutingReports, setScoutingReports] =
     useState<AcademyScoutingReport[]>([]);
+
+  const [sportScienceTests, setSportScienceTests] =
+    useState<SportScienceTest[]>([]);
+
+  const [skillAcForms, setSkillAcForms] =
+    useState<SkillAcForm[]>([]);
 
   const [loading, setLoading] =
     useState(true);
@@ -254,7 +298,9 @@ export default function AKAVision({
         matchData,
         trainingData,
         idealsData,
-        scoutingData
+        scoutingData,
+        sportScienceData,
+        skillAcData
       ] =
         await Promise.all([
           apiGet(
@@ -277,6 +323,12 @@ export default function AKAVision({
           ),
           apiGet(
             `/academy/scouting`
+          ),
+          apiGet(
+            `/academy/sport-science?team=${encodedTeam}`
+          ),
+          apiGet(
+            `/academy/skill-ac?team=${encodedTeam}`
           )
         ]);
 
@@ -345,6 +397,22 @@ export default function AKAVision({
           scoutingData.reports
         )
           ? scoutingData.reports
+          : []
+      );
+
+      setSportScienceTests(
+        Array.isArray(
+          sportScienceData.tests
+        )
+          ? sportScienceData.tests
+          : []
+      );
+
+      setSkillAcForms(
+        Array.isArray(
+          skillAcData.forms
+        )
+          ? skillAcData.forms
           : []
       );
     } catch (err) {
@@ -485,6 +553,20 @@ export default function AKAVision({
         >
           Scouting
         </TabButton>
+
+        <TabButton
+          active={tab === 'sportScience'}
+          onClick={() => setTab('sportScience')}
+        >
+          Sport Science
+        </TabButton>
+
+        <TabButton
+          active={tab === 'skillAc'}
+          onClick={() => setTab('skillAc')}
+        >
+          Skill / AC
+        </TabButton>
       </section>
 
       {loading ? (
@@ -543,6 +625,18 @@ export default function AKAVision({
               players={scoutingPlayers}
               reports={scoutingReports}
               onReload={loadTeamData}
+            />
+          )}
+
+          {tab === 'sportScience' && (
+            <SportScienceTab
+              tests={sportScienceTests}
+            />
+          )}
+
+          {tab === 'skillAc' && (
+            <SkillAcTab
+              forms={skillAcForms}
             />
           )}
         </>
@@ -1377,6 +1471,444 @@ function IdealsTab({
   );
 }
 
+
+
+function SportScienceTab({
+  tests
+}: {
+  tests: SportScienceTest[];
+}) {
+  const byPlayer =
+    new Map<string, SportScienceTest[]>();
+
+  for (const test of tests) {
+    const key =
+      test.player_name ??
+      `Spieler ${test.academy_player_id ?? test.p12_player_id ?? '–'}`;
+
+    if (!byPlayer.has(key)) {
+      byPlayer.set(key, []);
+    }
+
+    byPlayer.get(key)?.push(test);
+  }
+
+  const playerGroups =
+    Array.from(byPlayer.entries())
+      .map(([name, rows]) => ({
+        name,
+        rows: [...rows].sort(
+          (a, b) =>
+            b.test_date.localeCompare(
+              a.test_date
+            )
+        )
+      }))
+      .sort(
+        (a, b) =>
+          a.name.localeCompare(
+            b.name,
+            'de'
+          )
+      );
+
+  return (
+    <section style={{ marginTop: '18px' }}>
+      <div
+        style={{
+          marginBottom: '12px',
+          fontWeight: 700
+        }}
+      >
+        {tests.length} Testdatensätze
+      </div>
+
+      {playerGroups.length === 0 ? (
+        <section style={panel}>
+          Noch keine Sport-Science-Daten vorhanden.
+        </section>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fill, minmax(340px, 1fr))',
+            gap: '14px'
+          }}
+        >
+          {playerGroups.map(group => {
+            const latest = group.rows[0];
+            const previous = group.rows[1];
+
+            return (
+              <article
+                key={group.name}
+                style={panel}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: '12px'
+                  }}
+                >
+                  <div>
+                    <strong
+                      style={{
+                        fontSize: '18px'
+                      }}
+                    >
+                      {group.name}
+                    </strong>
+
+                    <div
+                      style={{
+                        marginTop: '4px',
+                        color: '#777',
+                        fontSize: '12px'
+                      }}
+                    >
+                      Letzter Test:{' '}
+                      {formatDate(
+                        latest.test_date
+                      )}
+                    </div>
+                  </div>
+
+                  {latest.readiness && (
+                    <span style={roleBadge}>
+                      {latest.readiness}
+                    </span>
+                  )}
+                </div>
+
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(2, 1fr)',
+                    gap: '8px',
+                    marginTop: '14px'
+                  }}
+                >
+                  <MetricBox
+                    label="Gewicht"
+                    value={latest.body_weight_kg}
+                    unit="kg"
+                    previous={previous?.body_weight_kg}
+                    lowerIsBetter={false}
+                  />
+
+                  <MetricBox
+                    label="Körperfett"
+                    value={latest.body_fat_percent}
+                    unit="%"
+                    previous={previous?.body_fat_percent}
+                    lowerIsBetter
+                  />
+
+                  <MetricBox
+                    label="10 m Sprint"
+                    value={latest.sprint_10m_seconds}
+                    unit="s"
+                    previous={previous?.sprint_10m_seconds}
+                    lowerIsBetter
+                  />
+
+                  <MetricBox
+                    label="30 m Sprint"
+                    value={latest.sprint_30m_seconds}
+                    unit="s"
+                    previous={previous?.sprint_30m_seconds}
+                    lowerIsBetter
+                  />
+
+                  <MetricBox
+                    label="CMJ"
+                    value={latest.cmj_cm}
+                    unit="cm"
+                    previous={previous?.cmj_cm}
+                  />
+
+                  <MetricBox
+                    label="Aerob"
+                    value={latest.aerobic_value}
+                    unit=""
+                    previous={previous?.aerobic_value}
+                  />
+                </div>
+
+                {latest.notes && (
+                  <TextBlock
+                    label="Notiz"
+                    value={latest.notes}
+                  />
+                )}
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function MetricBox({
+  label,
+  value,
+  unit,
+  previous,
+  lowerIsBetter = false
+}: {
+  label: string;
+  value?: number;
+  unit: string;
+  previous?: number;
+  lowerIsBetter?: boolean;
+}) {
+  let trend = '';
+
+  if (
+    value != null &&
+    previous != null &&
+    value !== previous
+  ) {
+    const improved =
+      lowerIsBetter
+        ? value < previous
+        : value > previous;
+
+    trend =
+      improved ? ' ↑' : ' ↓';
+  }
+
+  return (
+    <div
+      style={{
+        background: '#f6f8f7',
+        borderRadius: '8px',
+        padding: '10px'
+      }}
+    >
+      <div
+        style={{
+          fontSize: '11px',
+          color: '#777',
+          textTransform: 'uppercase'
+        }}
+      >
+        {label}
+      </div>
+
+      <strong>
+        {value ?? '–'}
+        {value != null && unit
+          ? ` ${unit}`
+          : ''}
+        {trend}
+      </strong>
+    </div>
+  );
+}
+
+function SkillAcTab({
+  forms
+}: {
+  forms: SkillAcForm[];
+}) {
+  const sorted =
+    [...forms].sort(
+      (a, b) =>
+        String(
+          a.player_name ?? ''
+        ).localeCompare(
+          String(
+            b.player_name ?? ''
+          ),
+          'de'
+        )
+    );
+
+  return (
+    <section style={{ marginTop: '18px' }}>
+      <div
+        style={{
+          marginBottom: '12px',
+          fontWeight: 700
+        }}
+      >
+        {sorted.length} Skill-/AC-Formulare
+      </div>
+
+      {sorted.length === 0 ? (
+        <section style={panel}>
+          Noch keine Skill-/AC-Daten vorhanden.
+        </section>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fill, minmax(360px, 1fr))',
+            gap: '14px'
+          }}
+        >
+          {sorted.map(form => (
+            <article
+              key={form.id}
+              style={panel}
+            >
+              <strong
+                style={{
+                  fontSize: '18px'
+                }}
+              >
+                {form.player_name ??
+                  `Spieler ${form.academy_player_id}`}
+              </strong>
+
+              <div
+                style={{
+                  marginTop: '4px',
+                  color: '#777',
+                  fontSize: '12px'
+                }}
+              >
+                {[
+                  form.period_old,
+                  form.period_new
+                ]
+                  .filter(Boolean)
+                  .join(' → ')}
+              </div>
+
+              {(form.team_old || form.team_new) && (
+                <InfoLine
+                  label="Team"
+                  value={[
+                    form.team_old,
+                    form.team_new
+                  ]
+                    .filter(Boolean)
+                    .join(' → ')}
+                />
+              )}
+
+              {(form.skill_old || form.skill_new) && (
+                <TextCompare
+                  title="Skill"
+                  oldValue={form.skill_old}
+                  newValue={form.skill_new}
+                />
+              )}
+
+              {(form.ac_old || form.ac_new) && (
+                <TextCompare
+                  title="AC"
+                  oldValue={form.ac_old}
+                  newValue={form.ac_new}
+                />
+              )}
+
+              {form.biggest_changes && (
+                <TextBlock
+                  label="Größte Veränderungen"
+                  value={form.biggest_changes}
+                />
+              )}
+
+              {form.consequence_general && (
+                <TextBlock
+                  label="Konsequenz allgemein"
+                  value={form.consequence_general}
+                />
+              )}
+
+              {form.reflection && (
+                <TextBlock
+                  label="Reflexion"
+                  value={form.reflection}
+                />
+              )}
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function TextCompare({
+  title,
+  oldValue,
+  newValue
+}: {
+  title: string;
+  oldValue?: string;
+  newValue?: string;
+}) {
+  return (
+    <div
+      style={{
+        marginTop: '14px'
+      }}
+    >
+      <strong>{title}</strong>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            '1fr 1fr',
+          gap: '8px',
+          marginTop: '7px'
+        }}
+      >
+        <div
+          style={{
+            background: '#f7f7f7',
+            borderRadius: '8px',
+            padding: '10px'
+          }}
+        >
+          <div
+            style={{
+              fontSize: '10px',
+              color: '#777',
+              textTransform: 'uppercase'
+            }}
+          >
+            Alt
+          </div>
+          <div style={{ marginTop: '4px' }}>
+            {oldValue || '–'}
+          </div>
+        </div>
+
+        <div
+          style={{
+            background: '#f1f7f3',
+            borderRadius: '8px',
+            padding: '10px'
+          }}
+        >
+          <div
+            style={{
+              fontSize: '10px',
+              color: '#777',
+              textTransform: 'uppercase'
+            }}
+          >
+            Neu
+          </div>
+          <div style={{ marginTop: '4px' }}>
+            {newValue || '–'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ScoutingTab({
   accessToken,
