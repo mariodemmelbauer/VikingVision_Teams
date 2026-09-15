@@ -1270,6 +1270,429 @@ export default {
       }
     }
 
+
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/academy/players'
+    ) {
+      try {
+        await authenticate(request);
+
+        const team =
+          url.searchParams.get('team');
+
+        if (!team) {
+          return json(
+            {
+              ok: false,
+              error:
+                'team is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_players'
+            )
+            .select('*')
+            .eq(
+              'team',
+              team
+            )
+            .order(
+              'name',
+              {
+                ascending: true
+              }
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          count:
+            data?.length ?? 0,
+          players:
+            data ?? []
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy players request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/academy/fixtures'
+    ) {
+      try {
+        await authenticate(request);
+
+        const team =
+          url.searchParams.get('team');
+
+        if (!team) {
+          return json(
+            {
+              ok: false,
+              error:
+                'team is required'
+            },
+            400
+          );
+        }
+
+        const today =
+          new Date()
+            .toISOString()
+            .slice(0, 10);
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_fixtures'
+            )
+            .select('*')
+            .eq(
+              'team',
+              team
+            )
+            .gte(
+              'match_date',
+              today
+            )
+            .order(
+              'match_date',
+              {
+                ascending: true
+              }
+            )
+            .limit(30);
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          fixtures:
+            data ?? []
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy fixtures request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/academy/matches'
+    ) {
+      try {
+        await authenticate(request);
+
+        const team =
+          url.searchParams.get('team');
+
+        if (!team) {
+          return json(
+            {
+              ok: false,
+              error:
+                'team is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_matches'
+            )
+            .select('*')
+            .eq(
+              'team',
+              team
+            )
+            .order(
+              'match_date',
+              {
+                ascending: false
+              }
+            )
+            .limit(30);
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          matches:
+            data ?? []
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy matches request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/academy/overview'
+    ) {
+      try {
+        await authenticate(request);
+
+        const team =
+          url.searchParams.get('team');
+
+        if (!team) {
+          return json(
+            {
+              ok: false,
+              error:
+                'team is required'
+            },
+            400
+          );
+        }
+
+        const today =
+          new Date()
+            .toISOString()
+            .slice(0, 10);
+
+        const supabase =
+          createSupabase(env);
+
+        const [
+          playersResult,
+          fixturesResult,
+          matchesResult
+        ] =
+          await Promise.all([
+            supabase
+              .from(
+                'academy_players'
+              )
+              .select(
+                'id',
+                {
+                  count: 'exact',
+                  head: true
+                }
+              )
+              .eq(
+                'team',
+                team
+              ),
+
+            supabase
+              .from(
+                'academy_fixtures'
+              )
+              .select(
+                'id',
+                {
+                  count: 'exact',
+                  head: true
+                }
+              )
+              .eq(
+                'team',
+                team
+              )
+              .gte(
+                'match_date',
+                today
+              ),
+
+            supabase
+              .from(
+                'academy_matches'
+              )
+              .select(
+                'id'
+              )
+              .eq(
+                'team',
+                team
+              )
+          ]);
+
+        if (
+          playersResult.error ||
+          fixturesResult.error ||
+          matchesResult.error
+        ) {
+          const firstError =
+            playersResult.error ??
+            fixturesResult.error ??
+            matchesResult.error;
+
+          return json(
+            {
+              ok: false,
+              error:
+                firstError?.message ??
+                'Academy overview failed'
+            },
+            500
+          );
+        }
+
+        const matchIds =
+          (matchesResult.data ?? [])
+            .map(row => row.id);
+
+        let totalMinutes = 0;
+
+        if (
+          matchIds.length > 0
+        ) {
+          const {
+            data: minuteRows,
+            error: minutesError
+          } =
+            await supabase
+              .from(
+                'academy_match_minutes'
+              )
+              .select(
+                'minutes'
+              )
+              .in(
+                'match_id',
+                matchIds
+              );
+
+          if (minutesError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  minutesError.message
+              },
+              500
+            );
+          }
+
+          totalMinutes =
+            (minuteRows ?? [])
+              .reduce(
+                (
+                  total,
+                  row
+                ) =>
+                  total +
+                  Number(
+                    row.minutes ??
+                    0
+                  ),
+                0
+              );
+        }
+
+        return json({
+          ok: true,
+          overview: {
+            team,
+            playerCount:
+              playersResult.count ??
+              0,
+            upcomingFixtureCount:
+              fixturesResult.count ??
+              0,
+            playedMatchCount:
+              matchesResult.data
+                ?.length ?? 0,
+            totalMinutes
+          }
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy overview request failed'
+          },
+          401
+        );
+      }
+    }
+
     return json(
       {
         ok: false,
