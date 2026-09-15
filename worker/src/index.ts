@@ -1209,6 +1209,67 @@ export default {
       }
     }
 
+
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/squad'
+    ) {
+      try {
+        await authenticate(request);
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .select('*')
+            .eq(
+              'is_own_squad',
+              true
+            )
+            .order(
+              'name',
+              {
+                ascending: true
+              }
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          count:
+            data?.length ?? 0,
+          players:
+            data ?? []
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Squad request failed'
+          },
+          401
+        );
+      }
+    }
+
     return json(
       {
         ok: false,
