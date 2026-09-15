@@ -4,6 +4,10 @@
   "compatibility_date": "2026-09-15",
   "keep_vars": true,
 
+  "vars": {
+    "SUPABASE_URL": "https://wgtfhfbqnecwdrstxfwd.supabase.co"
+  },
+
   "secrets": {
     "required": [
       "SUPABASE_SECRET_KEY"
