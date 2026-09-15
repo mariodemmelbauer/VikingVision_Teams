@@ -5,10 +5,11 @@ type Props = {
   ssoOk: boolean;
   ssoError?: string;
   apiOk: boolean | null;
-
   supabaseOk: boolean | null;
   playerCount: number | null;
   supabaseError?: string;
+
+  onOpenPlayers: () => void;
 };
 
 export default function Dashboard({
