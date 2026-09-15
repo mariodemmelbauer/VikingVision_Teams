@@ -14,6 +14,7 @@ type Props = {
   onOpenScoutingReports: () => void;
 };
 
+
 export default function Dashboard({
   displayName,
   userPrincipalName,
