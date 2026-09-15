@@ -5,6 +5,10 @@ type Props = {
   ssoOk: boolean;
   ssoError?: string;
   apiOk: boolean | null;
+
+  supabaseOk: boolean | null;
+  playerCount: number | null;
+  supabaseError?: string;
 };
 
 export default function Dashboard({
@@ -13,7 +17,10 @@ export default function Dashboard({
   inTeams,
   ssoOk,
   ssoError,
-  apiOk
+  apiOk,
+  supabaseOk,
+  playerCount,
+  supabaseError
 }: Props) {
   const cards = [
     'Spieler',
@@ -27,7 +34,9 @@ export default function Dashboard({
     <main className="page">
       <section className="hero">
         <div>
-          <div className="eyebrow">SV Oberbank Ried</div>
+          <div className="eyebrow">
+            SV Oberbank Ried
+          </div>
 
           <h1>VikingVision</h1>
 
@@ -42,7 +51,9 @@ export default function Dashboard({
           )}
 
           <span>
-            {inTeams ? 'Microsoft Teams' : 'Browser-Vorschau'}
+            {inTeams
+              ? 'Microsoft Teams'
+              : 'Browser-Vorschau'}
           </span>
         </div>
       </section>
@@ -72,7 +83,15 @@ export default function Dashboard({
         </span>
 
         <span>
-          Supabase: nächster Schritt
+          Supabase:{' '}
+          {supabaseOk === null
+            ? 'prüfe…'
+            : supabaseOk
+              ? `✓ verbunden${playerCount !== null
+                  ? ` · ${playerCount} Spieler`
+                  : ''
+                }`
+              : '✕ nicht verbunden'}
         </span>
       </section>
 
@@ -89,11 +108,33 @@ export default function Dashboard({
           }}
         >
           <strong>SSO-Fehler:</strong>
+
           <div style={{ marginTop: '4px' }}>
             {ssoError}
           </div>
         </section>
       )}
+
+      {supabaseOk === false &&
+        supabaseError && (
+          <section
+            style={{
+              marginTop: '12px',
+              padding: '12px 16px',
+              borderRadius: '10px',
+              background: '#fff8e6',
+              color: '#8a5500',
+              fontSize: '13px',
+              wordBreak: 'break-word'
+            }}
+          >
+            <strong>Supabase-Fehler:</strong>
+
+            <div style={{ marginTop: '4px' }}>
+              {supabaseError}
+            </div>
+          </section>
+        )}
 
       <section className="grid">
         {cards.map(c => (
