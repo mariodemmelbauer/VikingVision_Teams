@@ -1,3 +1,18 @@
+import { useEffect, useState } from 'react';
+import Dashboard from './pages/Dashboard';
+import Players from './pages/Players';
+import PlayerProfile from './pages/PlayerProfile';
+import { initTeams, TeamsUser } from './teams/context';
+
+const API_BASE =
+  (import.meta as any).env?.VITE_API_BASE ??
+  'https://vikingvision-teams.mario-demmelbauer.workers.dev';
+
+type Page =
+  | 'dashboard'
+  | 'players'
+  | 'playerProfile';
+
 type Player = {
   id: number | string;
   name?: string;
@@ -23,296 +38,341 @@ type Player = {
   video_url?: string;
 };
 
-type Props = {
-  player: Player;
-  onBack: () => void;
-};
+export default function App() {
+  const [page, setPage] =
+    useState<Page>('dashboard');
 
-function valueOrDash(value: unknown) {
-  if (
-    value === null ||
-    value === undefined ||
-    value === ''
-  ) {
-    return '–';
+  const [user, setUser] =
+    useState<TeamsUser>({
+      displayName: 'VikingVision User'
+    });
+
+  const [inTeams, setInTeams] =
+    useState(false);
+
+  const [apiOk, setApiOk] =
+    useState<boolean | null>(null);
+
+  const [supabaseOk, setSupabaseOk] =
+    useState<boolean | null>(null);
+
+  const [playerCount, setPlayerCount] =
+    useState<number | null>(null);
+
+  const [supabaseError, setSupabaseError] =
+    useState<string | undefined>();
+
+  const [players, setPlayers] =
+    useState<Player[]>([]);
+
+  const [playersLoading, setPlayersLoading] =
+    useState(false);
+
+  const [playersError, setPlayersError] =
+    useState<string | undefined>();
+
+  const [selectedPlayer, setSelectedPlayer] =
+    useState<Player | null>(null);
+
+  useEffect(() => {
+    async function start() {
+      const result = await initTeams();
+
+      setInTeams(result.inTeams);
+      setUser(result.user);
+
+      const token =
+        result.user.accessToken;
+
+      if (!token) {
+        setApiOk(false);
+        setSupabaseOk(false);
+
+        setSupabaseError(
+          'Kein Teams-SSO-Token vorhanden'
+        );
+
+        return;
+      }
+
+      const headers = {
+        Authorization:
+          `Bearer ${token}`
+      };
+
+      // -------------------------
+      // API HEALTH
+      // -------------------------
+
+      try {
+        const healthResponse =
+          await fetch(
+            `${API_BASE}/health`,
+            {
+              method: 'GET',
+              headers
+            }
+          );
+
+        setApiOk(
+          healthResponse.ok
+        );
+
+        const healthData =
+          await healthResponse.json();
+
+        console.log(
+          'VikingVision API health:',
+          healthData
+        );
+
+      } catch (error) {
+        console.error(
+          'Health API error:',
+          error
+        );
+
+        setApiOk(false);
+      }
+
+      // -------------------------
+      // SUPABASE / PLAYERS TEST
+      // -------------------------
+
+      try {
+        const playersResponse =
+          await fetch(
+            `${API_BASE}/players`,
+            {
+              method: 'GET',
+              headers
+            }
+          );
+
+        const playersData =
+          await playersResponse.json();
+
+        if (!playersResponse.ok) {
+          setSupabaseOk(false);
+          setPlayerCount(null);
+
+          setSupabaseError(
+            playersData?.error ??
+            'Supabase-Anfrage fehlgeschlagen'
+          );
+
+          console.error(
+            'Players API error:',
+            playersData
+          );
+
+          return;
+        }
+
+        const loadedPlayers =
+          Array.isArray(playersData.players)
+            ? playersData.players
+            : [];
+
+        setSupabaseOk(
+          playersData.supabase === true
+        );
+
+        setPlayerCount(
+          typeof playersData.count === 'number'
+            ? playersData.count
+            : loadedPlayers.length
+        );
+
+        setPlayers(
+          loadedPlayers
+        );
+
+        setSupabaseError(undefined);
+
+        console.log(
+          'VikingVision players:',
+          loadedPlayers
+        );
+
+      } catch (error) {
+        console.error(
+          'Players API request failed:',
+          error
+        );
+
+        setSupabaseOk(false);
+        setPlayerCount(null);
+
+        setSupabaseError(
+          'Verbindung zu Supabase fehlgeschlagen'
+        );
+      }
+    }
+
+    start();
+  }, []);
+
+  async function openPlayers() {
+    const token =
+      user.accessToken;
+
+    setPage('players');
+
+    if (!token) {
+      setPlayersError(
+        'Kein Teams-SSO-Token vorhanden'
+      );
+
+      return;
+    }
+
+    setPlayersLoading(true);
+    setPlayersError(undefined);
+
+    try {
+      const response =
+        await fetch(
+          `${API_BASE}/players`,
+          {
+            method: 'GET',
+            headers: {
+              Authorization:
+                `Bearer ${token}`
+            }
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        setPlayersError(
+          data?.error ??
+          'Spieler konnten nicht geladen werden'
+        );
+
+        return;
+      }
+
+      const loadedPlayers =
+        Array.isArray(data.players)
+          ? data.players
+          : [];
+
+      setPlayers(
+        loadedPlayers
+      );
+
+      setPlayerCount(
+        typeof data.count === 'number'
+          ? data.count
+          : loadedPlayers.length
+      );
+
+      setSupabaseOk(
+        data.supabase === true
+      );
+
+      setSupabaseError(undefined);
+
+    } catch (error) {
+      console.error(
+        'Open players error:',
+        error
+      );
+
+      setPlayersError(
+        'Verbindung zur Spieler-Datenbank fehlgeschlagen'
+      );
+    } finally {
+      setPlayersLoading(false);
+    }
   }
 
-  return String(value);
-}
+  function openPlayer(player: Player) {
+    setSelectedPlayer(player);
+    setPage('playerProfile');
+  }
 
-export default function PlayerProfile({
-  player,
-  onBack
-}: Props) {
-  const contractUntil =
-    player.contract_until ??
-    player.contract_end;
+  function backToDashboard() {
+    setPage('dashboard');
+  }
 
-  const height =
-    player.height_cm ??
-    player.height;
+  function backToPlayers() {
+    setPage('players');
+  }
+
+  // -------------------------
+  // PLAYER PROFILE
+  // -------------------------
+
+  if (
+    page === 'playerProfile' &&
+    selectedPlayer
+  ) {
+    return (
+      <PlayerProfile
+        player={selectedPlayer}
+        onBack={backToPlayers}
+      />
+    );
+  }
+
+  // -------------------------
+  // PLAYERS PAGE
+  // -------------------------
+
+  if (page === 'players') {
+    return (
+      <Players
+        players={players}
+        loading={playersLoading}
+        error={playersError}
+        onBack={backToDashboard}
+        onOpenPlayer={openPlayer}
+      />
+    );
+  }
+
+  // -------------------------
+  // DASHBOARD
+  // -------------------------
 
   return (
-    <main className="page">
-      <section className="hero">
-        <div>
-          <div className="eyebrow">
-            SV Oberbank Ried
-          </div>
-
-          <h1>
-            {player.name ?? 'Spielerprofil'}
-          </h1>
-
-          <p>VikingVision Spielerprofil</p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onBack}
-          style={{
-            border: 'none',
-            background: '#0b7a3b',
-            color: '#ffffff',
-            padding: '12px 18px',
-            borderRadius: '10px',
-            cursor: 'pointer',
-            fontWeight: 700
-          }}
-        >
-          ← Spieler
-        </button>
-      </section>
-
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'minmax(220px, 320px) 1fr',
-          gap: '20px',
-          marginTop: '20px'
-        }}
-      >
-        <div
-          style={{
-            background: '#ffffff',
-            borderRadius: '14px',
-            padding: '18px',
-            border: '1px solid #ececec',
-            boxShadow:
-              '0 3px 14px rgba(0,0,0,0.06)'
-          }}
-        >
-          {player.image_path ? (
-            <img
-              src={player.image_path}
-              alt={player.name ?? 'Spieler'}
-              style={{
-                width: '100%',
-                aspectRatio: '4 / 5',
-                objectFit: 'cover',
-                borderRadius: '10px'
-              }}
-            />
-          ) : (
-            <div
-              style={{
-                width: '100%',
-                aspectRatio: '4 / 5',
-                borderRadius: '10px',
-                background: '#f1f1f1',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#777'
-              }}
-            >
-              Kein Bild
-            </div>
-          )}
-
-          <div
-            style={{
-              marginTop: '16px',
-              fontSize: '22px',
-              fontWeight: 700
-            }}
-          >
-            {player.name ?? 'Unbekannt'}
-          </div>
-
-          <div
-            style={{
-              marginTop: '5px',
-              color: '#666'
-            }}
-          >
-            {valueOrDash(
-              player.primary_position
-            )}
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(2, minmax(0, 1fr))',
-            gap: '14px'
-          }}
-        >
-          <InfoCard
-            label="Geburtsdatum"
-            value={valueOrDash(
-              player.birth_date ??
-              player.birth_year
-            )}
-          />
-
-          <InfoCard
-            label="Position"
-            value={valueOrDash(
-              player.primary_position
-            )}
-          />
-
-          <InfoCard
-            label="Nebenposition"
-            value={valueOrDash(
-              player.secondary_position
-            )}
-          />
-
-          <InfoCard
-            label="Fuß"
-            value={valueOrDash(
-              player.preferred_foot
-            )}
-          />
-
-          <InfoCard
-            label="Nationalität"
-            value={valueOrDash(
-              player.nationality
-            )}
-          />
-
-          <InfoCard
-            label="Größe"
-            value={
-              height
-                ? `${height} cm`
-                : '–'
-            }
-          />
-
-          <InfoCard
-            label="Aktueller Verein"
-            value={valueOrDash(
-              player.current_club
-            )}
-          />
-
-          <InfoCard
-            label="Vertrag bis"
-            value={valueOrDash(
-              contractUntil
-            )}
-          />
-
-          <InfoCard
-            label="Marktwert"
-            value={valueOrDash(
-              player.market_value
-            )}
-          />
-
-          <InfoCard
-            label="Berateragentur"
-            value={valueOrDash(
-              player.agent_agency
-            )}
-          />
-
-          <InfoCard
-            label="Kaderstatus"
-            value={valueOrDash(
-              player.squad_status
-            )}
-          />
-
-          <InfoCard
-            label="Priorität"
-            value={valueOrDash(
-              player.priority
-            )}
-          />
-        </div>
-      </section>
-
-      {player.notes && (
-        <section
-          style={{
-            marginTop: '20px',
-            background: '#ffffff',
-            borderRadius: '14px',
-            padding: '18px',
-            border: '1px solid #ececec'
-          }}
-        >
-          <strong>Notizen</strong>
-
-          <div
-            style={{
-              marginTop: '10px',
-              whiteSpace: 'pre-wrap'
-            }}
-          >
-            {player.notes}
-          </div>
-        </section>
-      )}
-    </main>
-  );
-}
-
-function InfoCard({
-  label,
-  value
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div
-      style={{
-        background: '#ffffff',
-        borderRadius: '14px',
-        padding: '16px',
-        border: '1px solid #ececec',
-        boxShadow:
-          '0 3px 14px rgba(0,0,0,0.04)'
-      }}
-    >
-      <div
-        style={{
-          fontSize: '12px',
-          textTransform: 'uppercase',
-          color: '#777',
-          marginBottom: '5px'
-        }}
-      >
-        {label}
-      </div>
-
-      <div
-        style={{
-          fontSize: '16px',
-          fontWeight: 700
-        }}
-      >
-        {value}
-      </div>
-    </div>
+    <Dashboard
+      displayName={
+        user.displayName ??
+        'VikingVision User'
+      }
+      userPrincipalName={
+        user.userPrincipalName
+      }
+      inTeams={
+        inTeams
+      }
+      ssoOk={
+        user.tokenOk ??
+        false
+      }
+      ssoError={
+        user.tokenError
+      }
+      apiOk={
+        apiOk
+      }
+      supabaseOk={
+        supabaseOk
+      }
+      playerCount={
+        playerCount
+      }
+      supabaseError={
+        supabaseError
+      }
+      onOpenPlayers={
+        openPlayers
+      }
+    />
   );
 }
