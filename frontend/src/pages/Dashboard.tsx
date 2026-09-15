@@ -1,6 +1,20 @@
-type Props = { displayName: string; inTeams: boolean; apiOk: boolean | null };
+type Props = {
+  displayName: string;
+  userPrincipalName?: string;
+  inTeams: boolean;
+  ssoOk: boolean;
+  ssoError?: string;
+  apiOk: boolean | null;
+};
 
-export default function Dashboard({ displayName, inTeams, apiOk }: Props) {
+export default function Dashboard({
+  displayName,
+  userPrincipalName,
+  inTeams,
+  ssoOk,
+  ssoError,
+  apiOk
+}: Props) {
   const cards = ['Spieler','Scoutingberichte','Watchlist','Unser Kader','AKAVision'];
   return <main className="page">
     <section className="hero">
