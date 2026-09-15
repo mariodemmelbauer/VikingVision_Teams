@@ -2198,6 +2198,210 @@ export default {
       }
     }
 
+
+    if (
+      request.method === 'GET' &&
+      url.pathname === '/academy/scouting'
+    ) {
+      try {
+        await authenticate(request);
+
+        const supabase =
+          createSupabase(env);
+
+        const [
+          playersResult,
+          reportsResult
+        ] =
+          await Promise.all([
+            supabase
+              .from(
+                'academy_scouting_players'
+              )
+              .select('*')
+              .order(
+                'name',
+                {
+                  ascending: true
+                }
+              ),
+
+            supabase
+              .from(
+                'academy_scouting_reports'
+              )
+              .select('*')
+              .order(
+                'observation_date',
+                {
+                  ascending: false
+                }
+              )
+              .limit(500)
+          ]);
+
+        if (
+          playersResult.error ||
+          reportsResult.error
+        ) {
+          const firstError =
+            playersResult.error ??
+            reportsResult.error;
+
+          return json(
+            {
+              ok: false,
+              error:
+                firstError?.message ??
+                'Academy scouting request failed'
+            },
+            500
+          );
+        }
+
+        const playerMap =
+          new Map<
+            string,
+            string
+          >(
+            (playersResult.data ?? [])
+              .map(player => [
+                String(player.id),
+                player.name
+              ])
+          );
+
+        const reports =
+          (reportsResult.data ?? [])
+            .map(report => ({
+              ...report,
+              player_name:
+                playerMap.get(
+                  String(
+                    report.player_id
+                  )
+                )
+            }));
+
+        return json({
+          ok: true,
+          players:
+            playersResult.data ?? [],
+          reports
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy scouting request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/academy/scouting/reports'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        if (
+          !body.player_id ||
+          !body.observation_date
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'player_id and observation_date are required'
+            },
+            400
+          );
+        }
+
+        const payload =
+          pickFields(
+            body,
+            [
+              'player_id',
+              'scout_name',
+              'observation_date',
+              'competition',
+              'match_name',
+              'opponent',
+              'observed_position',
+              'minutes_played',
+              'technical_rating',
+              'tactical_rating',
+              'athletic_rating',
+              'mentality_rating',
+              'potential_rating',
+              'strengths',
+              'development_areas',
+              'overall_impression',
+              'recommendation',
+              'next_action'
+            ]
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_scouting_reports'
+            )
+            .insert(payload)
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            report: data
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy scouting report creation failed'
+          },
+          401
+        );
+      }
+    }
+
     return json(
       {
         ok: false,
