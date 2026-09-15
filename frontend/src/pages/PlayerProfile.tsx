@@ -23,6 +23,9 @@ export type Player = {
   notes?: string;
   transfermarkt_url?: string;
   video_url?: string;
+  is_own_squad?: boolean;
+  jersey_number?: string;
+  player_role?: string;
 };
 
 type Props = {
