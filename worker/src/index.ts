@@ -3393,6 +3393,202 @@ export default {
       }
     }
 
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/academy/skill-ac'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        if (!body.academy_player_id) {
+          return json(
+            {
+              ok: false,
+              error:
+                'academy_player_id is required'
+            },
+            400
+          );
+        }
+
+        const payload =
+          pickFields(
+            body,
+            [
+              'academy_player_id',
+              'period_old',
+              'period_new',
+              'team_old',
+              'team_new',
+              'author_old',
+              'author_new',
+              'skill_old',
+              'ac_old',
+              'consequence_general',
+              'skill_new',
+              'ac_new',
+              'reflection',
+              'biggest_changes'
+            ]
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_skill_ac_forms'
+            )
+            .insert(payload)
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            form: data
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Skill/AC creation failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'PUT' &&
+      url.pathname.startsWith(
+        '/academy/skill-ac/'
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const formId =
+          url.pathname
+            .substring(
+              '/academy/skill-ac/'.length
+            )
+            .trim();
+
+        if (!formId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Skill/AC form id is required'
+            },
+            400
+          );
+        }
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        const updateData =
+          pickFields(
+            body,
+            [
+              'period_old',
+              'period_new',
+              'team_old',
+              'team_new',
+              'author_old',
+              'author_new',
+              'skill_old',
+              'ac_old',
+              'consequence_general',
+              'skill_new',
+              'ac_new',
+              'reflection',
+              'biggest_changes'
+            ]
+          );
+
+        updateData.updated_at =
+          new Date().toISOString();
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_skill_ac_forms'
+            )
+            .update(updateData)
+            .eq(
+              'id',
+              formId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          form: data
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Skill/AC update failed'
+          },
+          401
+        );
+      }
+    }
+
     return json(
       {
         ok: false,
