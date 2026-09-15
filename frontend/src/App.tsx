@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Dashboard from './pages/Dashboard';
 import { initTeams, TeamsUser } from './teams/context';
+import Players from './pages/Players';
 
 const API_BASE =
   (import.meta as any).env?.VITE_API_BASE ??
