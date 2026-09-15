@@ -142,24 +142,28 @@ export default function Dashboard({
 
         <button
           className="card"
+          type="button"
         >
           Scoutingberichte
         </button>
 
         <button
           className="card"
+          type="button"
         >
           Watchlist
         </button>
 
         <button
           className="card"
+          type="button"
         >
           Unser Kader
         </button>
 
         <button
           className="card"
+          type="button"
         >
           AKAVision
         </button>
