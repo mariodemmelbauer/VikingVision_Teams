@@ -11,6 +11,7 @@ type Props = {
   supabaseError?: string;
 
   onOpenPlayers: () => void;
+  onOpenScoutingReports: () => void;
 };
 
 export default function Dashboard({
@@ -23,18 +24,15 @@ export default function Dashboard({
   supabaseOk,
   playerCount,
   supabaseError,
-  onOpenPlayers
+  onOpenPlayers,
+  onOpenScoutingReports
 }: Props) {
   return (
     <main className="page">
       <section className="hero">
         <div>
-          <div className="eyebrow">
-            SV Oberbank Ried
-          </div>
-
+          <div className="eyebrow">SV Oberbank Ried</div>
           <h1>VikingVision</h1>
-
           <p>Teams Proof of Concept</p>
         </div>
 
@@ -104,37 +102,35 @@ export default function Dashboard({
           }}
         >
           <strong>SSO-Fehler:</strong>
-
           <div style={{ marginTop: '4px' }}>
             {ssoError}
           </div>
         </section>
       )}
 
-      {supabaseOk === false &&
-        supabaseError && (
-          <section
-            style={{
-              marginTop: '12px',
-              padding: '12px 16px',
-              borderRadius: '10px',
-              background: '#fff8e6',
-              color: '#8a5500',
-              fontSize: '13px',
-              wordBreak: 'break-word'
-            }}
-          >
-            <strong>Supabase-Fehler:</strong>
-
-            <div style={{ marginTop: '4px' }}>
-              {supabaseError}
-            </div>
-          </section>
-        )}
+      {supabaseOk === false && supabaseError && (
+        <section
+          style={{
+            marginTop: '12px',
+            padding: '12px 16px',
+            borderRadius: '10px',
+            background: '#fff8e6',
+            color: '#8a5500',
+            fontSize: '13px',
+            wordBreak: 'break-word'
+          }}
+        >
+          <strong>Supabase-Fehler:</strong>
+          <div style={{ marginTop: '4px' }}>
+            {supabaseError}
+          </div>
+        </section>
+      )}
 
       <section className="grid">
         <button
           className="card"
+          type="button"
           onClick={onOpenPlayers}
         >
           Spieler
@@ -143,28 +139,20 @@ export default function Dashboard({
         <button
           className="card"
           type="button"
+          onClick={onOpenScoutingReports}
         >
           Scoutingberichte
         </button>
 
-        <button
-          className="card"
-          type="button"
-        >
+        <button className="card" type="button">
           Watchlist
         </button>
 
-        <button
-          className="card"
-          type="button"
-        >
+        <button className="card" type="button">
           Unser Kader
         </button>
 
-        <button
-          className="card"
-          type="button"
-        >
+        <button className="card" type="button">
           AKAVision
         </button>
       </section>
