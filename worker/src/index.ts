@@ -2651,6 +2651,190 @@ export default {
       }
     }
 
+
+    if (
+      request.method === 'GET' &&
+      url.pathname.startsWith(
+        '/academy/player/'
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          url.pathname
+            .substring(
+              '/academy/player/'.length
+            )
+            .trim();
+
+        if (!playerId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'academy player id is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: player,
+          error: playerError
+        } =
+          await supabase
+            .from(
+              'academy_players'
+            )
+            .select('*')
+            .eq(
+              'id',
+              playerId
+            )
+            .single();
+
+        if (playerError) {
+          return json(
+            {
+              ok: false,
+              error:
+                playerError.message
+            },
+            500
+          );
+        }
+
+        const [
+          assessmentsResult,
+          sportScienceResult,
+          skillAcResult
+        ] =
+          await Promise.all([
+            supabase
+              .from(
+                'academy_ideal_assessments'
+              )
+              .select('*')
+              .eq(
+                'academy_player_id',
+                playerId
+              )
+              .order(
+                'assessment_date',
+                {
+                  ascending: false
+                }
+              ),
+
+            supabase
+              .from(
+                'academy_sport_science_tests'
+              )
+              .select('*')
+              .eq(
+                'academy_player_id',
+                playerId
+              )
+              .order(
+                'test_date',
+                {
+                  ascending: false
+                }
+              ),
+
+            supabase
+              .from(
+                'academy_skill_ac_forms'
+              )
+              .select('*')
+              .eq(
+                'academy_player_id',
+                playerId
+              )
+              .order(
+                'updated_at',
+                {
+                  ascending: false
+                }
+              )
+          ]);
+
+        const assessmentIds =
+          (
+            assessmentsResult.data ??
+            []
+          ).map(
+            row => row.id
+          );
+
+        let idealScores:
+          Array<Record<string, unknown>> =
+          [];
+
+        if (
+          assessmentIds.length > 0
+        ) {
+          const {
+            data,
+            error
+          } =
+            await supabase
+              .from(
+                'academy_ideal_scores'
+              )
+              .select('*')
+              .in(
+                'assessment_id',
+                assessmentIds
+              );
+
+          if (error) {
+            return json(
+              {
+                ok: false,
+                error:
+                  error.message
+              },
+              500
+            );
+          }
+
+          idealScores =
+            data ?? [];
+        }
+
+        return json({
+          ok: true,
+          player,
+          idealAssessments:
+            assessmentsResult.data ??
+            [],
+          idealScores,
+          sportScienceTests:
+            sportScienceResult.data ??
+            [],
+          skillAcForms:
+            skillAcResult.data ??
+            []
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy player profile request failed'
+          },
+          401
+        );
+      }
+    }
+
     return json(
       {
         ok: false,
