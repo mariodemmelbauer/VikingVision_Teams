@@ -6,11 +6,5 @@
 
   "vars": {
     "SUPABASE_URL": "https://wgtfhfbqnecwdrstxfwd.supabase.co"
-  },
-
-  "secrets": {
-    "required": [
-      "SUPABASE_SECRET_KEY"
-    ]
   }
 }
