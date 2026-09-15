@@ -16,6 +16,15 @@ export default function App() {
   const [apiOk, setApiOk] =
     useState<boolean | null>(null);
 
+  const [supabaseOk, setSupabaseOk] =
+    useState<boolean | null>(null);
+
+  const [playerCount, setPlayerCount] =
+    useState<number | null>(null);
+
+  const [supabaseError, setSupabaseError] =
+    useState<string | undefined>();
+
   useEffect(() => {
     async function start() {
       const result = await initTeams();
@@ -23,15 +32,21 @@ export default function App() {
       setInTeams(result.inTeams);
       setUser(result.user);
 
+      const token = result.user.accessToken;
+
+      if (!token) {
+        setApiOk(false);
+        setSupabaseOk(false);
+        setSupabaseError('Kein Teams-SSO-Token vorhanden');
+        return;
+      }
+
+      const headers = {
+        Authorization: `Bearer ${token}`
+      };
+
       try {
-        const headers: Record<string, string> = {};
-
-        if (result.user.accessToken) {
-          headers.Authorization =
-            `Bearer ${result.user.accessToken}`;
-        }
-
-        const response = await fetch(
+        const healthResponse = await fetch(
           `${API_BASE}/health`,
           {
             method: 'GET',
@@ -39,21 +54,66 @@ export default function App() {
           }
         );
 
-        setApiOk(response.ok);
+        setApiOk(healthResponse.ok);
+      } catch (error) {
+        console.error('Health API error:', error);
+        setApiOk(false);
+      }
 
-        const data = await response.json();
+      try {
+        const playersResponse = await fetch(
+          `${API_BASE}/players`,
+          {
+            method: 'GET',
+            headers
+          }
+        );
+
+        const playersData = await playersResponse.json();
+
+        if (!playersResponse.ok) {
+          setSupabaseOk(false);
+          setPlayerCount(null);
+          setSupabaseError(
+            playersData?.error ??
+            'Supabase-Anfrage fehlgeschlagen'
+          );
+
+          console.error(
+            'Players API error:',
+            playersData
+          );
+
+          return;
+        }
+
+        setSupabaseOk(
+          playersData.supabase === true
+        );
+
+        setPlayerCount(
+          typeof playersData.count === 'number'
+            ? playersData.count
+            : 0
+        );
+
+        setSupabaseError(undefined);
 
         console.log(
-          'VikingVision API health:',
-          data
+          'VikingVision players:',
+          playersData.players
         );
       } catch (error) {
         console.error(
-          'VikingVision API error:',
+          'Players API request failed:',
           error
         );
 
-        setApiOk(false);
+        setSupabaseOk(false);
+        setPlayerCount(null);
+        setSupabaseError(
+          'Verbindung zu Supabase fehlgeschlagen'
+        );
       }
     }
 
@@ -73,6 +133,9 @@ export default function App() {
       ssoOk={user.tokenOk ?? false}
       ssoError={user.tokenError}
       apiOk={apiOk}
+      supabaseOk={supabaseOk}
+      playerCount={playerCount}
+      supabaseError={supabaseError}
     />
   );
 }
