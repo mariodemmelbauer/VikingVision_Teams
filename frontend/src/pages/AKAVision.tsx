@@ -1074,6 +1074,32 @@ function AcademyPlayerProfile({
   const [savingIdeal, setSavingIdeal] =
     useState(false);
 
+  const [showSkillAcForm, setShowSkillAcForm] =
+    useState(false);
+
+  const [savingSkillAc, setSavingSkillAc] =
+    useState(false);
+
+  const [editingSkillAcId, setEditingSkillAcId] =
+    useState<number | null>(null);
+
+  const [skillAcForm, setSkillAcForm] =
+    useState({
+      period_old: '',
+      period_new: '',
+      team_old: player.team ?? '',
+      team_new: player.team ?? '',
+      author_old: '',
+      author_new: '',
+      skill_old: '',
+      ac_old: '',
+      consequence_general: '',
+      skill_new: '',
+      ac_new: '',
+      reflection: '',
+      biggest_changes: ''
+    });
+
   const [editingIdealId, setEditingIdealId] =
     useState<number | null>(null);
 
@@ -1735,6 +1761,169 @@ function AcademyPlayerProfile({
   }
 
 
+  function resetSkillAcForm() {
+    setEditingSkillAcId(null);
+    setSkillAcForm({
+      period_old: '',
+      period_new: '',
+      team_old: player.team ?? '',
+      team_new: player.team ?? '',
+      author_old: '',
+      author_new: '',
+      skill_old: '',
+      ac_old: '',
+      consequence_general: '',
+      skill_new: '',
+      ac_new: '',
+      reflection: '',
+      biggest_changes: ''
+    });
+  }
+
+  function updateSkillAcField(
+    field: keyof typeof skillAcForm,
+    value: string
+  ) {
+    setSkillAcForm(current => ({
+      ...current,
+      [field]: value
+    }));
+  }
+
+  function editSkillAcForm(
+    form: SkillAcForm
+  ) {
+    setEditingSkillAcId(form.id);
+
+    setSkillAcForm({
+      period_old:
+        form.period_old ?? '',
+      period_new:
+        form.period_new ?? '',
+      team_old:
+        form.team_old ?? '',
+      team_new:
+        form.team_new ?? '',
+      author_old:
+        form.author_old ?? '',
+      author_new:
+        form.author_new ?? '',
+      skill_old:
+        form.skill_old ?? '',
+      ac_old:
+        form.ac_old ?? '',
+      consequence_general:
+        form.consequence_general ?? '',
+      skill_new:
+        form.skill_new ?? '',
+      ac_new:
+        form.ac_new ?? '',
+      reflection:
+        form.reflection ?? '',
+      biggest_changes:
+        form.biggest_changes ?? ''
+    });
+
+    setShowSkillAcForm(true);
+    setProfileError(undefined);
+    setProfileSuccess(undefined);
+  }
+
+  async function saveSkillAcForm() {
+    if (!accessToken) {
+      setProfileError(
+        'Kein Teams-SSO-Token vorhanden.'
+      );
+      return;
+    }
+
+    setSavingSkillAc(true);
+    setProfileError(undefined);
+    setProfileSuccess(undefined);
+
+    try {
+      const isEdit =
+        editingSkillAcId != null;
+
+      const response =
+        await fetch(
+          isEdit
+            ? `${apiBase}/academy/skill-ac/${editingSkillAcId}`
+            : `${apiBase}/academy/skill-ac`,
+          {
+            method:
+              isEdit ? 'PUT' : 'POST',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`,
+              'Content-Type':
+                'application/json'
+            },
+            body: JSON.stringify({
+              academy_player_id:
+                player.id,
+              period_old:
+                skillAcForm.period_old || null,
+              period_new:
+                skillAcForm.period_new || null,
+              team_old:
+                skillAcForm.team_old || null,
+              team_new:
+                skillAcForm.team_new || null,
+              author_old:
+                skillAcForm.author_old || null,
+              author_new:
+                skillAcForm.author_new || null,
+              skill_old:
+                skillAcForm.skill_old || null,
+              ac_old:
+                skillAcForm.ac_old || null,
+              consequence_general:
+                skillAcForm.consequence_general || null,
+              skill_new:
+                skillAcForm.skill_new || null,
+              ac_new:
+                skillAcForm.ac_new || null,
+              reflection:
+                skillAcForm.reflection || null,
+              biggest_changes:
+                skillAcForm.biggest_changes || null
+            })
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+          'Skill-/AC-Formular konnte nicht gespeichert werden.'
+        );
+      }
+
+      setShowSkillAcForm(false);
+      resetSkillAcForm();
+
+      setProfileSuccess(
+        isEdit
+          ? 'Skill-/AC-Formular wurde aktualisiert.'
+          : 'Skill-/AC-Formular wurde gespeichert.'
+      );
+
+      await onSaved();
+    } catch (err) {
+      setProfileError(
+        err instanceof Error
+          ? err.message
+          : 'Speichern fehlgeschlagen.'
+      );
+    } finally {
+      setSavingSkillAc(false);
+    }
+  }
+
+
   return (
     <div style={modalBackdrop}>
       <div style={modalPanel}>
@@ -1826,6 +2015,19 @@ function AcademyPlayerProfile({
               style={primaryButton}
             >
               + Ideale-Bewertung
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                resetSkillAcForm();
+                setShowSkillAcForm(
+                  value => !value
+                );
+              }}
+              style={primaryButton}
+            >
+              + Skill / AC
             </button>
 
             <button
@@ -2484,6 +2686,219 @@ function AcademyPlayerProfile({
           </section>
         )}
 
+
+        {showSkillAcForm && (
+          <section
+            style={{
+              ...panel,
+              marginTop: '18px'
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                gap: '12px',
+                flexWrap: 'wrap',
+                alignItems: 'center'
+              }}
+            >
+              <h3 style={{ margin: 0 }}>
+                {editingSkillAcId != null
+                  ? 'Skill / AC bearbeiten'
+                  : 'Neues Skill-/AC-Formular'}
+              </h3>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSkillAcForm(false);
+                  resetSkillAcForm();
+                }}
+                style={secondaryButton}
+              >
+                Abbrechen
+              </button>
+            </div>
+
+            <div
+              style={{
+                ...profileFormGrid,
+                marginTop: '14px'
+              }}
+            >
+              <TextInput
+                label="Periode alt"
+                value={skillAcForm.period_old}
+                onChange={value =>
+                  updateSkillAcField(
+                    'period_old',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Periode neu"
+                value={skillAcForm.period_new}
+                onChange={value =>
+                  updateSkillAcField(
+                    'period_new',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Team alt"
+                value={skillAcForm.team_old}
+                onChange={value =>
+                  updateSkillAcField(
+                    'team_old',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Team neu"
+                value={skillAcForm.team_new}
+                onChange={value =>
+                  updateSkillAcField(
+                    'team_new',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Autor alt"
+                value={skillAcForm.author_old}
+                onChange={value =>
+                  updateSkillAcField(
+                    'author_old',
+                    value
+                  )
+                }
+              />
+
+              <TextInput
+                label="Autor neu"
+                value={skillAcForm.author_new}
+                onChange={value =>
+                  updateSkillAcField(
+                    'author_new',
+                    value
+                  )
+                }
+              />
+            </div>
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(2, minmax(0, 1fr))',
+                gap: '12px',
+                marginTop: '14px'
+              }}
+            >
+              <Area
+                label="Skill alt"
+                value={skillAcForm.skill_old}
+                onChange={value =>
+                  updateSkillAcField(
+                    'skill_old',
+                    value
+                  )
+                }
+              />
+
+              <Area
+                label="Skill neu"
+                value={skillAcForm.skill_new}
+                onChange={value =>
+                  updateSkillAcField(
+                    'skill_new',
+                    value
+                  )
+                }
+              />
+
+              <Area
+                label="AC alt"
+                value={skillAcForm.ac_old}
+                onChange={value =>
+                  updateSkillAcField(
+                    'ac_old',
+                    value
+                  )
+                }
+              />
+
+              <Area
+                label="AC neu"
+                value={skillAcForm.ac_new}
+                onChange={value =>
+                  updateSkillAcField(
+                    'ac_new',
+                    value
+                  )
+                }
+              />
+
+              <Area
+                label="Größte Veränderungen"
+                value={skillAcForm.biggest_changes}
+                onChange={value =>
+                  updateSkillAcField(
+                    'biggest_changes',
+                    value
+                  )
+                }
+              />
+
+              <Area
+                label="Konsequenz allgemein"
+                value={skillAcForm.consequence_general}
+                onChange={value =>
+                  updateSkillAcField(
+                    'consequence_general',
+                    value
+                  )
+                }
+              />
+
+              <Area
+                label="Reflexion"
+                value={skillAcForm.reflection}
+                onChange={value =>
+                  updateSkillAcField(
+                    'reflection',
+                    value
+                  )
+                }
+              />
+            </div>
+
+            <button
+              type="button"
+              onClick={saveSkillAcForm}
+              disabled={savingSkillAc}
+              style={{
+                ...primaryButton,
+                marginTop: '16px'
+              }}
+            >
+              {savingSkillAc
+                ? 'Speichert…'
+                : editingSkillAcId != null
+                  ? 'Skill / AC aktualisieren'
+                  : 'Skill / AC speichern'}
+            </button>
+          </section>
+        )}
+
         <section
           style={{
             display: 'grid',
@@ -2779,6 +3194,20 @@ function AcademyPlayerProfile({
                         }
                       </div>
                     )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        editSkillAcForm(form)
+                      }
+                      style={{
+                        ...secondaryButton,
+                        marginTop: '8px',
+                        padding: '7px 10px'
+                      }}
+                    >
+                      Bearbeiten
+                    </button>
                   </div>
                 ))
             )}
