@@ -15,6 +15,7 @@ type AcademyPlayer = {
   height?: string;
   current_club?: string;
   squad_status?: string;
+  notes?: string;
   boarding_school?: boolean;
   school_type?: string;
   school_class?: string;
