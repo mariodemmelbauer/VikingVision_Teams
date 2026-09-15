@@ -7,6 +7,7 @@ import PlayerProfile, {
 } from './pages/PlayerProfile';
 import ScoutingReports from './pages/ScoutingReports';
 import Watchlist from './pages/Watchlist';
+import Squad from './pages/Squad';
 
 import {
   initTeams,
@@ -22,7 +23,8 @@ type Page =
   | 'players'
   | 'playerProfile'
   | 'scoutingReports'
-  | 'watchlist';
+  | 'watchlist'
+  | 'squad';
 
 export default function App() {
   const [page, setPage] =
@@ -262,6 +264,19 @@ export default function App() {
     }
   }
 
+  async function openSquad() {
+    try {
+      await ensurePlayersLoaded();
+      setPage('squad');
+    } catch (error) {
+      setSupabaseError(
+        error instanceof Error
+          ? error.message
+          : 'Kader konnte nicht geladen werden'
+      );
+    }
+  }
+
   function openPlayer(
     player: Player
   ) {
@@ -347,6 +362,16 @@ export default function App() {
     );
   }
 
+  if (page === 'squad') {
+    return (
+      <Squad
+        players={players}
+        onBack={backToDashboard}
+        onOpenPlayer={openPlayer}
+      />
+    );
+  }
+
   return (
     <Dashboard
       displayName={
@@ -378,6 +403,9 @@ export default function App() {
       }
       onOpenWatchlist={
         openWatchlist
+      }
+      onOpenSquad={
+        openSquad
       }
     />
   );
