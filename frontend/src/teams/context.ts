@@ -5,16 +5,28 @@ export type TeamsUser = {
   userPrincipalName?: string;
   tenantId?: string;
   objectId?: string;
+
+  accessToken?: string;
+
   tokenOk?: boolean;
   tokenError?: string;
 };
 
 function decodeJwtPayload(token: string): Record<string, any> {
   const part = token.split('.')[1];
-  if (!part) return {};
 
-  const base64 = part.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, '=');
+  if (!part) {
+    return {};
+  }
+
+  const base64 = part
+    .replace(/-/g, '+')
+    .replace(/_/g, '/');
+
+  const padded = base64.padEnd(
+    Math.ceil(base64.length / 4) * 4,
+    '='
+  );
 
   return JSON.parse(atob(padded));
 }
@@ -36,7 +48,10 @@ export async function initTeams(): Promise<{
 
     try {
       const token = await authentication.getAuthToken();
+
       const claims = decodeJwtPayload(token);
+
+      user.accessToken = token;
 
       user.displayName =
         claims.name ??
@@ -57,6 +72,7 @@ export async function initTeams(): Promise<{
       user.tokenOk = true;
     } catch (authError: any) {
       user.tokenOk = false;
+
       user.tokenError =
         authError?.message ??
         String(authError);
