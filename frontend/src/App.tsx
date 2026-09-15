@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Dashboard from './pages/Dashboard';
 import { initTeams } from './teams/context';
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? 'http://localhost:8000';
+const API_BASE = (import.meta as any).env?.VITE_API_BASE ?? 'http://localhost:8000';
 
 export default function App() {
   const [displayName, setDisplayName] = useState('VikingVision User');
