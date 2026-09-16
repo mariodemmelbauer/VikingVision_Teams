@@ -3420,6 +3420,10 @@ export default {
           await supabase
             .from('p12_players')
             .select('*')
+            .neq(
+              'p12_status',
+              'Nicht im P12'
+            )
             .order(
               'name',
               {
@@ -5379,7 +5383,8 @@ export default {
               'school_type',
               'school_class',
               'bus_use',
-              'bus_route'
+              'bus_route',
+              'is_p12'
             ]
           );
 
@@ -5429,6 +5434,136 @@ export default {
             },
             500
           );
+        }
+
+        if (
+          Object.prototype
+            .hasOwnProperty
+            .call(
+              updateData,
+              'is_p12'
+            )
+        ) {
+          if (data.is_p12) {
+            const {
+              data: existingP12,
+              error: existingP12Error
+            } =
+              await supabase
+                .from(
+                  'p12_players'
+                )
+                .select(
+                  'id,academy_player_id'
+                )
+                .eq(
+                  'academy_player_id',
+                  data.id
+                )
+                .maybeSingle();
+
+            if (existingP12Error) {
+              return json(
+                {
+                  ok: false,
+                  error:
+                    existingP12Error.message
+                },
+                500
+              );
+            }
+
+            const p12Payload = {
+              academy_player_id:
+                data.id,
+              name:
+                data.name,
+              birth_date:
+                data.birth_date,
+              primary_position:
+                data.primary_position,
+              player_role:
+                data.player_role,
+              preferred_foot:
+                data.preferred_foot,
+              current_club:
+                data.current_club ??
+                'SV Ried',
+              height:
+                data.height,
+              nationality:
+                data.nationality,
+              p12_status:
+                'Aktiv',
+              updated_at:
+                new Date()
+                  .toISOString()
+            };
+
+            const p12Result =
+              existingP12
+                ? await supabase
+                    .from(
+                      'p12_players'
+                    )
+                    .update(
+                      p12Payload
+                    )
+                    .eq(
+                      'id',
+                      existingP12.id
+                    )
+                : await supabase
+                    .from(
+                      'p12_players'
+                    )
+                    .insert(
+                      p12Payload
+                    );
+
+            if (
+              p12Result.error
+            ) {
+              return json(
+                {
+                  ok: false,
+                  error:
+                    p12Result.error.message
+                },
+                500
+              );
+            }
+          } else {
+            const {
+              error: p12PauseError
+            } =
+              await supabase
+                .from(
+                  'p12_players'
+                )
+                .update({
+                  p12_status:
+                    'Nicht im P12',
+                  updated_at:
+                    new Date()
+                      .toISOString()
+                })
+                .eq(
+                  'academy_player_id',
+                  data.id
+                );
+
+            if (p12PauseError) {
+              return json(
+                {
+                  ok: false,
+                  error:
+                    p12PauseError.message
+                },
+                500
+              );
+            }
+          }
         }
 
         return json({
