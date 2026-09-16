@@ -1,9 +1,13 @@
+import React from 'react';
 import type { Player } from './PlayerProfile';
 
 type Props = {
   players: Player[];
+  accessToken?: string;
+  apiBase: string;
   onBack: () => void;
   onOpenPlayer: (player: Player) => void;
+  onArchived?: () => Promise<Player[] | void>;
 };
 
 type PositionGroup =
@@ -95,9 +99,77 @@ function displayContract(
 
 export default function Squad({
   players,
+  accessToken,
+  apiBase,
   onBack,
-  onOpenPlayer
+  onOpenPlayer,
+  onArchived
 }: Props) {
+  const [archivingId, setArchivingId] =
+    React.useState<number | string | null>(null);
+
+  const [archiveError, setArchiveError] =
+    React.useState<string | undefined>();
+
+  async function archivePlayer(
+    player: Player
+  ) {
+    if (!accessToken) {
+      setArchiveError(
+        'Kein Teams-SSO-Token vorhanden.'
+      );
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `${player.name ?? 'Spieler'} aus dem Kader entfernen und ins Spielerarchiv verschieben?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setArchivingId(player.id);
+    setArchiveError(undefined);
+
+    try {
+      const response =
+        await fetch(
+          `${apiBase}/squad/${player.id}/archive`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`,
+              'Content-Type':
+                'application/json'
+            },
+            body: JSON.stringify({})
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+          'Spieler konnte nicht archiviert werden.'
+        );
+      }
+
+      await onArchived?.();
+    } catch (error) {
+      setArchiveError(
+        error instanceof Error
+          ? error.message
+          : 'Archivieren fehlgeschlagen.'
+      );
+    } finally {
+      setArchivingId(null);
+    }
+  }
   const ownSquad =
     players.filter(
       player =>
@@ -211,6 +283,12 @@ export default function Squad({
         </span>
       </section>
 
+      {archiveError && (
+        <section style={errorBox}>
+          {archiveError}
+        </section>
+      )}
+
       {ownSquad.length === 0 && (
         <section
           style={{
@@ -266,12 +344,8 @@ export default function Squad({
                   };
 
                 return (
-                  <button
+                  <article
                     key={player.id}
-                    type="button"
-                    onClick={() =>
-                      onOpenPlayer(player)
-                    }
                     style={playerCard}
                   >
                     <div
@@ -478,19 +552,40 @@ export default function Squad({
 
                     <div
                       style={{
-                        marginTop:
-                          '14px',
-                        color:
-                          '#0b7a3b',
-                        fontWeight:
-                          700,
-                        fontSize:
-                          '13px'
+                        display: 'flex',
+                        gap: '8px',
+                        flexWrap: 'wrap',
+                        marginTop: '14px'
                       }}
                     >
-                      Spielerprofil öffnen →
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onOpenPlayer(player)
+                        }
+                        style={secondaryButton}
+                      >
+                        Profil öffnen
+                      </button>
+
+                      <button
+                        type="button"
+                        disabled={
+                          String(archivingId) ===
+                          String(player.id)
+                        }
+                        onClick={() =>
+                          archivePlayer(player)
+                        }
+                        style={archiveButton}
+                      >
+                        {String(archivingId) ===
+                        String(player.id)
+                          ? 'Archiviert…'
+                          : 'Aus Kader entfernen'}
+                      </button>
                     </div>
-                  </button>
+                  </article>
                 );
               })}
             </div>
@@ -545,4 +640,18 @@ const playerCard:
   cursor: 'pointer',
   color: 'inherit',
   font: 'inherit'
+};
+
+const archiveButton: React.CSSProperties = {
+  ...secondaryButton,
+  color: '#8a5500',
+  borderColor: '#e2c98d'
+};
+
+const errorBox: React.CSSProperties = {
+  marginTop: '14px',
+  padding: '12px 16px',
+  background: '#fff3f3',
+  color: '#a00000',
+  borderRadius: '10px'
 };
