@@ -557,7 +557,6 @@ export default function AKAVision({
 function OverviewTab({
   team,
   overview,
-  players,
   players
 }: {
   team: AcademyTeam;
