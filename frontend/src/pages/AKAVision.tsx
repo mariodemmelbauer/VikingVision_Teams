@@ -3,7 +3,6 @@ import '../akavision-responsive.css';
 import AcademyPlayerProfile from './academy/AcademyPlayerProfile';
 import AcademyScoutingTab from './academy/AcademyScoutingTab';
 
-
 type AcademyTeam = 'U15' | 'U16' | 'U18' | 'JWR';
 
 type AcademyPlayer = {
@@ -51,28 +50,6 @@ type AcademyMatch = {
   duration_minutes?: number;
   result?: string;
   notes?: string;
-};
-
-type TrainingSession = {
-  id: number;
-  team: string;
-  session_date: string;
-  title?: string;
-  session_type?: string;
-  duration_minutes: number;
-  notes?: string;
-};
-
-type TrainingAttendance = {
-  session_id: number;
-  academy_player_id: number;
-  present: boolean;
-  minutes: number;
-  comment?: string;
-  player_name?: string;
-  session_date?: string;
-  session_title?: string;
-  session_type?: string;
 };
 
 type IdealScore = {
@@ -186,8 +163,6 @@ type Overview = {
   upcomingFixtureCount: number;
   playedMatchCount: number;
   totalMinutes: number;
-  trainingSessionCount?: number;
-  trainingMinutes?: number;
 };
 
 type Props = {
@@ -200,7 +175,6 @@ type Tab =
   | 'overview'
   | 'players'
   | 'matches'
-  | 'training'
   | 'ideals'
   | 'scouting'
   | 'sportScience'
@@ -236,11 +210,7 @@ export default function AKAVision({
   const [matches, setMatches] =
     useState<AcademyMatch[]>([]);
 
-  const [trainingSessions, setTrainingSessions] =
-    useState<TrainingSession[]>([]);
 
-  const [trainingAttendance, setTrainingAttendance] =
-    useState<TrainingAttendance[]>([]);
 
   const [idealAssessments, setIdealAssessments] =
     useState<IdealAssessment[]>([]);
@@ -314,7 +284,6 @@ export default function AKAVision({
         playerData,
         fixtureData,
         matchData,
-        trainingData,
         idealsData,
         scoutingData,
         sportScienceData,
@@ -332,9 +301,6 @@ export default function AKAVision({
           ),
           apiGet(
             `/academy/matches?team=${encodedTeam}`
-          ),
-          apiGet(
-            `/academy/training?team=${encodedTeam}`
           ),
           apiGet(
             `/academy/ideals?team=${encodedTeam}`
@@ -375,22 +341,6 @@ export default function AKAVision({
           matchData.matches
         )
           ? matchData.matches
-          : []
-      );
-
-      setTrainingSessions(
-        Array.isArray(
-          trainingData.sessions
-        )
-          ? trainingData.sessions
-          : []
-      );
-
-      setTrainingAttendance(
-        Array.isArray(
-          trainingData.attendance
-        )
-          ? trainingData.attendance
           : []
       );
 
@@ -476,7 +426,7 @@ export default function AKAVision({
 
           <p>
             Akademie-Dashboard für Spieler,
-            Spiele, Training und Ideale
+            Spiele, Ideale, Sport Science und Scouting
           </p>
         </div>
 
@@ -560,13 +510,6 @@ export default function AKAVision({
         </TabButton>
 
         <TabButton
-          active={tab === 'training'}
-          onClick={() => setTab('training')}
-        >
-          Training
-        </TabButton>
-
-        <TabButton
           active={tab === 'ideals'}
           onClick={() => setTab('ideals')}
         >
@@ -613,8 +556,6 @@ export default function AKAVision({
               players={activePlayers}
               fixtures={fixtures}
               matches={matches}
-              trainingSessions={trainingSessions}
-              trainingAttendance={trainingAttendance}
             />
           )}
 
@@ -633,14 +574,6 @@ export default function AKAVision({
             <MatchesTab
               fixtures={fixtures}
               matches={matches}
-            />
-          )}
-
-          {tab === 'training' && (
-            <TrainingTab
-              players={players}
-              sessions={trainingSessions}
-              attendance={trainingAttendance}
             />
           )}
 
@@ -679,7 +612,6 @@ export default function AKAVision({
         <AcademyPlayerProfile
           player={selectedAcademyPlayer}
           matches={matches}
-          trainingAttendance={trainingAttendance}
           idealAssessments={idealAssessments}
           sportScienceTests={sportScienceTests}
           skillAcForms={skillAcForms}
@@ -702,17 +634,13 @@ function OverviewTab({
   overview,
   players,
   fixtures,
-  matches,
-  trainingSessions,
-  trainingAttendance
+  matches
 }: {
   team: AcademyTeam;
   overview: Overview | null;
   players: AcademyPlayer[];
   fixtures: AcademyFixture[];
   matches: AcademyMatch[];
-  trainingSessions: TrainingSession[];
-  trainingAttendance: TrainingAttendance[];
 }) {
   const upcoming =
     fixtures.slice(0, 5);
@@ -720,12 +648,6 @@ function OverviewTab({
   const recent =
     matches.slice(0, 5);
 
-  const trainingMinutes =
-    trainingAttendance.reduce(
-      (sum, item) =>
-        sum + Number(item.minutes ?? 0),
-      0
-    );
 
   return (
     <>
@@ -767,22 +689,6 @@ function OverviewTab({
           value={
             overview?.totalMinutes ??
             0
-          }
-        />
-
-        <Kpi
-          label="Trainingseinheiten"
-          value={
-            overview?.trainingSessionCount ??
-            trainingSessions.length
-          }
-        />
-
-        <Kpi
-          label="Trainingsminuten"
-          value={
-            overview?.trainingMinutes ??
-            trainingMinutes
           }
         />
       </section>
@@ -1081,258 +987,6 @@ function MatchesTab({
           ))
         )}
       </div>
-    </section>
-  );
-}
-
-function TrainingTab({
-  players,
-  sessions,
-  attendance
-}: {
-  players: AcademyPlayer[];
-  sessions: TrainingSession[];
-  attendance: TrainingAttendance[];
-}) {
-  const playerById =
-    new Map(
-      players.map(player => [
-        String(player.id),
-        player
-      ])
-    );
-
-  const stats =
-    players
-      .map(player => {
-        const rows =
-          attendance.filter(
-            item =>
-              String(
-                item.academy_player_id
-              ) === String(player.id)
-          );
-
-        const present =
-          rows.filter(
-            row => row.present
-          ).length;
-
-        const minutes =
-          rows.reduce(
-            (sum, row) =>
-              sum +
-              Number(row.minutes ?? 0),
-            0
-          );
-
-        const rate =
-          sessions.length > 0
-            ? Math.round(
-                (present /
-                  sessions.length) *
-                  100
-              )
-            : 0;
-
-        return {
-          player,
-          present,
-          minutes,
-          rate
-        };
-      })
-      .sort(
-        (a, b) =>
-          b.minutes - a.minutes
-      );
-
-  return (
-    <section style={{ marginTop: '18px' }}>
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: '12px'
-        }}
-      >
-        <Kpi
-          label="Einheiten"
-          value={sessions.length}
-        />
-
-        <Kpi
-          label="Anwesenheitseinträge"
-          value={attendance.length}
-        />
-
-        <Kpi
-          label="Gesamtminuten"
-          value={attendance.reduce(
-            (sum, row) =>
-              sum +
-              Number(row.minutes ?? 0),
-            0
-          )}
-        />
-      </section>
-
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(330px, 1fr))',
-          gap: '16px',
-          marginTop: '18px'
-        }}
-      >
-        <div style={panel}>
-          <h2 style={{ marginTop: 0 }}>
-            Trainingseinheiten
-          </h2>
-
-          {sessions.length === 0 ? (
-            <div>
-              Noch keine Trainingseinheiten vorhanden.
-            </div>
-          ) : (
-            sessions.map(session => (
-              <div
-                key={session.id}
-                style={rowStyle}
-              >
-                <div>
-                  <strong>
-                    {formatDate(
-                      session.session_date
-                    )}
-                  </strong>
-
-                  <div
-                    style={{
-                      marginTop: '3px'
-                    }}
-                  >
-                    {session.title ??
-                      session.session_type ??
-                      'Training'}
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: '3px',
-                      color: '#777',
-                      fontSize: '12px'
-                    }}
-                  >
-                    {[
-                      session.session_type,
-                      `${session.duration_minutes} Min.`
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </div>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-
-        <div style={panel}>
-          <h2 style={{ marginTop: 0 }}>
-            Trainingsbeteiligung
-          </h2>
-
-          {stats.length === 0 ? (
-            <div>Keine Daten vorhanden.</div>
-          ) : (
-            stats.map(item => (
-              <div
-                key={item.player.id}
-                style={rowStyle}
-              >
-                <div>
-                  <strong>
-                    {item.player.name}
-                  </strong>
-                  <div
-                    style={{
-                      marginTop: '3px',
-                      color: '#777',
-                      fontSize: '12px'
-                    }}
-                  >
-                    {item.present} Einheiten · {item.minutes} Min.
-                  </div>
-                </div>
-
-                <strong>
-                  {item.rate} %
-                </strong>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-
-      {attendance.some(
-        item => item.comment
-      ) && (
-        <section
-          style={{
-            ...panel,
-            marginTop: '18px'
-          }}
-        >
-          <h2 style={{ marginTop: 0 }}>
-            Kommentare
-          </h2>
-
-          {attendance
-            .filter(item => item.comment)
-            .map((item, index) => (
-              <div
-                key={`${item.session_id}-${item.academy_player_id}-${index}`}
-                style={rowStyle}
-              >
-                <div>
-                  <strong>
-                    {item.player_name ??
-                      playerById.get(
-                        String(
-                          item.academy_player_id
-                        )
-                      )?.name ??
-                      `Spieler ${item.academy_player_id}`}
-                  </strong>
-
-                  <div
-                    style={{
-                      marginTop: '3px',
-                      color: '#777',
-                      fontSize: '12px'
-                    }}
-                  >
-                    {item.session_date
-                      ? formatDate(
-                          item.session_date
-                        )
-                      : ''}
-                  </div>
-
-                  <div
-                    style={{
-                      marginTop: '5px'
-                    }}
-                  >
-                    {item.comment}
-                  </div>
-                </div>
-              </div>
-            ))}
-        </section>
-      )}
     </section>
   );
 }
