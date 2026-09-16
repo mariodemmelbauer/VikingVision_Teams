@@ -304,6 +304,84 @@ function normalizeNullableDate(
   return null;
 }
 
+
+function normalizeStoragePath(
+  imagePath: string
+) {
+  const raw =
+    imagePath
+      .trim()
+      .replace(/\\/g, '/');
+
+  const storageMatch =
+    raw.match(
+      /\/storage\/v1\/object\/(?:public|sign|authenticated)\/([^/?#]+)\/([^?#]+)/
+    );
+
+  if (storageMatch) {
+    return {
+      bucket:
+        decodeURIComponent(
+          storageMatch[1]
+        ),
+      path:
+        decodeURIComponent(
+          storageMatch[2]
+        )
+    };
+  }
+
+  const stripped =
+    raw
+      .replace(/^\/+/, '')
+      .replace(
+        /^uploads\/spielerbilder\//i,
+        ''
+      )
+      .replace(
+        /^spielerbilder\//i,
+        ''
+      );
+
+  return {
+    bucket: null,
+    path: stripped
+  };
+}
+
+function imageContentType(
+  path: string
+) {
+  const lower =
+    path.toLowerCase();
+
+  if (
+    lower.endsWith('.png')
+  ) {
+    return 'image/png';
+  }
+
+  if (
+    lower.endsWith('.webp')
+  ) {
+    return 'image/webp';
+  }
+
+  if (
+    lower.endsWith('.gif')
+  ) {
+    return 'image/gif';
+  }
+
+  if (
+    lower.endsWith('.svg')
+  ) {
+    return 'image/svg+xml';
+  }
+
+  return 'image/jpeg';
+}
+
 export default {
   async fetch(
     request: Request,
@@ -438,6 +516,232 @@ export default {
               error instanceof Error
                 ? error.message
                 : 'Request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      /^\/players\/[^/]+\/image$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          url.pathname
+            .split('/')[2];
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: player,
+          error: playerError
+        } =
+          await supabase
+            .from('players')
+            .select(
+              'id,image_path'
+            )
+            .eq(
+              'id',
+              playerId
+            )
+            .single();
+
+        if (playerError) {
+          return json(
+            {
+              ok: false,
+              error:
+                playerError.message
+            },
+            404
+          );
+        }
+
+        const imagePath =
+          typeof player?.image_path ===
+            'string'
+            ? player.image_path.trim()
+            : '';
+
+        if (!imagePath) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Player has no image_path'
+            },
+            404
+          );
+        }
+
+        // For external URLs, proxy the image through the Worker.
+        if (
+          /^https?:\/\//i.test(
+            imagePath
+          ) &&
+          !imagePath.includes(
+            '/storage/v1/object/'
+          )
+        ) {
+          const remote =
+            await fetch(
+              imagePath,
+              {
+                headers: {
+                  'User-Agent':
+                    'Mozilla/5.0'
+                }
+              }
+            );
+
+          if (remote.ok) {
+            const headers =
+              new Headers(
+                corsHeaders
+              );
+
+            headers.set(
+              'Content-Type',
+              remote.headers.get(
+                'Content-Type'
+              ) ??
+              imageContentType(
+                imagePath
+              )
+            );
+
+            headers.set(
+              'Cache-Control',
+              'private, max-age=3600'
+            );
+
+            return new Response(
+              remote.body,
+              {
+                status: 200,
+                headers
+              }
+            );
+          }
+        }
+
+        const normalized =
+          normalizeStoragePath(
+            imagePath
+          );
+
+        const fileName =
+          normalized.path
+            .split('/')
+            .filter(Boolean)
+            .pop() ??
+          normalized.path;
+
+        const buckets =
+          normalized.bucket
+            ? [
+                normalized.bucket
+              ]
+            : [
+                'spielerbilder',
+                'player-images',
+                'uploads'
+              ];
+
+        const paths =
+          Array.from(
+            new Set(
+              [
+                normalized.path,
+                fileName,
+                `spielerbilder/${fileName}`
+              ].filter(Boolean)
+            )
+          );
+
+        const attempts:
+          string[] = [];
+
+        for (
+          const bucket
+          of buckets
+        ) {
+          for (
+            const path
+            of paths
+          ) {
+            attempts.push(
+              `${bucket}/${path}`
+            );
+
+            const {
+              data,
+              error
+            } =
+              await supabase
+                .storage
+                .from(bucket)
+                .download(path);
+
+            if (
+              !error &&
+              data
+            ) {
+              const headers =
+                new Headers(
+                  corsHeaders
+                );
+
+              headers.set(
+                'Content-Type',
+                data.type ||
+                imageContentType(
+                  path
+                )
+              );
+
+              headers.set(
+                'Cache-Control',
+                'private, max-age=3600'
+              );
+
+              return new Response(
+                data,
+                {
+                  status: 200,
+                  headers
+                }
+              );
+            }
+          }
+        }
+
+        return json(
+          {
+            ok: false,
+            error:
+              'Player image not found in Supabase Storage.',
+            image_path:
+              imagePath,
+            attempts
+          },
+          404
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Player image request failed'
           },
           401
         );
