@@ -27,6 +27,7 @@ export type Player = {
   is_own_squad?: boolean;
   jersey_number?: string;
   player_role?: string;
+  archived_at?: string;
 };
 
 type Props = {
