@@ -222,3 +222,57 @@
     text-align: left !important;
   }
 }
+
+
+/* VikingVision v24 dashboard */
+@media (max-width: 900px) {
+  .vv-dashboard-main-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .vv-dashboard-hero {
+    align-items:
+      flex-start !important;
+  }
+}
+
+@media (max-width: 680px) {
+  .vv-dashboard {
+    padding:
+      16px 12px 36px !important;
+  }
+
+  .vv-dashboard-hero {
+    flex-direction:
+      column !important;
+    padding:
+      20px !important;
+  }
+
+  .vv-dashboard-user {
+    width: 100%;
+    box-sizing:
+      border-box;
+  }
+
+  .vv-dashboard-statusbar {
+    gap:
+      8px 14px !important;
+  }
+
+  .vv-dashboard-main-grid {
+    grid-template-columns:
+      1fr !important;
+  }
+
+  .vv-dashboard-admin-grid {
+    grid-template-columns:
+      1fr !important;
+  }
+
+  .vv-dashboard-aka-card {
+    padding:
+      20px !important;
+  }
+}
