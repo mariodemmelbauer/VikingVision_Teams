@@ -113,6 +113,10 @@ export default function Squad({
     React.useState<string | undefined>();
 
 
+  const [archiveSuccess, setArchiveSuccess] =
+    React.useState<string | undefined>();
+
+
   const [pendingArchivePlayer, setPendingArchivePlayer] =
     React.useState<Player | null>(null);
 
@@ -128,6 +132,7 @@ export default function Squad({
 
     setArchivingId(player.id);
     setArchiveError(undefined);
+    setArchiveSuccess(undefined);
 
     try {
       const response =
@@ -156,6 +161,9 @@ export default function Squad({
       }
 
       setPendingArchivePlayer(null);
+      setArchiveSuccess(
+        `${player.name ?? 'Spieler'} wurde ins Spielerarchiv verschoben.`
+      );
       await onArchived?.();
     } catch (error) {
       setArchiveError(
@@ -340,6 +348,12 @@ export default function Squad({
                 : 'Ja, ins Archiv'}
             </button>
           </div>
+        </section>
+      )}
+
+      {archiveSuccess && (
+        <section style={successBox}>
+          {archiveSuccess}
         </section>
       )}
 
@@ -723,4 +737,12 @@ const confirmBox: React.CSSProperties = {
   alignItems: 'center',
   gap: '12px',
   flexWrap: 'wrap'
+};
+
+const successBox: React.CSSProperties = {
+  marginTop: '14px',
+  padding: '12px 16px',
+  background: '#eef9f2',
+  color: '#0b6b35',
+  borderRadius: '10px'
 };
