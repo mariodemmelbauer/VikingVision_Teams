@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import '../akavision-responsive.css';
 import AcademyPlayerProfile from './academy/AcademyPlayerProfile';
 import AcademyScoutingTab from './academy/AcademyScoutingTab';
+import P12Tab from './academy/P12Tab';
 
 type AcademyTeam = 'U15' | 'U16' | 'U18' | 'JWR';
 
@@ -148,7 +149,8 @@ type Tab =
   | 'ideals'
   | 'scouting'
   | 'sportScience'
-  | 'skillAc';
+  | 'skillAc'
+  | 'p12';
 
 const teams: AcademyTeam[] = [
   'U15',
@@ -368,7 +370,7 @@ export default function AKAVision({
 
           <p>
             Akademie-Dashboard für Stammdaten,
-            Ideale, Sport Science, Skill / AC und Scouting
+            Ideale, Sport Science, Skill / AC, P12 und Scouting
           </p>
         </div>
 
@@ -471,6 +473,13 @@ export default function AKAVision({
         >
           Skill / AC
         </TabButton>
+
+        <TabButton
+          active={tab === 'p12'}
+          onClick={() => setTab('p12')}
+        >
+          P12
+        </TabButton>
       </section>
 
       {loading ? (
@@ -529,6 +538,13 @@ export default function AKAVision({
           {tab === 'skillAc' && (
             <SkillAcTab
               forms={skillAcForms}
+            />
+          )}
+
+          {tab === 'p12' && (
+            <P12Tab
+              accessToken={accessToken}
+              apiBase={apiBase}
             />
           )}
         </>
