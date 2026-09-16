@@ -416,6 +416,55 @@ export default function AcademyPlayerProfile({
     return current - previous;
   }
 
+
+  const sortedTests =
+    [...playerTests].sort(
+      (a, b) =>
+        b.test_date.localeCompare(
+          a.test_date
+        )
+    );
+
+  const latestSportTest =
+    sortedTests[0];
+
+  const previousSportTest =
+    sortedTests[1];
+
+  function getMetricTrend(
+    current?: number,
+    previous?: number,
+    lowerIsBetter = false
+  ) {
+    if (
+      current == null ||
+      previous == null
+    ) {
+      return null;
+    }
+
+    const difference =
+      Number(
+        (current - previous)
+          .toFixed(2)
+      );
+
+    if (difference === 0) {
+      return {
+        difference,
+        improved: null
+      };
+    }
+
+    return {
+      difference,
+      improved:
+        lowerIsBetter
+          ? current < previous
+          : current > previous
+    };
+  }
+
   function updatePlayerField(
     field: keyof typeof playerForm,
     value: string | boolean
@@ -2686,7 +2735,7 @@ export default function AcademyPlayerProfile({
               </button>
             </div>
 
-            {!latestTest ? (
+            {!latestSportTest ? (
               <div
                 style={{
                   color: '#777',
@@ -2698,112 +2747,272 @@ export default function AcademyPlayerProfile({
             ) : (
               <>
                 <div
-                  className="academy-profile-metric-grid"
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    alignItems: 'baseline',
+                    flexWrap: 'wrap',
+                    marginTop: '18px'
+                  }}
+                >
+                  <strong>
+                    Aktueller Test
+                  </strong>
+
+                  <span
+                    style={{
+                      color: '#777',
+                      fontSize: '12px'
+                    }}
+                  >
+                    {formatDate(
+                      latestSportTest.test_date
+                    )}
+                    {previousSportTest
+                      ? ` · Vergleich zu ${formatDate(
+                          previousSportTest.test_date
+                        )}`
+                      : ''}
+                  </span>
+                </div>
+
+                <div
+                  className="academy-sportscience-grid"
                   style={{
                     display: 'grid',
                     gridTemplateColumns:
-                      'repeat(auto-fit, minmax(145px, 1fr))',
-                    gap: '8px',
-                    marginTop: '16px'
+                      'repeat(4, minmax(0, 1fr))',
+                    gap: '10px',
+                    marginTop: '10px'
                   }}
                 >
-                  <MetricCard
-                    label="Testdatum"
-                    value={formatDate(latestTest.test_date)}
-                  />
-                  <MetricCard
+                  <SportMetricCard
                     label="Gewicht"
-                    value={
-                      latestTest.body_weight_kg != null
-                        ? `${latestTest.body_weight_kg} kg`
-                        : '–'
-                    }
+                    value={latestSportTest.body_weight_kg}
+                    unit="kg"
+                    trend={getMetricTrend(
+                      latestSportTest.body_weight_kg,
+                      previousSportTest?.body_weight_kg
+                    )}
                   />
-                  <MetricCard
+
+                  <SportMetricCard
                     label="Körperfett"
-                    value={
-                      latestTest.body_fat_percent != null
-                        ? `${latestTest.body_fat_percent} %`
-                        : '–'
-                    }
+                    value={latestSportTest.body_fat_percent}
+                    unit="%"
+                    trend={getMetricTrend(
+                      latestSportTest.body_fat_percent,
+                      previousSportTest?.body_fat_percent,
+                      true
+                    )}
                   />
-                  <MetricCard
-                    label="10 m"
-                    value={
-                      latestTest.sprint_10m_seconds != null
-                        ? `${latestTest.sprint_10m_seconds} s`
-                        : '–'
-                    }
+
+                  <SportMetricCard
+                    label="10 m Sprint"
+                    value={latestSportTest.sprint_10m_seconds}
+                    unit="s"
+                    trend={getMetricTrend(
+                      latestSportTest.sprint_10m_seconds,
+                      previousSportTest?.sprint_10m_seconds,
+                      true
+                    )}
                   />
-                  <MetricCard
-                    label="30 m"
-                    value={
-                      latestTest.sprint_30m_seconds != null
-                        ? `${latestTest.sprint_30m_seconds} s`
-                        : '–'
-                    }
+
+                  <SportMetricCard
+                    label="30 m Sprint"
+                    value={latestSportTest.sprint_30m_seconds}
+                    unit="s"
+                    trend={getMetricTrend(
+                      latestSportTest.sprint_30m_seconds,
+                      previousSportTest?.sprint_30m_seconds,
+                      true
+                    )}
                   />
-                  <MetricCard
+
+                  <SportMetricCard
                     label="CMJ"
-                    value={
-                      latestTest.cmj_cm != null
-                        ? `${latestTest.cmj_cm} cm`
-                        : '–'
-                    }
+                    value={latestSportTest.cmj_cm}
+                    unit="cm"
+                    trend={getMetricTrend(
+                      latestSportTest.cmj_cm,
+                      previousSportTest?.cmj_cm
+                    )}
                   />
-                  <MetricCard
+
+                  <SportMetricCard
                     label="Aerob"
-                    value={
-                      latestTest.aerobic_value != null
-                        ? String(latestTest.aerobic_value)
-                        : '–'
-                    }
+                    value={latestSportTest.aerobic_value}
+                    unit=""
+                    trend={getMetricTrend(
+                      latestSportTest.aerobic_value,
+                      previousSportTest?.aerobic_value
+                    )}
                   />
-                  <MetricCard
-                    label="Readiness"
-                    value={latestTest.readiness || '–'}
-                  />
+
+                  <div style={sportMetricCard}>
+                    <div style={sportMetricLabel}>
+                      Readiness
+                    </div>
+                    <div style={sportMetricValue}>
+                      {latestSportTest.readiness || '–'}
+                    </div>
+                  </div>
+
+                  <div style={sportMetricCard}>
+                    <div style={sportMetricLabel}>
+                      Tests gesamt
+                    </div>
+                    <div style={sportMetricValue}>
+                      {playerTests.length}
+                    </div>
+                  </div>
                 </div>
 
-                {playerTests.length > 1 && (
-                  <div style={{ marginTop: '18px' }}>
-                    <strong>Testhistorie</strong>
+                {latestSportTest.notes && (
+                  <div
+                    style={{
+                      marginTop: '14px',
+                      padding: '12px',
+                      background: '#f8faf9',
+                      borderRadius: '10px',
+                      border: '1px solid #e8ede9'
+                    }}
+                  >
+                    <div style={sportMetricLabel}>
+                      Notiz letzter Test
+                    </div>
                     <div
                       style={{
-                        display: 'grid',
-                        gap: '8px',
-                        marginTop: '8px'
+                        marginTop: '5px',
+                        whiteSpace: 'pre-wrap'
                       }}
                     >
-                      {[...playerTests]
-                        .sort((a, b) =>
-                          b.test_date.localeCompare(a.test_date)
-                        )
-                        .map(test => (
-                          <div
+                      {latestSportTest.notes}
+                    </div>
+                  </div>
+                )}
+
+                {sortedTests.length > 1 && (
+                  <div
+                    style={{
+                      marginTop: '20px',
+                      paddingTop: '18px',
+                      borderTop: '1px solid #eeeeee'
+                    }}
+                  >
+                    <strong>
+                      Testverlauf
+                    </strong>
+
+                    <div
+                      className="academy-sportscience-history"
+                      style={{
+                        display: 'grid',
+                        gap: '9px',
+                        marginTop: '10px'
+                      }}
+                    >
+                      {sortedTests.map((test, index) => {
+                        const previous =
+                          sortedTests[index + 1];
+
+                        return (
+                          <article
                             key={test.id}
-                            style={historyRow}
+                            style={subPanel}
                           >
-                            <span>
-                              {formatDate(test.test_date)}
-                            </span>
-                            <span>
-                              {[
-                                test.body_weight_kg != null
-                                  ? `${test.body_weight_kg} kg`
-                                  : null,
-                                test.sprint_10m_seconds != null
-                                  ? `10 m ${test.sprint_10m_seconds} s`
-                                  : null,
-                                test.cmj_cm != null
-                                  ? `CMJ ${test.cmj_cm} cm`
-                                  : null
-                              ]
-                                .filter(Boolean)
-                                .join(' · ') || '–'}
-                            </span>
-                          </div>
-                        ))}
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: '12px',
+                                flexWrap: 'wrap',
+                                alignItems: 'baseline'
+                              }}
+                            >
+                              <strong>
+                                {formatDate(test.test_date)}
+                              </strong>
+
+                              {test.readiness && (
+                                <span style={profilePill}>
+                                  {test.readiness}
+                                </span>
+                              )}
+                            </div>
+
+                            <div
+                              className="academy-sportscience-history-grid"
+                              style={{
+                                display: 'grid',
+                                gridTemplateColumns:
+                                  'repeat(6, minmax(0, 1fr))',
+                                gap: '8px',
+                                marginTop: '10px'
+                              }}
+                            >
+                              <CompactMetric
+                                label="Gewicht"
+                                value={test.body_weight_kg}
+                                unit="kg"
+                                trend={getMetricTrend(
+                                  test.body_weight_kg,
+                                  previous?.body_weight_kg
+                                )}
+                              />
+                              <CompactMetric
+                                label="KFA"
+                                value={test.body_fat_percent}
+                                unit="%"
+                                trend={getMetricTrend(
+                                  test.body_fat_percent,
+                                  previous?.body_fat_percent,
+                                  true
+                                )}
+                              />
+                              <CompactMetric
+                                label="10 m"
+                                value={test.sprint_10m_seconds}
+                                unit="s"
+                                trend={getMetricTrend(
+                                  test.sprint_10m_seconds,
+                                  previous?.sprint_10m_seconds,
+                                  true
+                                )}
+                              />
+                              <CompactMetric
+                                label="30 m"
+                                value={test.sprint_30m_seconds}
+                                unit="s"
+                                trend={getMetricTrend(
+                                  test.sprint_30m_seconds,
+                                  previous?.sprint_30m_seconds,
+                                  true
+                                )}
+                              />
+                              <CompactMetric
+                                label="CMJ"
+                                value={test.cmj_cm}
+                                unit="cm"
+                                trend={getMetricTrend(
+                                  test.cmj_cm,
+                                  previous?.cmj_cm
+                                )}
+                              />
+                              <CompactMetric
+                                label="Aerob"
+                                value={test.aerobic_value}
+                                unit=""
+                                trend={getMetricTrend(
+                                  test.aerobic_value,
+                                  previous?.aerobic_value
+                                )}
+                              />
+                            </div>
+                          </article>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -2952,6 +3161,119 @@ export default function AcademyPlayerProfile({
           </section>
         )}
       </div>
+    </div>
+  );
+}
+
+function SportMetricCard({
+  label,
+  value,
+  unit,
+  trend
+}: {
+  label: string;
+  value?: number;
+  unit: string;
+  trend:
+    | {
+        difference: number;
+        improved: boolean | null;
+      }
+    | null;
+}) {
+  return (
+    <div style={sportMetricCard}>
+      <div style={sportMetricLabel}>
+        {label}
+      </div>
+
+      <div style={sportMetricValue}>
+        {value ?? '–'}
+        {value != null && unit
+          ? ` ${unit}`
+          : ''}
+      </div>
+
+      <TrendDisplay trend={trend} />
+    </div>
+  );
+}
+
+function CompactMetric({
+  label,
+  value,
+  unit,
+  trend
+}: {
+  label: string;
+  value?: number;
+  unit: string;
+  trend:
+    | {
+        difference: number;
+        improved: boolean | null;
+      }
+    | null;
+}) {
+  return (
+    <div style={compactMetricCard}>
+      <div style={sportMetricLabel}>
+        {label}
+      </div>
+
+      <strong>
+        {value ?? '–'}
+        {value != null && unit
+          ? ` ${unit}`
+          : ''}
+      </strong>
+
+      <TrendDisplay
+        trend={trend}
+        compact
+      />
+    </div>
+  );
+}
+
+function TrendDisplay({
+  trend,
+  compact = false
+}: {
+  trend:
+    | {
+        difference: number;
+        improved: boolean | null;
+      }
+    | null;
+  compact?: boolean;
+}) {
+  if (!trend) {
+    return null;
+  }
+
+  const sign =
+    trend.difference > 0
+      ? '+'
+      : '';
+
+  return (
+    <div
+      style={{
+        marginTop: compact ? '3px' : '5px',
+        fontSize: compact ? '10px' : '11px',
+        fontWeight: 800,
+        color:
+          trend.improved == null
+            ? '#777'
+            : trend.improved
+              ? '#0b7a3b'
+              : '#a05a00'
+      }}
+    >
+      {trend.difference === 0
+        ? '='
+        : `${trend.improved ? '↑' : '↓'} ${sign}${trend.difference}`}
     </div>
   );
 }
@@ -3310,6 +3632,43 @@ const idealCodeBadgeSmall: React.CSSProperties = {
   minWidth: '34px',
   height: '23px',
   fontSize: '10px'
+};
+
+
+const sportMetricCard: React.CSSProperties = {
+  background: '#f8faf9',
+  border: '1px solid #e8ede9',
+  borderRadius: '11px',
+  padding: '12px'
+};
+
+const compactMetricCard: React.CSSProperties = {
+  background: '#fff',
+  border: '1px solid #eeeeee',
+  borderRadius: '8px',
+  padding: '9px'
+};
+
+const sportMetricLabel: React.CSSProperties = {
+  color: '#777',
+  fontSize: '11px',
+  textTransform: 'uppercase',
+  fontWeight: 700
+};
+
+const sportMetricValue: React.CSSProperties = {
+  marginTop: '5px',
+  fontSize: '20px',
+  fontWeight: 800
+};
+
+const profilePill: React.CSSProperties = {
+  background: '#eef5f1',
+  color: '#0b6b35',
+  borderRadius: '999px',
+  padding: '5px 9px',
+  fontSize: '11px',
+  fontWeight: 800
 };
 
 const historyRow: React.CSSProperties = {
