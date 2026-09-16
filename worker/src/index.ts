@@ -512,6 +512,366 @@ export default {
 
     if (
       request.method === 'GET' &&
+      /^\/public\/p12\/self\/[^/]+$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        const token =
+          decodeURIComponent(
+            url.pathname
+              .split('/')
+              .pop() ??
+            ''
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: invite,
+          error
+        } =
+          await supabase
+            .from(
+              'p12_self_assessment_invites'
+            )
+            .select(
+              'id,token,p12_player_id,period_label,expires_at,used_at,active,player:p12_players(name)'
+            )
+            .eq(
+              'token',
+              token
+            )
+            .eq(
+              'active',
+              true
+            )
+            .maybeSingle();
+
+        if (
+          error ||
+          !invite
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Dieser P12-Link ist nicht gültig.'
+            },
+            404
+          );
+        }
+
+        if (
+          invite.used_at
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Diese Selbsteinschätzung wurde bereits abgegeben.'
+            },
+            410
+          );
+        }
+
+        if (
+          invite.expires_at &&
+          new Date(
+            invite.expires_at
+          ).getTime() <
+            Date.now()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Dieser P12-Link ist abgelaufen.'
+            },
+            410
+          );
+        }
+
+        const playerName =
+          Array.isArray(
+            invite.player
+          )
+            ? invite.player[0]?.name
+            : (
+                invite.player as
+                  | {
+                      name?: string;
+                    }
+                  | null
+              )?.name;
+
+        return json({
+          ok: true,
+          invite: {
+            player_name:
+              playerName ??
+              'P12-Spieler',
+            period_label:
+              invite.period_label,
+            expires_at:
+              invite.expires_at
+          }
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 invite failed'
+          },
+          500
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      /^\/public\/p12\/self\/[^/]+$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        const token =
+          decodeURIComponent(
+            url.pathname
+              .split('/')
+              .pop() ??
+            ''
+          );
+
+        const body =
+          await request.json<{
+            strengths?: string;
+            development_areas?: string;
+            personal_goals?: string;
+            notes?: string;
+            scores?: Array<{
+              category?: string;
+              detail?: string;
+              rating?: number;
+            }>;
+          }>();
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: invite,
+          error: inviteError
+        } =
+          await supabase
+            .from(
+              'p12_self_assessment_invites'
+            )
+            .select('*')
+            .eq(
+              'token',
+              token
+            )
+            .eq(
+              'active',
+              true
+            )
+            .maybeSingle();
+
+        if (
+          inviteError ||
+          !invite
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Dieser P12-Link ist nicht gültig.'
+            },
+            404
+          );
+        }
+
+        if (
+          invite.used_at
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Diese Selbsteinschätzung wurde bereits abgegeben.'
+            },
+            410
+          );
+        }
+
+        if (
+          invite.expires_at &&
+          new Date(
+            invite.expires_at
+          ).getTime() <
+            Date.now()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Dieser P12-Link ist abgelaufen.'
+            },
+            410
+          );
+        }
+
+        const {
+          data: assessment,
+          error: assessmentError
+        } =
+          await supabase
+            .from(
+              'p12_self_assessments'
+            )
+            .insert({
+              p12_player_id:
+                invite.p12_player_id,
+              period_label:
+                invite.period_label,
+              assessment_date:
+                new Date()
+                  .toISOString()
+                  .slice(0, 10),
+              strengths:
+                body.strengths ??
+                null,
+              development_areas:
+                body.development_areas ??
+                null,
+              personal_goals:
+                body.personal_goals ??
+                null,
+              notes:
+                body.notes ??
+                null,
+              submitted_at:
+                new Date()
+                  .toISOString()
+            })
+            .select('*')
+            .single();
+
+        if (assessmentError) {
+          return json(
+            {
+              ok: false,
+              error:
+                assessmentError.message
+            },
+            500
+          );
+        }
+
+        const scoreRows =
+          (body.scores ?? [])
+            .filter(
+              score =>
+                score.category &&
+                score.detail
+            )
+            .map(
+              score => ({
+                assessment_id:
+                  assessment.id,
+                category:
+                  score.category,
+                detail:
+                  score.detail,
+                rating:
+                  typeof score.rating ===
+                    'number'
+                    ? score.rating
+                    : 0
+              })
+            );
+
+        if (
+          scoreRows.length > 0
+        ) {
+          const {
+            error: scoreError
+          } =
+            await supabase
+              .from(
+                'p12_self_scores'
+              )
+              .insert(
+                scoreRows
+              );
+
+          if (scoreError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  scoreError.message
+              },
+              500
+            );
+          }
+        }
+
+        const {
+          error: usedError
+        } =
+          await supabase
+            .from(
+              'p12_self_assessment_invites'
+            )
+            .update({
+              used_at:
+                new Date()
+                  .toISOString(),
+              active: false
+            })
+            .eq(
+              'id',
+              invite.id
+            );
+
+        if (usedError) {
+          return json(
+            {
+              ok: false,
+              error:
+                usedError.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          assessment_id:
+            assessment.id
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 self assessment failed'
+          },
+          500
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
       url.pathname === '/health'
     ) {
       try {
@@ -2931,6 +3291,117 @@ export default {
     }
 
 
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/academy/p12/self-invites'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<{
+            p12_player_id?: number;
+            period_label?: string;
+            expires_in_days?: number;
+          }>();
+
+        if (
+          !body.p12_player_id ||
+          !body.period_label?.trim()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'P12-Spieler und Bewertungsphase sind erforderlich.'
+            },
+            400
+          );
+        }
+
+        const days =
+          Math.min(
+            60,
+            Math.max(
+              1,
+              Number(
+                body.expires_in_days ??
+                14
+              )
+            )
+          );
+
+        const expiresAt =
+          new Date(
+            Date.now() +
+            days *
+              24 *
+              60 *
+              60 *
+              1000
+          ).toISOString();
+
+        const supabase =
+          createSupabase(env);
+
+        const token =
+          crypto.randomUUID();
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'p12_self_assessment_invites'
+            )
+            .insert({
+              p12_player_id:
+                body.p12_player_id,
+              period_label:
+                body.period_label.trim(),
+              token,
+              expires_at:
+                expiresAt,
+              active: true
+            })
+            .select(
+              'id,token,p12_player_id,period_label,expires_at,used_at,active'
+            )
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            invite: data
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 invite creation failed'
+          },
+          401
+        );
+      }
+    }
 
     if (
       request.method === 'GET' &&
