@@ -41,3 +41,25 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+@media (max-width: 760px) {
+  .academy-profile-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap !important;
+    padding-bottom: 4px;
+  }
+
+  .academy-profile-tabs > button {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .academy-profile-data-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .academy-profile-metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
