@@ -199,6 +199,111 @@ const scoutingFields = [
   'next_action'
 ];
 
+
+function decodeHtml(value: string) {
+  return value
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ');
+}
+
+function transfermarktNameFromUrl(url: URL) {
+  const first =
+    url.pathname
+      .split('/')
+      .filter(Boolean)[0] ?? '';
+
+  return first
+    .split('-')
+    .filter(Boolean)
+    .map(part =>
+      part.charAt(0).toUpperCase() +
+      part.slice(1)
+    )
+    .join(' ');
+}
+
+function metaContent(
+  html: string,
+  property: string
+) {
+  const escaped =
+    property.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      '\\$&'
+    );
+
+  const patternA =
+    new RegExp(
+      `<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']*)["'][^>]*>`,
+      'i'
+    );
+
+  const patternB =
+    new RegExp(
+      `<meta[^>]+content=["']([^"']*)["'][^>]+(?:property|name)=["']${escaped}["'][^>]*>`,
+      'i'
+    );
+
+  return decodeHtml(
+    patternA.exec(html)?.[1] ??
+    patternB.exec(html)?.[1] ??
+    ''
+  ).trim();
+}
+
+function cleanTransfermarktTitle(
+  value: string
+) {
+  return value
+    .replace(
+      /\s*-\s*(spielerprofil|player profile).*$/i,
+      ''
+    )
+    .replace(
+      /\s*\|\s*Transfermarkt.*$/i,
+      ''
+    )
+    .trim();
+}
+
+function normalizeNullableDate(
+  value: unknown
+) {
+  if (
+    typeof value !== 'string' ||
+    !value.trim()
+  ) {
+    return null;
+  }
+
+  const text =
+    value.trim();
+
+  const iso =
+    text.match(
+      /^(\d{4})-(\d{2})-(\d{2})$/
+    );
+
+  if (iso) {
+    return text;
+  }
+
+  const de =
+    text.match(
+      /^(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})$/
+    );
+
+  if (de) {
+    return `${de[3]}-${de[2].padStart(2, '0')}-${de[1].padStart(2, '0')}`;
+  }
+
+  return null;
+}
+
 export default {
   async fetch(
     request: Request,
@@ -292,6 +397,9 @@ export default {
           await supabase
             .from('players')
             .select('*')
+            .or(
+              'squad_status.neq.Archiviert,squad_status.is.null'
+            )
             .order(
               'name',
               {
@@ -329,6 +437,492 @@ export default {
               error instanceof Error
                 ? error.message
                 : 'Request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname === '/players'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        if (
+          typeof body.name !== 'string' ||
+          !body.name.trim()
+        ) {
+          return json(
+            {
+              ok: false,
+              error: 'name is required'
+            },
+            400
+          );
+        }
+
+        const payload =
+          pickFields(
+            body,
+            [
+              'name',
+              'birth_date',
+              'birth_year',
+              'primary_position',
+              'secondary_position',
+              'preferred_foot',
+              'nationality',
+              'height_cm',
+              'current_club',
+              'contract_until',
+              'market_value',
+              'agent_agency',
+              'squad_status',
+              'priority',
+              'potential',
+              'notes',
+              'transfermarkt_url',
+              'video_url',
+              'is_own_squad',
+              'jersey_number',
+              'player_role'
+            ]
+          );
+
+        payload.name =
+          String(payload.name).trim();
+
+        if (
+          payload.birth_date &&
+          !payload.birth_year
+        ) {
+          const year =
+            Number(
+              String(payload.birth_date)
+                .slice(0, 4)
+            );
+
+          if (Number.isFinite(year)) {
+            payload.birth_year = year;
+          }
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .insert(payload)
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            player: data
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Player creation failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/players/import-transfermarkt'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        if (
+          typeof body.url !== 'string' ||
+          !body.url.trim()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Transfermarkt URL is required'
+            },
+            400
+          );
+        }
+
+        const tmUrl =
+          new URL(body.url.trim());
+
+        if (
+          !/(^|\.)transfermarkt\./i.test(
+            tmUrl.hostname
+          )
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Bitte einen gültigen Transfermarkt-Link verwenden.'
+            },
+            400
+          );
+        }
+
+        let html = '';
+        let scraped = false;
+
+        try {
+          const tmResponse =
+            await fetch(
+              tmUrl.toString(),
+              {
+                headers: {
+                  'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153 Safari/537.36',
+                  'Accept-Language':
+                    'de-DE,de;q=0.9,en;q=0.8'
+                },
+                redirect: 'follow'
+              }
+            );
+
+          if (tmResponse.ok) {
+            html =
+              await tmResponse.text();
+            scraped = true;
+          }
+        } catch {
+          scraped = false;
+        }
+
+        const ogTitle =
+          metaContent(
+            html,
+            'og:title'
+          );
+
+        const title =
+          /<title[^>]*>([\s\S]*?)<\/title>/i
+            .exec(html)?.[1] ?? '';
+
+        const name =
+          cleanTransfermarktTitle(
+            ogTitle ||
+            decodeHtml(title) ||
+            transfermarktNameFromUrl(
+              tmUrl
+            )
+          );
+
+        if (!name) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Spielername konnte aus dem Transfermarkt-Link nicht ermittelt werden.'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: existing,
+          error: existingError
+        } =
+          await supabase
+            .from('players')
+            .select('*')
+            .eq(
+              'transfermarkt_url',
+              tmUrl.toString()
+            )
+            .maybeSingle();
+
+        if (existingError) {
+          return json(
+            {
+              ok: false,
+              error:
+                existingError.message
+            },
+            500
+          );
+        }
+
+        if (existing) {
+          return json({
+            ok: true,
+            player: existing,
+            existing: true,
+            scraped
+          });
+        }
+
+        const payload = {
+          name,
+          transfermarkt_url:
+            tmUrl.toString(),
+          is_own_squad:
+            body.is_own_squad === true,
+          current_club:
+            null as string | null,
+          primary_position:
+            null as string | null
+        };
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .insert(payload)
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            player: data,
+            scraped
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Transfermarkt import failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/players/import-bulk'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<{
+            players?: Array<
+              Record<string, unknown>
+            >;
+          }>();
+
+        if (
+          !Array.isArray(body.players) ||
+          body.players.length === 0
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'players array is required'
+            },
+            400
+          );
+        }
+
+        if (
+          body.players.length > 500
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Maximal 500 Spieler pro Import.'
+            },
+            400
+          );
+        }
+
+        const allowedFields = [
+          'name',
+          'birth_date',
+          'primary_position',
+          'secondary_position',
+          'preferred_foot',
+          'nationality',
+          'height_cm',
+          'current_club',
+          'contract_until',
+          'market_value',
+          'agent_agency',
+          'squad_status',
+          'priority',
+          'potential',
+          'notes',
+          'transfermarkt_url',
+          'video_url',
+          'is_own_squad',
+          'jersey_number',
+          'player_role'
+        ];
+
+        const rows =
+          body.players
+            .map(row => {
+              const payload =
+                pickFields(
+                  row,
+                  allowedFields
+                );
+
+              if (
+                typeof payload.name !==
+                  'string' ||
+                !payload.name.trim()
+              ) {
+                return null;
+              }
+
+              payload.name =
+                payload.name.trim();
+
+              payload.birth_date =
+                normalizeNullableDate(
+                  payload.birth_date
+                );
+
+              if (
+                typeof payload.birth_date ===
+                  'string'
+              ) {
+                const year =
+                  Number(
+                    payload.birth_date.slice(
+                      0,
+                      4
+                    )
+                  );
+
+                if (
+                  Number.isFinite(year)
+                ) {
+                  payload.birth_year =
+                    year;
+                }
+              }
+
+              return payload;
+            })
+            .filter(
+              (
+                row
+              ): row is Record<
+                string,
+                unknown
+              > =>
+                row !== null
+            );
+
+        if (rows.length === 0) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Keine gültigen Spielerzeilen gefunden.'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .insert(rows)
+            .select('*');
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            count:
+              data?.length ?? 0,
+            players:
+              data ?? []
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Bulk import failed'
           },
           401
         );
@@ -1209,6 +1803,238 @@ export default {
       }
     }
 
+
+    if (
+      request.method === 'PUT' &&
+      url.pathname.startsWith(
+        '/squad/'
+      ) &&
+      url.pathname.endsWith(
+        '/archive'
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          url.pathname
+            .slice(
+              '/squad/'.length,
+              -'/archive'.length
+            )
+            .replace(
+              /^\/|\/$/g,
+              ''
+            );
+
+        if (!playerId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Player ID missing'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .update({
+              is_own_squad: false,
+              squad_status:
+                'Archiviert',
+              updated_at:
+                new Date()
+                  .toISOString()
+            })
+            .eq(
+              'id',
+              playerId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          player: data
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Archive failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      url.pathname ===
+        '/player-archive'
+    ) {
+      try {
+        await authenticate(request);
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .select('*')
+            .eq(
+              'squad_status',
+              'Archiviert'
+            )
+            .order(
+              'name',
+              {
+                ascending: true
+              }
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          count:
+            data?.length ?? 0,
+          players:
+            data ?? []
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Archive request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'PUT' &&
+      url.pathname.startsWith(
+        '/player-archive/'
+      ) &&
+      url.pathname.endsWith(
+        '/restore'
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          url.pathname
+            .slice(
+              '/player-archive/'.length,
+              -'/restore'.length
+            )
+            .replace(
+              /^\/|\/$/g,
+              ''
+            );
+
+        if (!playerId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Player ID missing'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .update({
+              is_own_squad: true,
+              squad_status:
+                'Unter Vertrag',
+              updated_at:
+                new Date()
+                  .toISOString()
+            })
+            .eq(
+              'id',
+              playerId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          player: data
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Restore failed'
+          },
+          401
+        );
+      }
+    }
 
     if (
       request.method === 'GET' &&
