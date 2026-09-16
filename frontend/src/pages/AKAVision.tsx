@@ -3,6 +3,7 @@ import '../akavision-responsive.css';
 import AcademyPlayerProfile from './academy/AcademyPlayerProfile';
 import AcademyScoutingTab from './academy/AcademyScoutingTab';
 
+
 type AcademyTeam = 'U15' | 'U16' | 'U18' | 'JWR';
 
 type AcademyPlayer = {
