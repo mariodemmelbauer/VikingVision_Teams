@@ -644,13 +644,74 @@ function PlayersTab({
     player: AcademyPlayer
   ) => void;
 }) {
-  const sorted =
-    [...players].sort(
-      (a, b) => {
-        const numberA =
-          Number(a.jersey_number);
-        const numberB =
-          Number(b.jersey_number);
+  const [search, setSearch] = useState('');
+  const [positionFilter, setPositionFilter] = useState('Alle');
+  const [statusFilter, setStatusFilter] = useState('Alle');
+
+  const positions = useMemo(
+    () => [
+      'Alle',
+      ...Array.from(
+        new Set(
+          players
+            .map(player => player.primary_position)
+            .filter((value): value is string => Boolean(value))
+        )
+      ).sort((a, b) => a.localeCompare(b, 'de'))
+    ],
+    [players]
+  );
+
+  const statuses = useMemo(
+    () => [
+      'Alle',
+      ...Array.from(
+        new Set(
+          players
+            .map(player => player.squad_status)
+            .filter((value): value is string => Boolean(value))
+        )
+      ).sort((a, b) => a.localeCompare(b, 'de'))
+    ],
+    [players]
+  );
+
+  const filtered = useMemo(() => {
+    const query = search.trim().toLocaleLowerCase('de');
+
+    return [...players]
+      .filter(player => {
+        const matchesSearch =
+          !query ||
+          [
+            player.name,
+            player.primary_position,
+            player.secondary_position,
+            player.player_role,
+            player.nationality,
+            player.school_type,
+            player.school_class
+          ]
+            .filter(Boolean)
+            .some(value =>
+              String(value)
+                .toLocaleLowerCase('de')
+                .includes(query)
+            );
+
+        const matchesPosition =
+          positionFilter === 'Alle' ||
+          player.primary_position === positionFilter;
+
+        const matchesStatus =
+          statusFilter === 'Alle' ||
+          player.squad_status === statusFilter;
+
+        return matchesSearch && matchesPosition && matchesStatus;
+      })
+      .sort((a, b) => {
+        const numberA = Number(a.jersey_number);
+        const numberB = Number(b.jersey_number);
 
         if (
           Number.isFinite(numberA) &&
@@ -659,127 +720,188 @@ function PlayersTab({
           return numberA - numberB;
         }
 
-        return a.name.localeCompare(
-          b.name,
-          'de'
-        );
-      }
-    );
+        return a.name.localeCompare(b.name, 'de');
+      });
+  }, [players, search, positionFilter, statusFilter]);
+
+  const resetFilters = () => {
+    setSearch('');
+    setPositionFilter('Alle');
+    setStatusFilter('Alle');
+  };
 
   return (
     <section style={{ marginTop: '18px' }}>
       <div
         style={{
-          marginBottom: '12px',
-          fontWeight: 700
+          ...panel,
+          marginBottom: '14px'
         }}
       >
-        {sorted.length} Spieler
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'minmax(220px, 2fr) repeat(2, minmax(160px, 1fr)) auto',
+            gap: '10px',
+            alignItems: 'end'
+          }}
+          className="academy-player-filters"
+        >
+          <label>
+            <div style={filterLabel}>Spieler suchen</div>
+            <input
+              value={search}
+              onChange={event => setSearch(event.target.value)}
+              placeholder="Name, Rolle, Schule …"
+              style={filterControl}
+            />
+          </label>
+
+          <label>
+            <div style={filterLabel}>Position</div>
+            <select
+              value={positionFilter}
+              onChange={event => setPositionFilter(event.target.value)}
+              style={filterControl}
+            >
+              {positions.map(position => (
+                <option key={position} value={position}>
+                  {position}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <div style={filterLabel}>Status</div>
+            <select
+              value={statusFilter}
+              onChange={event => setStatusFilter(event.target.value)}
+              style={filterControl}
+            >
+              {statuses.map(status => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            onClick={resetFilters}
+            style={secondaryButton}
+          >
+            Zurücksetzen
+          </button>
+        </div>
       </div>
 
       <div
         style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fill, minmax(260px, 1fr))',
-          gap: '14px'
+          marginBottom: '12px',
+          fontWeight: 700,
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: '10px',
+          flexWrap: 'wrap'
         }}
       >
-        {sorted.map(player => (
-          <button
-            key={player.id}
-            type="button"
-            onClick={() =>
-              onOpenPlayer(player)
-            }
-            style={{
-              ...panel,
-              textAlign: 'left',
-              width: '100%',
-              cursor: 'pointer',
-              color: 'inherit',
-              font: 'inherit'
-            }}
-          >
-            <div
+        <span>{filtered.length} Spieler</span>
+        {filtered.length !== players.length && (
+          <span style={{ color: '#666', fontWeight: 500 }}>
+            von {players.length}
+          </span>
+        )}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div style={panel}>
+          Keine Spieler für die gewählten Filter gefunden.
+        </div>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fill, minmax(260px, 1fr))',
+            gap: '14px'
+          }}
+        >
+          {filtered.map(player => (
+            <button
+              key={player.id}
+              type="button"
+              onClick={() => onOpenPlayer(player)}
               style={{
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: '8px'
+                ...panel,
+                textAlign: 'left',
+                width: '100%',
+                cursor: 'pointer',
+                color: 'inherit',
+                font: 'inherit'
               }}
             >
-              {player.jersey_number && (
-                <span style={numberBadge}>
-                  {player.jersey_number}
-                </span>
-              )}
-
-              <strong
+              <div
                 style={{
-                  fontSize: '18px'
+                  display: 'flex',
+                  alignItems: 'baseline',
+                  gap: '8px'
                 }}
               >
-                {player.name}
-              </strong>
-            </div>
-
-            <InfoLine
-              label="Position"
-              value={player.primary_position}
-            />
-
-            <InfoLine
-              label="Rolle"
-              value={player.player_role}
-            />
-
-            <InfoLine
-              label="Fuß"
-              value={player.preferred_foot}
-            />
-
-            <InfoLine
-              label="Status"
-              value={player.squad_status}
-            />
-
-            {player.birth_date && (
-              <InfoLine
-                label="Geburtsdatum"
-                value={formatDate(
-                  player.birth_date
+                {player.jersey_number && (
+                  <span style={numberBadge}>
+                    {player.jersey_number}
+                  </span>
                 )}
-              />
-            )}
 
-            {player.school_type && (
-              <InfoLine
-                label="Schule"
-                value={[
-                  player.school_type,
-                  player.school_class
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              />
-            )}
-            <div
-              style={{
-                marginTop: '12px',
-                color: '#0b7a3b',
-                fontWeight: 700,
-                fontSize: '13px'
-              }}
-            >
-              Spielerprofil öffnen →
-            </div>
-          </button>
-        ))}
-      </div>
+                <strong style={{ fontSize: '18px' }}>
+                  {player.name}
+                </strong>
+              </div>
+
+              <InfoLine label="Position" value={player.primary_position} />
+              <InfoLine label="Rolle" value={player.player_role} />
+              <InfoLine label="Fuß" value={player.preferred_foot} />
+              <InfoLine label="Status" value={player.squad_status} />
+
+              {player.birth_date && (
+                <InfoLine
+                  label="Geburtsdatum"
+                  value={formatDate(player.birth_date)}
+                />
+              )}
+
+              {player.school_type && (
+                <InfoLine
+                  label="Schule"
+                  value={[
+                    player.school_type,
+                    player.school_class
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
+                />
+              )}
+
+              <div
+                style={{
+                  marginTop: '12px',
+                  color: '#0b7a3b',
+                  fontWeight: 700,
+                  fontSize: '13px'
+                }}
+              >
+                Spielerprofil öffnen →
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
-
 
 function IdealsTab({
   players,
@@ -1849,6 +1971,24 @@ const tabButton:
   borderRadius: '999px',
   cursor: 'pointer',
   fontWeight: 700
+};
+
+const filterLabel: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 700,
+  color: '#555',
+  marginBottom: '5px'
+};
+
+const filterControl: React.CSSProperties = {
+  width: '100%',
+  minHeight: '42px',
+  boxSizing: 'border-box',
+  border: '1px solid #d8d8d8',
+  borderRadius: '8px',
+  padding: '8px 10px',
+  background: '#fff',
+  color: '#111'
 };
 
 const activeTabButton:
