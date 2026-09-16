@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import React from 'react';
 import PlayerImage from '../components/PlayerImage';
 import type { Player } from './PlayerProfile';
@@ -246,48 +247,22 @@ export default function Squad({
 
   return (
     <main className="page">
-      <section className="hero">
-        <div>
-          <div className="eyebrow">
-            SV Oberbank Ried
-          </div>
-
-          <h1>Unser Kader</h1>
-
-          <p>
-            Aktueller SV-Ried-Kader in VikingVision
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onBack}
-          style={secondaryButton}
-        >
-          ← Dashboard
-        </button>
-      </section>
-
-      <section
-        className="status"
-        style={{
-          marginTop: '18px'
-        }}
-      >
-        <span>
-          Kaderspieler:{' '}
-          <strong>
-            {ownSquad.length}
-          </strong>
-        </span>
-
-        <span>
-          Datenquelle:{' '}
-          <strong>
-            players.is_own_squad
-          </strong>
-        </span>
-      </section>
+      <PageHeader
+        title="Unser Kader"
+        description="Aktueller SV-Ried-Kader mit internen Spielerprofilen."
+        onBack={onBack}
+        meta={
+          <>
+            <span>
+              {ownSquad.length} Kaderspieler
+            </span>
+            <span>·</span>
+            <span>
+              Torwart · Abwehr · Mittelfeld · Angriff
+            </span>
+          </>
+        }
+      />
 
       {pendingArchivePlayer && (
         <section
