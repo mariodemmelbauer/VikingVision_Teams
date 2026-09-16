@@ -92,6 +92,38 @@ type ProfileTab =
   | 'sportScience'
   | 'skillAc';
 
+
+const IDEAL_META = {
+  OFF1: {
+    label: 'Rücken finden',
+    group: 'Mit Ball'
+  },
+  OFF2: {
+    label: 'Manipulieren',
+    group: 'Mit Ball'
+  },
+  OFF3: {
+    label: 'Ball als Verbündeter',
+    group: 'Mit Ball'
+  },
+  DEF1: {
+    label: 'Rücken sichern & Ball erobern',
+    group: 'Gegen den Ball'
+  },
+  DEF3: {
+    label: 'Ball gehört uns & Tor verteidigen',
+    group: 'Gegen den Ball'
+  }
+} as const;
+
+const IDEAL_CODES = [
+  'OFF1',
+  'OFF2',
+  'OFF3',
+  'DEF1',
+  'DEF3'
+] as const;
+
 export default function AcademyPlayerProfile({
   player,
   idealAssessments,
@@ -316,6 +348,73 @@ export default function AcademyPlayerProfile({
           )
         )
     )[0];
+
+
+  const sortedIdeals =
+    [...playerIdeals].sort(
+      (a, b) =>
+        String(
+          b.assessment_date ?? ''
+        ).localeCompare(
+          String(
+            a.assessment_date ?? ''
+          )
+        )
+    );
+
+  const previousIdeal =
+    sortedIdeals[1];
+
+  function getScoreValue(
+    score?: IdealScore
+  ) {
+    if (!score) {
+      return undefined;
+    }
+
+    return score.rating ??
+      score.status_quo ??
+      score.potential;
+  }
+
+  function getScoreByCode(
+    assessment: IdealAssessment | undefined,
+    code: string
+  ) {
+    return assessment?.scores.find(
+      score =>
+        score.ideal_code === code
+    );
+  }
+
+  function getTrendForCode(
+    code: string
+  ) {
+    const current =
+      getScoreValue(
+        getScoreByCode(
+          latestIdeal,
+          code
+        )
+      );
+
+    const previous =
+      getScoreValue(
+        getScoreByCode(
+          previousIdeal,
+          code
+        )
+      );
+
+    if (
+      current == null ||
+      previous == null
+    ) {
+      return null;
+    }
+
+    return current - previous;
+  }
 
   function updatePlayerField(
     field: keyof typeof playerForm,
@@ -620,13 +719,7 @@ export default function AcademyPlayerProfile({
   function editIdealAssessment(
     assessment: IdealAssessment
   ) {
-    const knownCodes = [
-      'OFF1',
-      'OFF2',
-      'OFF3',
-      'DEF1',
-      'DEF3'
-    ];
+    const knownCodes = [...IDEAL_CODES];
 
     const byCode =
       new Map(
@@ -2160,7 +2253,7 @@ export default function AcademyPlayerProfile({
               </button>
             </div>
 
-            {playerIdeals.length === 0 ? (
+            {!latestIdeal ? (
               <div
                 style={{
                   color: '#777',
@@ -2170,114 +2263,383 @@ export default function AcademyPlayerProfile({
                 Noch keine Ideale-Bewertung vorhanden.
               </div>
             ) : (
-              <div
-                style={{
-                  display: 'grid',
-                  gap: '12px',
-                  marginTop: '16px'
-                }}
-              >
-                {[...playerIdeals]
-                  .sort((a, b) =>
-                    String(b.assessment_date ?? '')
-                      .localeCompare(
-                        String(a.assessment_date ?? '')
-                      )
-                  )
-                  .map(assessment => (
-                    <article
-                      key={assessment.id}
-                      style={subPanel}
+              <>
+                <div
+                  style={{
+                    marginTop: '18px'
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                      alignItems: 'baseline',
+                      flexWrap: 'wrap'
+                    }}
+                  >
+                    <strong>
+                      Aktueller Stand
+                    </strong>
+
+                    <span
+                      style={{
+                        color: '#777',
+                        fontSize: '12px'
+                      }}
                     >
+                      {latestIdeal.period_label}
+                      {latestIdeal.assessment_date
+                        ? ` · ${formatDate(
+                            latestIdeal.assessment_date
+                          )}`
+                        : ''}
+                    </span>
+                  </div>
+
+                  <div
+                    className="academy-ideal-groups"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns:
+                        'repeat(2, minmax(0, 1fr))',
+                      gap: '14px',
+                      marginTop: '10px'
+                    }}
+                  >
+                    {['Mit Ball', 'Gegen den Ball'].map(group => (
                       <div
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start',
-                          gap: '12px',
-                          flexWrap: 'wrap'
-                        }}
+                        key={group}
+                        style={idealGroupCard}
                       >
-                        <div>
-                          <strong>
-                            {assessment.period_label}
-                          </strong>
-                          <div
-                            style={{
-                              marginTop: '3px',
-                              color: '#777',
-                              fontSize: '12px'
-                            }}
-                          >
-                            {assessment.assessment_date
-                              ? formatDate(
-                                  assessment.assessment_date
-                                )
-                              : 'Kein Datum'}
-                            {assessment.player_role
-                              ? ` · ${assessment.player_role}`
-                              : ''}
-                          </div>
+                        <div
+                          style={{
+                            fontSize: '12px',
+                            fontWeight: 800,
+                            textTransform: 'uppercase',
+                            color: '#555',
+                            marginBottom: '9px'
+                          }}
+                        >
+                          {group}
                         </div>
 
-                        <button
-                          type="button"
-                          onClick={() =>
-                            editIdealAssessment(assessment)
-                          }
-                          style={smallButton}
+                        <div
+                          style={{
+                            display: 'grid',
+                            gap: '8px'
+                          }}
                         >
-                          Bearbeiten
-                        </button>
-                      </div>
+                          {IDEAL_CODES
+                            .filter(code =>
+                              IDEAL_META[code].group === group
+                            )
+                            .map(code => {
+                              const score =
+                                getScoreByCode(
+                                  latestIdeal,
+                                  code
+                                );
 
-                      <div
-                        className="academy-ideal-score-grid"
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns:
-                            'repeat(auto-fit, minmax(150px, 1fr))',
-                          gap: '8px',
-                          marginTop: '12px'
-                        }}
-                      >
-                        {assessment.scores.map(score => (
+                              const value =
+                                getScoreValue(score);
+
+                              const trend =
+                                getTrendForCode(code);
+
+                              return (
+                                <div
+                                  key={code}
+                                  style={idealSummaryRow}
+                                >
+                                  <div>
+                                    <div
+                                      style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px'
+                                      }}
+                                    >
+                                      <span
+                                        style={idealCodeBadge}
+                                      >
+                                        {code}
+                                      </span>
+
+                                      <strong>
+                                        {IDEAL_META[code].label}
+                                      </strong>
+                                    </div>
+
+                                    {score?.notes && (
+                                      <div
+                                        style={{
+                                          marginTop: '5px',
+                                          color: '#777',
+                                          fontSize: '12px'
+                                        }}
+                                      >
+                                        {score.notes}
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  <div
+                                    style={{
+                                      textAlign: 'right',
+                                      minWidth: '62px'
+                                    }}
+                                  >
+                                    <div
+                                      style={{
+                                        fontSize: '20px',
+                                        fontWeight: 800
+                                      }}
+                                    >
+                                      {value ?? '–'}
+                                    </div>
+
+                                    {trend != null && trend !== 0 && (
+                                      <div
+                                        style={{
+                                          marginTop: '2px',
+                                          fontSize: '11px',
+                                          fontWeight: 800,
+                                          color:
+                                            trend > 0
+                                              ? '#0b7a3b'
+                                              : '#a05a00'
+                                        }}
+                                      >
+                                        {trend > 0 ? '↑' : '↓'}{' '}
+                                        {Math.abs(trend)}
+                                      </div>
+                                    )}
+
+                                    {trend === 0 && (
+                                      <div
+                                        style={{
+                                          marginTop: '2px',
+                                          fontSize: '11px',
+                                          color: '#777'
+                                        }}
+                                      >
+                                        =
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {previousIdeal && (
+                  <div
+                    style={{
+                      marginTop: '18px'
+                    }}
+                  >
+                    <strong>
+                      Entwicklung zur vorherigen Bewertung
+                    </strong>
+
+                    <div
+                      className="academy-ideal-trend-grid"
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns:
+                          'repeat(5, minmax(0, 1fr))',
+                        gap: '8px',
+                        marginTop: '9px'
+                      }}
+                    >
+                      {IDEAL_CODES.map(code => {
+                        const trend =
+                          getTrendForCode(code);
+
+                        return (
                           <div
-                            key={`${assessment.id}-${score.ideal_code}`}
+                            key={code}
                             style={metricCard}
                           >
-                            <strong>
-                              {score.ideal_code}
-                            </strong>
+                            <div
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                gap: '8px'
+                              }}
+                            >
+                              <strong>
+                                {code}
+                              </strong>
+
+                              <span
+                                style={{
+                                  fontWeight: 800,
+                                  color:
+                                    trend == null
+                                      ? '#777'
+                                      : trend > 0
+                                        ? '#0b7a3b'
+                                        : trend < 0
+                                          ? '#a05a00'
+                                          : '#555'
+                                }}
+                              >
+                                {trend == null
+                                  ? '–'
+                                  : trend > 0
+                                    ? `+${trend}`
+                                    : String(trend)}
+                              </span>
+                            </div>
+
                             <div
                               style={{
                                 marginTop: '4px',
-                                fontSize: '13px'
+                                color: '#777',
+                                fontSize: '11px'
                               }}
                             >
-                              {score.rating != null
-                                ? `Rating ${score.rating}`
-                                : score.status_quo != null
-                                  ? `Status ${score.status_quo}`
-                                  : '–'}
+                              {IDEAL_META[code].label}
                             </div>
-                            {score.potential != null && (
-                              <div
-                                style={{
-                                  color: '#777',
-                                  fontSize: '12px',
-                                  marginTop: '2px'
-                                }}
-                              >
-                                Potenzial {score.potential}
-                              </div>
-                            )}
                           </div>
-                        ))}
-                      </div>
-                    </article>
-                  ))}
-              </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    marginTop: '20px',
+                    paddingTop: '18px',
+                    borderTop: '1px solid #eeeeee'
+                  }}
+                >
+                  <strong>
+                    Verlauf
+                  </strong>
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gap: '12px',
+                      marginTop: '10px'
+                    }}
+                  >
+                    {sortedIdeals.map(assessment => (
+                      <article
+                        key={assessment.id}
+                        style={subPanel}
+                      >
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'flex-start',
+                            gap: '12px',
+                            flexWrap: 'wrap'
+                          }}
+                        >
+                          <div>
+                            <strong>
+                              {assessment.period_label}
+                            </strong>
+
+                            <div
+                              style={{
+                                marginTop: '3px',
+                                color: '#777',
+                                fontSize: '12px'
+                              }}
+                            >
+                              {assessment.assessment_date
+                                ? formatDate(
+                                    assessment.assessment_date
+                                  )
+                                : 'Kein Datum'}
+                              {assessment.player_role
+                                ? ` · ${assessment.player_role}`
+                                : ''}
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() =>
+                              editIdealAssessment(assessment)
+                            }
+                            style={smallButton}
+                          >
+                            Bearbeiten
+                          </button>
+                        </div>
+
+                        <div
+                          className="academy-ideal-score-grid"
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns:
+                              'repeat(5, minmax(0, 1fr))',
+                            gap: '8px',
+                            marginTop: '12px'
+                          }}
+                        >
+                          {IDEAL_CODES.map(code => {
+                            const score =
+                              assessment.scores.find(
+                                item =>
+                                  item.ideal_code === code
+                              );
+
+                            const value =
+                              getScoreValue(score);
+
+                            return (
+                              <div
+                                key={`${assessment.id}-${code}`}
+                                style={metricCard}
+                              >
+                                <div
+                                  style={{
+                                    display: 'flex',
+                                    gap: '6px',
+                                    alignItems: 'center'
+                                  }}
+                                >
+                                  <span
+                                    style={idealCodeBadgeSmall}
+                                  >
+                                    {code}
+                                  </span>
+                                  <strong>
+                                    {value ?? '–'}
+                                  </strong>
+                                </div>
+
+                                <div
+                                  style={{
+                                    marginTop: '5px',
+                                    color: '#777',
+                                    fontSize: '11px'
+                                  }}
+                                >
+                                  {IDEAL_META[code].label}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
           </section>
         )}
@@ -2908,6 +3270,46 @@ const metricCard: React.CSSProperties = {
   background: '#f6f8f7',
   borderRadius: '9px',
   padding: '11px'
+};
+
+
+const idealGroupCard: React.CSSProperties = {
+  background: '#f8faf9',
+  border: '1px solid #e8ede9',
+  borderRadius: '12px',
+  padding: '12px'
+};
+
+const idealSummaryRow: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: '12px',
+  padding: '10px',
+  background: '#fff',
+  borderRadius: '9px',
+  border: '1px solid #eeeeee'
+};
+
+const idealCodeBadge: React.CSSProperties = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  minWidth: '42px',
+  height: '28px',
+  padding: '0 8px',
+  borderRadius: '999px',
+  background: '#0b7a3b',
+  color: '#fff',
+  fontSize: '11px',
+  fontWeight: 900
+};
+
+const idealCodeBadgeSmall: React.CSSProperties = {
+  ...idealCodeBadge,
+  minWidth: '34px',
+  height: '23px',
+  fontSize: '10px'
 };
 
 const historyRow: React.CSSProperties = {
