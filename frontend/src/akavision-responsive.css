@@ -100,3 +100,17 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+@media (max-width: 820px) {
+  .academy-skillac-form-grid,
+  .academy-skillac-compare-grid,
+  .academy-skillac-current-grid,
+  .academy-skillac-history-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .academy-skillac-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
