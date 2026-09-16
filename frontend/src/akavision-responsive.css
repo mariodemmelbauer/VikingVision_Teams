@@ -114,3 +114,30 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+@media (max-width: 900px) {
+  .academy-scouting-kpis {
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  .academy-scouting-filters {
+    grid-template-columns: 1fr 1fr !important;
+  }
+}
+
+@media (max-width: 600px) {
+  .academy-scouting-kpis,
+  .academy-scouting-filters,
+  .academy-scouting-player-grid,
+  .academy-scouting-report-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+
+@media (max-width: 700px) {
+  .academy-scouting-player-form {
+    grid-template-columns: 1fr !important;
+  }
+}
