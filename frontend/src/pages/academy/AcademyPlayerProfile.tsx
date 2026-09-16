@@ -32,18 +32,6 @@ type AcademyMatch = {
   notes?: string;
 };
 
-type TrainingAttendance = {
-  session_id: number;
-  academy_player_id: number;
-  present: boolean;
-  minutes: number;
-  comment?: string;
-  player_name?: string;
-  session_date?: string;
-  session_title?: string;
-  session_type?: string;
-};
-
 type IdealScore = {
   assessment_id: number;
   ideal_code: string;
@@ -112,7 +100,6 @@ type IdealScoreForm = {
 export default function AcademyPlayerProfile({
   player,
   matches,
-  trainingAttendance,
   idealAssessments,
   sportScienceTests,
   skillAcForms,
@@ -123,7 +110,6 @@ export default function AcademyPlayerProfile({
 }: {
   player: AcademyPlayer;
   matches: AcademyMatch[];
-  trainingAttendance: TrainingAttendance[];
   idealAssessments: IdealAssessment[];
   sportScienceTests: SportScienceTest[];
   skillAcForms: SkillAcForm[];
@@ -288,13 +274,6 @@ export default function AcademyPlayerProfile({
       notes: ''
     });
 
-  const playerTraining =
-    trainingAttendance.filter(
-      row =>
-        String(
-          row.academy_player_id
-        ) === String(player.id)
-    );
 
   const playerIdeals =
     idealAssessments.filter(
@@ -320,18 +299,7 @@ export default function AcademyPlayerProfile({
         ) === String(player.id)
     );
 
-  const totalTrainingMinutes =
-    playerTraining.reduce(
-      (sum, row) =>
-        sum +
-        Number(row.minutes ?? 0),
-      0
-    );
 
-  const attendanceCount =
-    playerTraining.filter(
-      row => row.present
-    ).length;
 
   const latestTest =
     [...playerTests].sort(
@@ -1991,14 +1959,6 @@ export default function AcademyPlayerProfile({
           }}
         >
           <Kpi
-            label="Trainingsminuten"
-            value={totalTrainingMinutes}
-          />
-          <Kpi
-            label="Anwesenheiten"
-            value={attendanceCount}
-          />
-          <Kpi
             label="Ideale-Bewertungen"
             value={playerIdeals.length}
           />
@@ -2295,90 +2255,6 @@ export default function AcademyPlayerProfile({
             )}
           </div>
         </section>
-
-        <section
-          style={{
-            ...panel,
-            marginTop: '14px'
-          }}
-        >
-          <h3 style={{ marginTop: 0 }}>
-            Trainingshistorie
-          </h3>
-
-          {playerTraining.length === 0 ? (
-            <div style={{ color: '#777' }}>
-              Noch keine Trainingsdaten vorhanden.
-            </div>
-          ) : (
-            playerTraining
-              .slice(0, 10)
-              .map(
-                (
-                  row,
-                  index
-                ) => (
-                  <div
-                    key={`${row.session_id}-${index}`}
-                    style={rowStyle}
-                  >
-                    <div>
-                      <strong>
-                        {row.session_date
-                          ? formatDate(
-                              row.session_date
-                            )
-                          : 'Training'}
-                      </strong>
-
-                      <div
-                        style={{
-                          marginTop:
-                            '3px',
-                          color:
-                            '#777',
-                          fontSize:
-                            '12px'
-                        }}
-                      >
-                        {[
-                          row.session_title,
-                          row.session_type
-                        ]
-                          .filter(Boolean)
-                          .join(' · ')}
-                      </div>
-                    </div>
-
-                    <div
-                      style={{
-                        textAlign:
-                          'right'
-                      }}
-                    >
-                      <strong>
-                        {row.minutes} Min.
-                      </strong>
-                      <div
-                        style={{
-                          color:
-                            row.present
-                              ? '#0b7a3b'
-                              : '#a00000',
-                          fontSize:
-                            '12px'
-                        }}
-                      >
-                        {row.present
-                          ? 'Anwesend'
-                          : 'Abwesend'}
-                      </div>
-                    </div>
-                  </div>
-                )
-              )
-          )}
-        </section>
       </div>
     </div>
   );
@@ -2645,4 +2521,3 @@ const idealEditRow: React.CSSProperties = {
   padding: '12px',
   borderRadius: '10px'
 };
-
