@@ -31,6 +31,7 @@ type Props = {
   currentScoutName?: string;
   onBack: () => void;
   onPlayersChanged?: () => Promise<Player[] | void>;
+  onOpenPlayer?: (player: Player) => void;
 };
 
 type FormState = {
@@ -107,7 +108,8 @@ export default function ScoutingReports({
   players,
   currentScoutName,
   onBack,
-  onPlayersChanged
+  onPlayersChanged,
+  onOpenPlayer
 }: Props) {
   const [reports, setReports] = useState<ScoutingReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -128,6 +130,19 @@ export default function ScoutingReports({
     useState('Unter Vertrag');
   const [movingToSquad, setMovingToSquad] =
     useState(false);
+
+  const [pendingArchivePlayer, setPendingArchivePlayer] =
+    useState<Player | null>(null);
+  const [archivingPlayer, setArchivingPlayer] =
+    useState(false);
+  const [importResult, setImportResult] =
+    useState<{
+      newCount: number;
+      duplicateCount: number;
+      skippedCount: number;
+      duplicates: Array<Record<string, any>>;
+      skipped: Array<Record<string, any>>;
+    } | null>(null);
 
   const [search, setSearch] = useState('');
   const [playerFilter, setPlayerFilter] = useState('Alle');
@@ -433,6 +448,7 @@ export default function ScoutingReports({
       });
 
       setSuccess('Spieler wurde angelegt.');
+      setImportResult(null);
       setPlayerForm(emptyPlayerForm);
       setShowPlayerForm(false);
       await reloadPlayers();
@@ -467,9 +483,27 @@ export default function ScoutingReports({
       });
 
       setSuccess(
-        data?.scraped
-          ? 'Spieler wurde über Transfermarkt angelegt.'
-          : 'Spieler wurde aus dem Transfermarkt-Link angelegt. Nicht alle Profildaten konnten automatisch gelesen werden.'
+        data?.duplicate
+          ? `Dublettenprüfung: Spieler ist bereits vorhanden (${data?.reason ?? 'gleicher Transfermarkt-Spieler'}).`
+          : data?.scraped
+            ? 'Spieler wurde über Transfermarkt angelegt.'
+            : 'Spieler wurde aus dem Transfermarkt-Link angelegt. Nicht alle Profildaten konnten automatisch gelesen werden.'
+      );
+      setImportResult(
+        data?.duplicate
+          ? {
+              newCount: 0,
+              duplicateCount: 1,
+              skippedCount: 0,
+              duplicates: [
+                {
+                  name: data?.player?.name,
+                  reason: data?.reason
+                }
+              ],
+              skipped: []
+            }
+          : null
       );
       setTransfermarktUrl('');
       setShowTransfermarktForm(false);
@@ -512,15 +546,72 @@ export default function ScoutingReports({
         })
       });
 
+      const newCount =
+        data?.new_count ?? data?.count ?? 0;
+      const duplicateCount =
+        data?.duplicate_count ?? 0;
+      const skippedCount =
+        data?.skipped_count ?? 0;
+
       setSuccess(
-        `${data?.count ?? playersToImport.length} Spieler wurden importiert.`
+        `Excel-Import abgeschlossen: ${newCount} neu, ${duplicateCount} Dublette(n), ${skippedCount} übersprungen.`
       );
+
+      setImportResult({
+        newCount,
+        duplicateCount,
+        skippedCount,
+        duplicates:
+          Array.isArray(data?.duplicates)
+            ? data.duplicates
+            : [],
+        skipped:
+          Array.isArray(data?.skipped)
+            ? data.skipped
+            : []
+      });
+
       setShowExcelImport(false);
       await reloadPlayers();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Excel-Import fehlgeschlagen.');
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function archiveScoutingPlayer(
+    player: Player
+  ) {
+    setArchivingPlayer(true);
+    setError(undefined);
+    setSuccess(undefined);
+
+    try {
+      await authFetch(
+        `/players/${player.id}/archive`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({})
+        }
+      );
+
+      setSuccess(
+        `${player.name ?? 'Spieler'} wurde ins Spielerarchiv verschoben.`
+      );
+
+      setPendingArchivePlayer(null);
+      setPlayerFilter('Alle');
+
+      await reloadPlayers();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Spieler konnte nicht archiviert werden.'
+      );
+    } finally {
+      setArchivingPlayer(false);
     }
   }
 
@@ -593,6 +684,58 @@ export default function ScoutingReports({
       )}
 
       {success && <section style={successBox}>{success}</section>}
+
+      {importResult && (
+        <section
+          style={{
+            ...panel,
+            marginTop: '12px'
+          }}
+        >
+          <strong>Import-Ergebnis</strong>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: '14px',
+              flexWrap: 'wrap',
+              marginTop: '10px'
+            }}
+          >
+            <span>
+              Neu: <strong>{importResult.newCount}</strong>
+            </span>
+            <span>
+              Dubletten: <strong>{importResult.duplicateCount}</strong>
+            </span>
+            <span>
+              Übersprungen: <strong>{importResult.skippedCount}</strong>
+            </span>
+          </div>
+
+          {importResult.duplicates.length > 0 && (
+            <div style={{ marginTop: '12px' }}>
+              <strong>Dubletten</strong>
+              {importResult.duplicates.slice(0, 12).map((item, index) => (
+                <div key={index} style={subtle}>
+                  Zeile {item.row ?? '–'} · {item.name ?? item.existing_player?.name ?? 'Spieler'} · {item.reason ?? 'bereits vorhanden'}
+                </div>
+              ))}
+            </div>
+          )}
+
+          {importResult.skipped.length > 0 && (
+            <div style={{ marginTop: '12px' }}>
+              <strong>Übersprungen</strong>
+              {importResult.skipped.slice(0, 12).map((item, index) => (
+                <div key={index} style={subtle}>
+                  Zeile {item.row ?? '–'} · {item.reason ?? 'ungültige Zeile'}
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      )}
 
       <section className="vv-scouting-kpis" style={kpiGrid}>
         <Kpi label="Spieler" value={players.length} />
@@ -905,6 +1048,32 @@ export default function ScoutingReports({
                   Bericht anlegen
                 </button>
 
+                {onOpenPlayer && (
+                  <button
+                    type="button"
+                    onClick={event => {
+                      event.stopPropagation();
+                      onOpenPlayer(player);
+                    }}
+                    style={smallButton}
+                  >
+                    Profil öffnen
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={event => {
+                    event.stopPropagation();
+                    setPendingArchivePlayer(
+                      player
+                    );
+                  }}
+                  style={archiveButton}
+                >
+                  Archivieren
+                </button>
+
                 <button
                   type="button"
                   onClick={event => {
@@ -925,6 +1094,56 @@ export default function ScoutingReports({
           ))}
         </div>
       </section>
+
+      {pendingArchivePlayer && (
+        <section
+          style={{
+            ...panel,
+            marginTop: '18px',
+            borderColor: '#e2c98d',
+            background: '#fffaf0'
+          }}
+        >
+          <div style={toolbar}>
+            <div>
+              <strong>
+                {pendingArchivePlayer.name} archivieren?
+              </strong>
+              <div style={subtle}>
+                Der Spieler verschwindet aus dem Scouting, bleibt aber mit Profil und Berichten im Spielerarchiv erhalten.
+              </div>
+            </div>
+
+            <div style={buttonRow}>
+              <button
+                type="button"
+                onClick={() =>
+                  setPendingArchivePlayer(null)
+                }
+                disabled={archivingPlayer}
+                style={secondaryButton}
+              >
+                Abbrechen
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  archiveScoutingPlayer(
+                    pendingArchivePlayer
+                  )
+                }
+                disabled={archivingPlayer}
+                style={archiveButton}
+              >
+                {archivingPlayer
+                  ? 'Archiviert…'
+                  : 'Ja, archivieren'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
 
       {pendingSquadPlayer && (
         <section
@@ -1471,6 +1690,17 @@ const secondaryButton: React.CSSProperties = {
   cursor: 'pointer',
   fontWeight: 700
 };
+const archiveButton: React.CSSProperties = {
+  border: '1px solid #e2c98d',
+  background: '#fffaf0',
+  color: '#8a5500',
+  padding: '7px 10px',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontWeight: 700,
+  fontSize: '12px'
+};
+
 const squadButton: React.CSSProperties = {
   border: '1px solid #9cc8ad',
   background: '#f4faf6',
