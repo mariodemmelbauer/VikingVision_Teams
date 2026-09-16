@@ -1,4 +1,5 @@
 import React from 'react';
+import PlayerImage from '../components/PlayerImage';
 import type { Player } from './PlayerProfile';
 
 type Props = {
@@ -374,34 +375,29 @@ export default function Squad({
                             'center'
                         }}
                       >
-                        {player.image_path ? (
-                          <img
-                            src={
-                              player.image_path
-                            }
-                            alt={
-                              player.name ??
-                              'Spieler'
-                            }
-                            style={{
-                              width:
-                                '100%',
-                              height:
-                                '100%',
-                              objectFit:
-                                'cover'
-                            }}
-                          />
-                        ) : (
-                          <span
-                            style={{
-                              fontSize:
-                                '26px'
-                            }}
-                          >
-                            👤
-                          </span>
-                        )}
+                        <PlayerImage
+                          imagePath={
+                            player.image_path
+                          }
+                          alt={
+                            player.name ??
+                            'Spieler'
+                          }
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover'
+                          }}
+                          fallback={
+                            <span
+                              style={{
+                                fontSize: '26px'
+                              }}
+                            >
+                              👤
+                            </span>
+                          }
+                        />
                       </div>
 
                       <div
