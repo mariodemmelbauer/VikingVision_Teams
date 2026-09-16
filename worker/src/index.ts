@@ -397,8 +397,9 @@ export default {
           await supabase
             .from('players')
             .select('*')
-            .or(
-              'squad_status.neq.Archiviert,squad_status.is.null'
+            .is(
+              'archived_at',
+              null
             )
             .order(
               'name',
@@ -1849,8 +1850,9 @@ export default {
             .from('players')
             .update({
               is_own_squad: false,
-              squad_status:
-                'Archiviert',
+              archived_at:
+                new Date()
+                  .toISOString(),
               updated_at:
                 new Date()
                   .toISOString()
@@ -1908,9 +1910,10 @@ export default {
           await supabase
             .from('players')
             .select('*')
-            .eq(
-              'squad_status',
-              'Archiviert'
+            .not(
+              'archived_at',
+              'is',
+              null
             )
             .order(
               'name',
@@ -1995,8 +1998,7 @@ export default {
             .from('players')
             .update({
               is_own_squad: true,
-              squad_status:
-                'Unter Vertrag',
+              archived_at: null,
               updated_at:
                 new Date()
                   .toISOString()
