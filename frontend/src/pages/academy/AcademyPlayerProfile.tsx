@@ -21,17 +21,6 @@ type AcademyPlayer = {
   bus_route?: string;
 };
 
-type AcademyMatch = {
-  id: number;
-  team: string;
-  match_date: string;
-  opponent: string;
-  competition?: string;
-  duration_minutes?: number;
-  result?: string;
-  notes?: string;
-};
-
 type IdealScore = {
   assessment_id: number;
   ideal_code: string;
@@ -99,7 +88,6 @@ type IdealScoreForm = {
 
 export default function AcademyPlayerProfile({
   player,
-  matches,
   idealAssessments,
   sportScienceTests,
   skillAcForms,
@@ -109,7 +97,6 @@ export default function AcademyPlayerProfile({
   onClose
 }: {
   player: AcademyPlayer;
-  matches: AcademyMatch[];
   idealAssessments: IdealAssessment[];
   sportScienceTests: SportScienceTest[];
   skillAcForms: SkillAcForm[];
