@@ -19,6 +19,7 @@ type AcademyPlayer = {
   school_class?: string;
   bus_use?: boolean;
   bus_route?: string;
+  is_p12?: boolean;
 };
 
 type IdealScore = {
@@ -282,6 +283,8 @@ export default function AcademyPlayerProfile({
         Boolean(player.bus_use),
       bus_route:
         player.bus_route ?? 'KEINE',
+      is_p12:
+        Boolean(player.is_p12),
       notes:
         player.notes ?? ''
     });
@@ -542,6 +545,8 @@ export default function AcademyPlayerProfile({
                 playerForm.bus_use
                   ? playerForm.bus_route || 'KEINE'
                   : 'KEINE',
+              is_p12:
+                playerForm.is_p12,
               notes:
                 playerForm.notes || null
             })
@@ -1466,6 +1471,30 @@ export default function AcademyPlayerProfile({
                 }
               />
 
+              <Field label="P12-Projekt">
+                <select
+                  value={
+                    playerForm.is_p12
+                      ? 'ja'
+                      : 'nein'
+                  }
+                  onChange={event =>
+                    updatePlayerField(
+                      'is_p12',
+                      event.target.value === 'ja'
+                    )
+                  }
+                  style={inputStyle}
+                >
+                  <option value="nein">
+                    Nein
+                  </option>
+                  <option value="ja">
+                    Ja
+                  </option>
+                </select>
+              </Field>
+
               <Field label="Internat">
                 <select
                   value={
@@ -2385,6 +2414,14 @@ export default function AcademyPlayerProfile({
                   ]
                     .filter(Boolean)
                     .join(' · ') || undefined}
+                />
+                <InfoLine
+                  label="P12-Projekt"
+                  value={
+                    player.is_p12
+                      ? 'Ja'
+                      : 'Nein'
+                  }
                 />
                 <InfoLine
                   label="Internat"
