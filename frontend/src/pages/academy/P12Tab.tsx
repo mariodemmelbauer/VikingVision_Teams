@@ -97,6 +97,7 @@ type ProfileTab =
   | 'pyramid'
   | 'trainer'
   | 'self'
+  | 'development'
   | 'sports';
 
 const TRAINER_CATEGORIES = [
@@ -987,6 +988,15 @@ function P12PlayerProfile({
         >
           Spielerbewertung
         </ProfileTabButton>
+
+        <ProfileTabButton
+          active={profileTab === 'development'}
+          onClick={() =>
+            setProfileTab('development')
+          }
+        >
+          Vergleich & Verlauf
+        </ProfileTabButton>
         <ProfileTabButton
           active={profileTab === 'sports'}
           onClick={() =>
@@ -1067,6 +1077,20 @@ function P12PlayerProfile({
               }
               api={api}
               onReload={onReload}
+            />
+          )}
+
+          {profileTab === 'development' && (
+            <ComparisonHistorySection
+              trainerAssessments={
+                detail.trainerAssessments
+              }
+              selfAssessments={
+                detail.selfAssessments
+              }
+              sportsScienceTests={
+                detail.sportsScienceTests
+              }
             />
           )}
 
@@ -2547,6 +2571,929 @@ function printP12Profile(
   }
 }
 
+
+function ComparisonHistorySection({
+  trainerAssessments,
+  selfAssessments,
+  sportsScienceTests
+}: {
+  trainerAssessments: TrainerAssessment[];
+  selfAssessments: SelfAssessment[];
+  sportsScienceTests: SportsTest[];
+}) {
+  const periods =
+    Array.from(
+      new Set(
+        [
+          ...trainerAssessments.map(
+            item =>
+              item.period_label
+          ),
+          ...selfAssessments.map(
+            item =>
+              item.period_label
+          )
+        ].filter(Boolean)
+      )
+    );
+
+  const [period, setPeriod] =
+    useState(
+      periods[0] ?? ''
+    );
+
+  const allSportsMetrics =
+    Array.from(
+      new Set(
+        sportsScienceTests.flatMap(
+          test =>
+            (test.values ?? [])
+              .map(
+                value =>
+                  value.metric
+              )
+              .filter(Boolean)
+        )
+      )
+    );
+
+  const [sportsMetric, setSportsMetric] =
+    useState(
+      allSportsMetrics.includes(
+        'CMJ'
+      )
+        ? 'CMJ'
+        : allSportsMetrics[0] ??
+          ''
+    );
+
+  const trainer =
+    trainerAssessments.find(
+      item =>
+        item.period_label ===
+        period
+    );
+
+  const self =
+    selfAssessments.find(
+      item =>
+        item.period_label ===
+        period
+    );
+
+  const trainerScores =
+    new Map<
+      string,
+      number
+    >();
+
+  (trainer?.scores ?? [])
+    .forEach(score => {
+      const value =
+        score.coach_rating ??
+        score.p12_rating;
+
+      if (
+        typeof value ===
+          'number'
+      ) {
+        trainerScores.set(
+          `${score.category}|||${score.detail}`,
+          value
+        );
+      }
+    });
+
+  const selfScores =
+    new Map<
+      string,
+      number
+    >();
+
+  (self?.scores ?? [])
+    .forEach(score => {
+      if (
+        typeof score.rating ===
+          'number'
+      ) {
+        selfScores.set(
+          `${score.category}|||${score.detail}`,
+          score.rating
+        );
+      }
+    });
+
+  const categoryRows =
+    TRAINER_CATEGORIES.map(
+      group => {
+        const trainerValues =
+          group.details
+            .map(
+              detail =>
+                trainerScores.get(
+                  `${group.category}|||${detail}`
+                )
+            )
+            .filter(
+              (
+                value
+              ): value is number =>
+                typeof value ===
+                'number'
+            );
+
+        const selfValues =
+          group.details
+            .map(
+              detail =>
+                selfScores.get(
+                  `${group.category}|||${detail}`
+                )
+            )
+            .filter(
+              (
+                value
+              ): value is number =>
+                typeof value ===
+                'number'
+            );
+
+        return {
+          category:
+            group.category,
+          trainer:
+            averageNumbers(
+              trainerValues
+            ),
+          self:
+            averageNumbers(
+              selfValues
+            )
+        };
+      }
+    );
+
+  const trainerOverall =
+    averageNumbers(
+      Array.from(
+        trainerScores.values()
+      )
+    );
+
+  const selfOverall =
+    averageNumbers(
+      Array.from(
+        selfScores.values()
+      )
+    );
+
+  const detailRows =
+    TRAINER_CATEGORIES.flatMap(
+      group =>
+        group.details.map(
+          detail => {
+            const key =
+              `${group.category}|||${detail}`;
+            const coach =
+              trainerScores.get(
+                key
+              );
+            const player =
+              selfScores.get(
+                key
+              );
+
+            return {
+              category:
+                group.category,
+              detail,
+              coach,
+              player,
+              delta:
+                typeof coach ===
+                  'number' &&
+                typeof player ===
+                  'number'
+                  ? Number(
+                      (
+                        player -
+                        coach
+                      ).toFixed(
+                        1
+                      )
+                    )
+                  : null
+            };
+          }
+        )
+    );
+
+  const trainerHistory =
+    trainerAssessments
+      .map(
+        assessment => {
+          const values =
+            (
+              assessment.scores ??
+              []
+            )
+              .map(
+                score =>
+                  score.coach_rating ??
+                  score.p12_rating
+              )
+              .filter(
+                (
+                  value
+                ): value is number =>
+                  typeof value ===
+                  'number'
+              );
+
+          return {
+            id:
+              assessment.id,
+            period:
+              assessment.period_label,
+            date:
+              assessment.assessment_date ??
+              '',
+            average:
+              averageNumbers(
+                values
+              )
+          };
+        }
+      )
+      .filter(
+        item =>
+          item.average != null
+      )
+      .sort(
+        (a, b) =>
+          String(a.date)
+            .localeCompare(
+              String(b.date)
+            )
+      );
+
+  const sportsHistory =
+    sportsScienceTests
+      .map(test => {
+        const value =
+          (test.values ?? [])
+            .find(
+              item =>
+                item.metric ===
+                sportsMetric
+            );
+
+        return {
+          id:
+            test.id,
+          label:
+            test.test_label,
+          date:
+            test.test_date ??
+            '',
+          value:
+            typeof value?.value ===
+              'number'
+              ? value.value
+              : null,
+          unit:
+            value?.unit ??
+            ''
+        };
+      })
+      .filter(
+        item =>
+          item.value != null
+      )
+      .sort(
+        (a, b) =>
+          String(a.date)
+            .localeCompare(
+              String(b.date)
+            )
+      );
+
+  return (
+    <>
+      <section
+        style={{
+          ...panel,
+          marginTop: '14px'
+        }}
+      >
+        <div style={toolbar}>
+          <div>
+            <h3
+              style={{
+                margin:
+                  '0 0 4px'
+              }}
+            >
+              Trainer ↔ Spieler
+            </h3>
+            <div style={subtle}>
+              Vergleich der Wahrnehmung innerhalb derselben Bewertungsphase.
+            </div>
+          </div>
+
+          {periods.length > 0 && (
+            <label
+              style={{
+                minWidth:
+                  '220px'
+              }}
+            >
+              <div
+                style={
+                  labelStyle
+                }
+              >
+                Bewertungsphase
+              </div>
+              <select
+                value={period}
+                onChange={
+                  event =>
+                    setPeriod(
+                      event.target.value
+                    )
+                }
+                style={
+                  inputStyle
+                }
+              >
+                {periods.map(
+                  value => (
+                    <option
+                      key={value}
+                      value={value}
+                    >
+                      {value}
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
+          )}
+        </div>
+
+        {periods.length === 0 ? (
+          <div
+            style={{
+              marginTop:
+                '14px'
+            }}
+          >
+            Noch keine Trainer- oder Spielerbewertungen vorhanden.
+          </div>
+        ) : (
+          <>
+            <div
+              className="academy-p12-kpis"
+              style={{
+                ...kpiGrid,
+                marginTop:
+                  '14px'
+              }}
+            >
+              <ComparisonKpi
+                label="Trainer"
+                value={
+                  trainerOverall
+                }
+              />
+              <ComparisonKpi
+                label="Spieler"
+                value={
+                  selfOverall
+                }
+              />
+              <ComparisonKpi
+                label="Differenz"
+                value={
+                  trainerOverall !=
+                    null &&
+                  selfOverall !=
+                    null
+                    ? Number(
+                        (
+                          selfOverall -
+                          trainerOverall
+                        ).toFixed(
+                          1
+                        )
+                      )
+                    : null
+                }
+                suffix=""
+                signed
+              />
+            </div>
+
+            <div
+              style={{
+                display:
+                  'grid',
+                gap: '10px',
+                marginTop:
+                  '16px'
+              }}
+            >
+              {categoryRows.map(
+                row => (
+                  <div
+                    key={
+                      row.category
+                    }
+                    className="academy-p12-comparison-row"
+                    style={
+                      comparisonRow
+                    }
+                  >
+                    <strong>
+                      {row.category}
+                    </strong>
+
+                    <RatingValue
+                      label="Trainer"
+                      value={
+                        row.trainer
+                      }
+                    />
+
+                    <RatingValue
+                      label="Spieler"
+                      value={
+                        row.self
+                      }
+                    />
+
+                    <RatingValue
+                      label="Δ"
+                      value={
+                        row.trainer !=
+                          null &&
+                        row.self !=
+                          null
+                          ? Number(
+                              (
+                                row.self -
+                                row.trainer
+                              ).toFixed(
+                                1
+                              )
+                            )
+                          : null
+                      }
+                      signed
+                    />
+                  </div>
+                )
+              )}
+            </div>
+          </>
+        )}
+      </section>
+
+      {trainer &&
+        self && (
+          <section
+            style={{
+              ...panel,
+              marginTop:
+                '14px'
+            }}
+          >
+            <h3
+              style={{
+                marginTop: 0
+              }}
+            >
+              Detailvergleich
+            </h3>
+
+            <div
+              style={{
+                display:
+                  'grid',
+                gap: '4px'
+              }}
+            >
+              {detailRows.map(
+                row => (
+                  <div
+                    key={`${row.category}-${row.detail}`}
+                    className="academy-p12-detail-comparison-row"
+                    style={
+                      detailComparisonRow
+                    }
+                  >
+                    <span>
+                      {row.detail}
+                    </span>
+                    <strong>
+                      {row.coach ??
+                        '–'}
+                    </strong>
+                    <strong>
+                      {row.player ??
+                        '–'}
+                    </strong>
+                    <strong>
+                      {row.delta ==
+                      null
+                        ? '–'
+                        : row.delta >
+                          0
+                          ? `+${row.delta}`
+                          : String(
+                              row.delta
+                            )}
+                    </strong>
+                  </div>
+                )
+              )}
+            </div>
+          </section>
+        )}
+
+      <section
+        style={{
+          ...panel,
+          marginTop: '14px'
+        }}
+      >
+        <h3
+          style={{
+            marginTop: 0
+          }}
+        >
+          Trainerbewertung im Verlauf
+        </h3>
+
+        {trainerHistory.length ===
+        0 ? (
+          <div style={subtle}>
+            Noch kein Verlauf verfügbar.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gap: '8px'
+            }}
+          >
+            {trainerHistory.map(
+              (
+                item,
+                index
+              ) => {
+                const previous =
+                  index > 0
+                    ? trainerHistory[
+                        index - 1
+                      ]
+                    : null;
+
+                const delta =
+                  previous?.average !=
+                    null &&
+                  item.average !=
+                    null
+                    ? Number(
+                        (
+                          item.average -
+                          previous.average
+                        ).toFixed(
+                          1
+                        )
+                      )
+                    : null;
+
+                return (
+                  <div
+                    key={item.id}
+                    style={
+                      historyRow
+                    }
+                  >
+                    <div>
+                      <strong>
+                        {
+                          item.period
+                        }
+                      </strong>
+                      <div
+                        style={
+                          subtle
+                        }
+                      >
+                        {item.date ||
+                          '–'}
+                      </div>
+                    </div>
+
+                    <strong>
+                      {item.average?.toFixed(
+                        1
+                      )}
+                      /10
+                    </strong>
+
+                    <span
+                      style={{
+                        fontWeight:
+                          700
+                      }}
+                    >
+                      {delta ==
+                      null
+                        ? '–'
+                        : delta >
+                          0
+                          ? `+${delta}`
+                          : String(
+                              delta
+                            )}
+                    </span>
+                  </div>
+                );
+              }
+            )}
+          </div>
+        )}
+      </section>
+
+      <section
+        style={{
+          ...panel,
+          marginTop: '14px'
+        }}
+      >
+        <div style={toolbar}>
+          <div>
+            <h3
+              style={{
+                margin:
+                  '0 0 4px'
+              }}
+            >
+              Sportwissenschaftlicher Verlauf
+            </h3>
+            <div style={subtle}>
+              Entwicklung eines Messwerts über die gespeicherten Testtermine.
+            </div>
+          </div>
+
+          {allSportsMetrics.length >
+            0 && (
+            <label
+              style={{
+                minWidth:
+                  '220px'
+              }}
+            >
+              <div
+                style={
+                  labelStyle
+                }
+              >
+                Messwert
+              </div>
+              <select
+                value={
+                  sportsMetric
+                }
+                onChange={
+                  event =>
+                    setSportsMetric(
+                      event.target.value
+                    )
+                }
+                style={
+                  inputStyle
+                }
+              >
+                {allSportsMetrics.map(
+                  metric => (
+                    <option
+                      key={metric}
+                      value={metric}
+                    >
+                      {metric}
+                    </option>
+                  )
+                )}
+              </select>
+            </label>
+          )}
+        </div>
+
+        {sportsHistory.length ===
+        0 ? (
+          <div
+            style={{
+              ...subtle,
+              marginTop:
+                '12px'
+            }}
+          >
+            Für diesen Messwert ist noch kein Verlauf verfügbar.
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gap: '8px',
+              marginTop:
+                '14px'
+            }}
+          >
+            {sportsHistory.map(
+              (
+                item,
+                index
+              ) => {
+                const previous =
+                  index > 0
+                    ? sportsHistory[
+                        index - 1
+                      ]
+                    : null;
+
+                const delta =
+                  previous?.value !=
+                    null &&
+                  item.value !=
+                    null
+                    ? Number(
+                        (
+                          item.value -
+                          previous.value
+                        ).toFixed(
+                          2
+                        )
+                      )
+                    : null;
+
+                return (
+                  <div
+                    key={item.id}
+                    style={
+                      historyRow
+                    }
+                  >
+                    <div>
+                      <strong>
+                        {
+                          item.label
+                        }
+                      </strong>
+                      <div
+                        style={
+                          subtle
+                        }
+                      >
+                        {item.date ||
+                          '–'}
+                      </div>
+                    </div>
+
+                    <strong>
+                      {item.value}
+                      {item.unit
+                        ? ` ${item.unit}`
+                        : ''}
+                    </strong>
+
+                    <span
+                      style={{
+                        fontWeight:
+                          700
+                      }}
+                    >
+                      {delta ==
+                      null
+                        ? '–'
+                        : delta >
+                          0
+                          ? `+${delta}`
+                          : String(
+                              delta
+                            )}
+                    </span>
+                  </div>
+                );
+              }
+            )}
+          </div>
+        )}
+      </section>
+    </>
+  );
+}
+
+function averageNumbers(
+  values: number[]
+) {
+  if (
+    values.length === 0
+  ) {
+    return null;
+  }
+
+  return Number(
+    (
+      values.reduce(
+        (
+          sum,
+          value
+        ) =>
+          sum + value,
+        0
+      ) /
+      values.length
+    ).toFixed(1)
+  );
+}
+
+function ComparisonKpi({
+  label,
+  value,
+  suffix = '/10',
+  signed = false
+}: {
+  label: string;
+  value: number | null;
+  suffix?: string;
+  signed?: boolean;
+}) {
+  const display =
+    value == null
+      ? '–'
+      : signed &&
+        value > 0
+        ? `+${value}${suffix}`
+        : `${value}${suffix}`;
+
+  return (
+    <div style={panel}>
+      <div style={labelStyle}>
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: '30px',
+          fontWeight: 900,
+          marginTop: '6px'
+        }}
+      >
+        {display}
+      </div>
+    </div>
+  );
+}
+
+function RatingValue({
+  label,
+  value,
+  signed = false
+}: {
+  label: string;
+  value: number | null;
+  signed?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        textAlign:
+          'right'
+      }}
+    >
+      <div
+        style={
+          labelStyle
+        }
+      >
+        {label}
+      </div>
+      <strong>
+        {value == null
+          ? '–'
+          : signed &&
+            value > 0
+            ? `+${value}`
+            : value}
+      </strong>
+    </div>
+  );
+}
+
 function SportsScienceSection({
   player,
   tests,
@@ -3518,6 +4465,45 @@ const historyCard:
     background: '#f7f8f8',
     borderRadius: '9px',
     padding: '10px'
+  };
+
+const comparisonRow:
+  React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns:
+      'minmax(260px, 1fr) 90px 90px 70px',
+    gap: '10px',
+    alignItems: 'center',
+    padding:
+      '10px 0',
+    borderBottom:
+      '1px solid #f0f0f0'
+  };
+
+const detailComparisonRow:
+  React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns:
+      'minmax(280px, 1fr) 70px 70px 70px',
+    gap: '10px',
+    alignItems: 'center',
+    padding:
+      '8px 0',
+    borderBottom:
+      '1px solid #f0f0f0'
+  };
+
+const historyRow:
+  React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns:
+      'minmax(180px, 1fr) 120px 80px',
+    gap: '12px',
+    alignItems: 'center',
+    padding:
+      '10px 0',
+    borderBottom:
+      '1px solid #f0f0f0'
   };
 
 const pyramidGrid:
