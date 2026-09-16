@@ -122,6 +122,13 @@ export default function ScoutingReports({
   const [showTransfermarktForm, setShowTransfermarktForm] = useState(false);
   const [showExcelImport, setShowExcelImport] = useState(false);
 
+  const [pendingSquadPlayer, setPendingSquadPlayer] =
+    useState<Player | null>(null);
+  const [pendingSquadStatus, setPendingSquadStatus] =
+    useState('Unter Vertrag');
+  const [movingToSquad, setMovingToSquad] =
+    useState(false);
+
   const [search, setSearch] = useState('');
   const [playerFilter, setPlayerFilter] = useState('Alle');
   const [positionFilter, setPositionFilter] = useState('Alle');
@@ -517,6 +524,50 @@ export default function ScoutingReports({
     }
   }
 
+  async function movePlayerToSquad(
+    player: Player
+  ) {
+    setMovingToSquad(true);
+    setError(undefined);
+    setSuccess(undefined);
+
+    try {
+      const data =
+        await authFetch(
+          `/scouting/${player.id}/to-squad`,
+          {
+            method: 'PUT',
+            body: JSON.stringify({
+              squad_status:
+                pendingSquadStatus
+            })
+          }
+        );
+
+      setSuccess(
+        `${player.name ?? 'Spieler'} wurde in „Unser Kader“ übernommen.`
+      );
+
+      setPendingSquadPlayer(null);
+      setPlayerFilter('Alle');
+
+      await reloadPlayers();
+
+      if (data?.player?.id != null) {
+        await loadReports();
+      }
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Spieler konnte nicht in den Kader übernommen werden.'
+      );
+    } finally {
+      setMovingToSquad(false);
+    }
+  }
+
+
   return (
     <main className="page">
       <section className="hero">
@@ -841,20 +892,123 @@ export default function ScoutingReports({
               </div>
 
               <div style={buttonRow}>
-                <span
+                <button
+                  type="button"
                   onClick={event => {
                     event.stopPropagation();
-                    startNewReport(String(player.id));
+                    startNewReport(
+                      String(player.id)
+                    );
                   }}
-                  style={textAction}
+                  style={smallButton}
                 >
                   Bericht anlegen
-                </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={event => {
+                    event.stopPropagation();
+                    setPendingSquadStatus(
+                      'Unter Vertrag'
+                    );
+                    setPendingSquadPlayer(
+                      player
+                    );
+                  }}
+                  style={squadButton}
+                >
+                  In Kader übernehmen
+                </button>
               </div>
             </button>
           ))}
         </div>
       </section>
+
+      {pendingSquadPlayer && (
+        <section
+          style={{
+            ...panel,
+            marginTop: '18px',
+            borderColor: '#b9d9c7',
+            background: '#f7fbf8'
+          }}
+        >
+          <div style={toolbar}>
+            <div>
+              <strong>
+                {pendingSquadPlayer.name}
+                {' '}in „Unser Kader“ übernehmen?
+              </strong>
+
+              <div style={subtle}>
+                Der Spieler verschwindet danach aus der Scouting-Spielerliste und erscheint in „Unser Kader“.
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                setPendingSquadPlayer(
+                  null
+                )
+              }
+              disabled={movingToSquad}
+              style={secondaryButton}
+            >
+              Abbrechen
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'minmax(220px, 320px) auto',
+              gap: '12px',
+              alignItems: 'end',
+              marginTop: '14px'
+            }}
+          >
+            <Field label="Kaderstatus">
+              <select
+                value={
+                  pendingSquadStatus
+                }
+                onChange={event =>
+                  setPendingSquadStatus(
+                    event.target.value
+                  )
+                }
+                style={inputStyle}
+              >
+                <option value="Unter Vertrag">
+                  Unter Vertrag
+                </option>
+                <option value="Ausgeliehen">
+                  Ausgeliehen
+                </option>
+              </select>
+            </Field>
+
+            <button
+              type="button"
+              onClick={() =>
+                movePlayerToSquad(
+                  pendingSquadPlayer
+                )
+              }
+              disabled={movingToSquad}
+              style={primaryButton}
+            >
+              {movingToSquad
+                ? 'Wird übernommen…'
+                : 'Jetzt in Kader übernehmen'}
+            </button>
+          </div>
+        </section>
+      )}
 
       <section style={{ marginTop: '20px' }}>
         <div style={toolbar}>
@@ -1317,6 +1471,17 @@ const secondaryButton: React.CSSProperties = {
   cursor: 'pointer',
   fontWeight: 700
 };
+const squadButton: React.CSSProperties = {
+  border: '1px solid #9cc8ad',
+  background: '#f4faf6',
+  color: '#0b6b35',
+  padding: '7px 10px',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontWeight: 700,
+  fontSize: '12px'
+};
+
 const smallButton: React.CSSProperties = {
   ...secondaryButton,
   padding: '7px 10px',
