@@ -523,7 +523,10 @@ export default function ScoutingReports({
         <div>
           <div className="eyebrow">SV Oberbank Ried</div>
           <h1>Scouting</h1>
-          <p>Spieler und Scoutingberichte zentral verwalten</p>
+          <p>
+            Externe Spieler und Scoutingberichte verwalten.
+            Spieler aus „Unser Kader“ werden hier bewusst nicht angezeigt.
+          </p>
         </div>
 
         <button type="button" onClick={onBack} style={secondaryButton}>
