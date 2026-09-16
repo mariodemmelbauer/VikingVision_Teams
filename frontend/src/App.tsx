@@ -55,11 +55,6 @@ export default function App() {
   const [players, setPlayers] =
     useState<Player[]>([]);
 
-  const [playersLoading, setPlayersLoading] =
-    useState(false);
-
-  const [playersError, setPlayersError] =
-    useState<string | undefined>();
 
   const [selectedPlayer, setSelectedPlayer] =
     useState<Player | null>(null);
@@ -222,24 +217,6 @@ export default function App() {
     return players;
   }
 
-  async function openPlayers() {
-    setPage('players');
-    setPlayersLoading(true);
-    setPlayersError(undefined);
-
-    try {
-      await loadPlayers();
-    } catch (error) {
-      setPlayersError(
-        error instanceof Error
-          ? error.message
-          : 'Spieler konnten nicht geladen werden'
-      );
-    } finally {
-      setPlayersLoading(false);
-    }
-  }
-
   async function openScoutingReports() {
     try {
       await ensurePlayersLoaded();
@@ -313,27 +290,24 @@ export default function App() {
     setPage('dashboard');
   }
 
-  function backToPlayers() {
-    setPage('players');
-  }
 
-  if (
-    page === 'playerProfile' &&
-    selectedPlayer
-  ) {
-    const scoutingPlayers =
+  const scoutingPlayers =
     players.filter(
       player =>
         !player.is_own_squad &&
         !player.archived_at
     );
 
-  return (
+  if (
+    page === 'playerProfile' &&
+    selectedPlayer
+  ) {
+    return (
       <PlayerProfile
         player={selectedPlayer}
         accessToken={user.accessToken}
         apiBase={API_BASE}
-        onBack={backToPlayers}
+        onBack={backToDashboard}
         onPlayerUpdated={
           handlePlayerUpdated
         }
