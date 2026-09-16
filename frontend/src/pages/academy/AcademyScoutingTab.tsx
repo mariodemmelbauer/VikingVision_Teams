@@ -962,7 +962,6 @@ export default function AcademyScoutingTab({
                     event.target.value
                   )
                 }
-                placeholder="z. B. FC Musterstadt"
                 style={inputStyle}
               />
             </Field>
@@ -989,7 +988,6 @@ export default function AcademyScoutingTab({
                     event.target.value
                   )
                 }
-                placeholder="z. B. Innenverteidiger"
                 style={inputStyle}
               />
             </Field>
