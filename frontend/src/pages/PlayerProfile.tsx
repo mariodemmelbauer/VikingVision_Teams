@@ -360,7 +360,10 @@ export default function PlayerProfile({
             }}
           >
             <PlayerImage
+              playerId={player.id}
               imagePath={player.image_path}
+              accessToken={accessToken}
+              apiBase={apiBase}
               alt={player.name ?? 'Spieler'}
               style={{
                 width: '100%',
