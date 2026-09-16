@@ -86,6 +86,12 @@ type IdealScoreForm = {
   notes: string;
 };
 
+type ProfileTab =
+  | 'stammdaten'
+  | 'ideale'
+  | 'sportScience'
+  | 'skillAc';
+
 export default function AcademyPlayerProfile({
   player,
   idealAssessments,
@@ -107,6 +113,9 @@ export default function AcademyPlayerProfile({
 }) {
   const [editing, setEditing] =
     useState(false);
+
+  const [profileTab, setProfileTab] =
+    useState<ProfileTab>('stammdaten');
 
   const [savingPlayer, setSavingPlayer] =
     useState(false);
@@ -1937,311 +1946,736 @@ export default function AcademyPlayerProfile({
         )}
 
         <section
+          className="academy-profile-tabs"
           style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(170px, 1fr))',
-            gap: '10px',
+            display: 'flex',
+            gap: '8px',
+            flexWrap: 'wrap',
             marginTop: '18px'
           }}
         >
-          <Kpi
-            label="Ideale-Bewertungen"
-            value={playerIdeals.length}
-          />
-          <Kpi
-            label="Sport-Science-Tests"
-            value={playerTests.length}
-          />
+          <ProfileTabButton
+            active={profileTab === 'stammdaten'}
+            onClick={() => setProfileTab('stammdaten')}
+          >
+            Stammdaten
+          </ProfileTabButton>
+
+          <ProfileTabButton
+            active={profileTab === 'ideale'}
+            onClick={() => setProfileTab('ideale')}
+          >
+            Ideale · {playerIdeals.length}
+          </ProfileTabButton>
+
+          <ProfileTabButton
+            active={profileTab === 'sportScience'}
+            onClick={() => setProfileTab('sportScience')}
+          >
+            Sport Science · {playerTests.length}
+          </ProfileTabButton>
+
+          <ProfileTabButton
+            active={profileTab === 'skillAc'}
+            onClick={() => setProfileTab('skillAc')}
+          >
+            Skill / AC · {playerSkillAc.length}
+          </ProfileTabButton>
         </section>
 
-        <section
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: '14px',
-            marginTop: '18px'
-          }}
-        >
-          <div style={panel}>
-            <h3 style={{ marginTop: 0 }}>
-              Stammdaten
-            </h3>
+        {profileTab === 'stammdaten' && (
+          <section
+            style={{
+              ...panel,
+              marginTop: '14px'
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '12px',
+                flexWrap: 'wrap'
+              }}
+            >
+              <h3 style={{ margin: 0 }}>
+                Stammdaten
+              </h3>
 
-            <InfoLine
-              label="Geburtsdatum"
-              value={
-                player.birth_date
-                  ? formatDate(
-                      player.birth_date
-                    )
-                  : undefined
-              }
-            />
-            <InfoLine
-              label="Position"
-              value={
-                player.primary_position
-              }
-            />
-            <InfoLine
-              label="Rolle"
-              value={
-                player.player_role
-              }
-            />
-            <InfoLine
-              label="Fuß"
-              value={
-                player.preferred_foot
-              }
-            />
-            <InfoLine
-              label="Nationalität"
-              value={
-                player.nationality
-              }
-            />
-            <InfoLine
-              label="Größe"
-              value={player.height}
-            />
-            <InfoLine
-              label="Status"
-              value={
-                player.squad_status
-              }
-            />
-            <InfoLine
-              label="Schule"
-              value={[
-                player.school_type,
-                player.school_class
-              ]
-                .filter(Boolean)
-                .join(' · ') || undefined}
-            />
-            <InfoLine
-              label="Internat"
-              value={
-                player.boarding_school
-                  ? 'Ja'
-                  : 'Nein'
-              }
-            />
-            <InfoLine
-              label="Bus"
-              value={
-                player.bus_use
-                  ? player.bus_route || 'Ja'
-                  : 'Nein'
-              }
-            />
-          </div>
+              <button
+                type="button"
+                onClick={() => setEditing(true)}
+                style={secondaryButton}
+              >
+                Stammdaten bearbeiten
+              </button>
+            </div>
 
-          <div style={panel}>
-            <h3 style={{ marginTop: 0 }}>
-              Sport Science
-            </h3>
+            <div
+              className="academy-profile-data-grid"
+              style={{
+                display: 'grid',
+                gridTemplateColumns:
+                  'repeat(2, minmax(0, 1fr))',
+                gap: '0 24px',
+                marginTop: '10px'
+              }}
+            >
+              <div>
+                <InfoLine
+                  label="Geburtsdatum"
+                  value={
+                    player.birth_date
+                      ? formatDate(player.birth_date)
+                      : undefined
+                  }
+                />
+                <InfoLine
+                  label="Position"
+                  value={player.primary_position}
+                />
+                <InfoLine
+                  label="Rolle"
+                  value={player.player_role}
+                />
+                <InfoLine
+                  label="Fuß"
+                  value={player.preferred_foot}
+                />
+                <InfoLine
+                  label="Trikotnummer"
+                  value={player.jersey_number}
+                />
+                <InfoLine
+                  label="Nationalität"
+                  value={player.nationality}
+                />
+              </div>
+
+              <div>
+                <InfoLine
+                  label="Größe"
+                  value={player.height}
+                />
+                <InfoLine
+                  label="Verein"
+                  value={player.current_club}
+                />
+                <InfoLine
+                  label="Status"
+                  value={player.squad_status}
+                />
+                <InfoLine
+                  label="Schule"
+                  value={[
+                    player.school_type,
+                    player.school_class
+                  ]
+                    .filter(Boolean)
+                    .join(' · ') || undefined}
+                />
+                <InfoLine
+                  label="Internat"
+                  value={
+                    player.boarding_school
+                      ? 'Ja'
+                      : 'Nein'
+                  }
+                />
+                <InfoLine
+                  label="Bus"
+                  value={
+                    player.bus_use
+                      ? player.bus_route || 'Ja'
+                      : 'Nein'
+                  }
+                />
+              </div>
+            </div>
+
+            {player.notes && (
+              <div
+                style={{
+                  marginTop: '16px',
+                  paddingTop: '14px',
+                  borderTop: '1px solid #eeeeee'
+                }}
+              >
+                <strong>Notizen</strong>
+                <div
+                  style={{
+                    marginTop: '6px',
+                    whiteSpace: 'pre-wrap',
+                    color: '#444'
+                  }}
+                >
+                  {player.notes}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {profileTab === 'ideale' && (
+          <section
+            style={{
+              ...panel,
+              marginTop: '14px'
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '12px',
+                flexWrap: 'wrap'
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0 }}>
+                  Ideale
+                </h3>
+                <div
+                  style={{
+                    marginTop: '4px',
+                    color: '#777',
+                    fontSize: '13px'
+                  }}
+                >
+                  {playerIdeals.length} Bewertungen
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  resetIdealForm();
+                  setShowIdealForm(true);
+                }}
+                style={primaryButton}
+              >
+                + Ideale-Bewertung
+              </button>
+            </div>
+
+            {playerIdeals.length === 0 ? (
+              <div
+                style={{
+                  color: '#777',
+                  marginTop: '16px'
+                }}
+              >
+                Noch keine Ideale-Bewertung vorhanden.
+              </div>
+            ) : (
+              <div
+                style={{
+                  display: 'grid',
+                  gap: '12px',
+                  marginTop: '16px'
+                }}
+              >
+                {[...playerIdeals]
+                  .sort((a, b) =>
+                    String(b.assessment_date ?? '')
+                      .localeCompare(
+                        String(a.assessment_date ?? '')
+                      )
+                  )
+                  .map(assessment => (
+                    <article
+                      key={assessment.id}
+                      style={subPanel}
+                    >
+                      <div
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'flex-start',
+                          gap: '12px',
+                          flexWrap: 'wrap'
+                        }}
+                      >
+                        <div>
+                          <strong>
+                            {assessment.period_label}
+                          </strong>
+                          <div
+                            style={{
+                              marginTop: '3px',
+                              color: '#777',
+                              fontSize: '12px'
+                            }}
+                          >
+                            {assessment.assessment_date
+                              ? formatDate(
+                                  assessment.assessment_date
+                                )
+                              : 'Kein Datum'}
+                            {assessment.player_role
+                              ? ` · ${assessment.player_role}`
+                              : ''}
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            editIdealAssessment(assessment)
+                          }
+                          style={smallButton}
+                        >
+                          Bearbeiten
+                        </button>
+                      </div>
+
+                      <div
+                        className="academy-ideal-score-grid"
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns:
+                            'repeat(auto-fit, minmax(150px, 1fr))',
+                          gap: '8px',
+                          marginTop: '12px'
+                        }}
+                      >
+                        {assessment.scores.map(score => (
+                          <div
+                            key={`${assessment.id}-${score.ideal_code}`}
+                            style={metricCard}
+                          >
+                            <strong>
+                              {score.ideal_code}
+                            </strong>
+                            <div
+                              style={{
+                                marginTop: '4px',
+                                fontSize: '13px'
+                              }}
+                            >
+                              {score.rating != null
+                                ? `Rating ${score.rating}`
+                                : score.status_quo != null
+                                  ? `Status ${score.status_quo}`
+                                  : '–'}
+                            </div>
+                            {score.potential != null && (
+                              <div
+                                style={{
+                                  color: '#777',
+                                  fontSize: '12px',
+                                  marginTop: '2px'
+                                }}
+                              >
+                                Potenzial {score.potential}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </article>
+                  ))}
+              </div>
+            )}
+          </section>
+        )}
+
+        {profileTab === 'sportScience' && (
+          <section
+            style={{
+              ...panel,
+              marginTop: '14px'
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '12px',
+                flexWrap: 'wrap'
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0 }}>
+                  Sport Science
+                </h3>
+                <div
+                  style={{
+                    marginTop: '4px',
+                    color: '#777',
+                    fontSize: '13px'
+                  }}
+                >
+                  {playerTests.length} Testdatensätze
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() =>
+                  setShowSportScienceForm(true)
+                }
+                style={primaryButton}
+              >
+                + Sport-Science-Test
+              </button>
+            </div>
 
             {!latestTest ? (
-              <div style={{ color: '#777' }}>
+              <div
+                style={{
+                  color: '#777',
+                  marginTop: '16px'
+                }}
+              >
                 Noch keine Testdaten vorhanden.
               </div>
             ) : (
               <>
-                <InfoLine
-                  label="Letzter Test"
-                  value={formatDate(
-                    latestTest.test_date
-                  )}
-                />
-                <InfoLine
-                  label="Gewicht"
-                  value={
-                    latestTest.body_weight_kg != null
-                      ? `${latestTest.body_weight_kg} kg`
-                      : undefined
-                  }
-                />
-                <InfoLine
-                  label="Körperfett"
-                  value={
-                    latestTest.body_fat_percent != null
-                      ? `${latestTest.body_fat_percent} %`
-                      : undefined
-                  }
-                />
-                <InfoLine
-                  label="10 m"
-                  value={
-                    latestTest.sprint_10m_seconds != null
-                      ? `${latestTest.sprint_10m_seconds} s`
-                      : undefined
-                  }
-                />
-                <InfoLine
-                  label="30 m"
-                  value={
-                    latestTest.sprint_30m_seconds != null
-                      ? `${latestTest.sprint_30m_seconds} s`
-                      : undefined
-                  }
-                />
-                <InfoLine
-                  label="CMJ"
-                  value={
-                    latestTest.cmj_cm != null
-                      ? `${latestTest.cmj_cm} cm`
-                      : undefined
-                  }
-                />
-                <InfoLine
-                  label="Readiness"
-                  value={
-                    latestTest.readiness
-                  }
-                />
-              </>
-            )}
-          </div>
-
-          <div style={panel}>
-            <h3 style={{ marginTop: 0 }}>
-              Letzte Ideale-Bewertung
-            </h3>
-
-            {!latestIdeal ? (
-              <div style={{ color: '#777' }}>
-                Noch keine Ideale-Bewertung vorhanden.
-              </div>
-            ) : (
-              <>
-                <InfoLine
-                  label="Periode"
-                  value={
-                    latestIdeal.period_label
-                  }
-                />
-                <InfoLine
-                  label="Datum"
-                  value={
-                    latestIdeal.assessment_date
-                      ? formatDate(
-                          latestIdeal.assessment_date
-                        )
-                      : undefined
-                  }
-                />
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    editIdealAssessment(
-                      latestIdeal
-                    )
-                  }
-                  style={{
-                    ...secondaryButton,
-                    marginTop: '12px',
-                    padding: '8px 12px'
-                  }}
-                >
-                  Bewertung bearbeiten
-                </button>
-
                 <div
+                  className="academy-profile-metric-grid"
                   style={{
                     display: 'grid',
+                    gridTemplateColumns:
+                      'repeat(auto-fit, minmax(145px, 1fr))',
                     gap: '8px',
-                    marginTop: '12px'
+                    marginTop: '16px'
                   }}
                 >
-                  {latestIdeal.scores.map(
-                    score => (
-                      <div
-                        key={`${latestIdeal.id}-${score.ideal_code}`}
-                        style={scoreRow}
-                      >
-                        <strong>
-                          {score.ideal_code}
-                        </strong>
-
-                        <span>
-                          {score.rating != null
-                            ? `Rating ${score.rating}`
-                            : score.status_quo != null
-                              ? `Status ${score.status_quo}`
-                              : '–'}
-                        </span>
-                      </div>
-                    )
-                  )}
+                  <MetricCard
+                    label="Testdatum"
+                    value={formatDate(latestTest.test_date)}
+                  />
+                  <MetricCard
+                    label="Gewicht"
+                    value={
+                      latestTest.body_weight_kg != null
+                        ? `${latestTest.body_weight_kg} kg`
+                        : '–'
+                    }
+                  />
+                  <MetricCard
+                    label="Körperfett"
+                    value={
+                      latestTest.body_fat_percent != null
+                        ? `${latestTest.body_fat_percent} %`
+                        : '–'
+                    }
+                  />
+                  <MetricCard
+                    label="10 m"
+                    value={
+                      latestTest.sprint_10m_seconds != null
+                        ? `${latestTest.sprint_10m_seconds} s`
+                        : '–'
+                    }
+                  />
+                  <MetricCard
+                    label="30 m"
+                    value={
+                      latestTest.sprint_30m_seconds != null
+                        ? `${latestTest.sprint_30m_seconds} s`
+                        : '–'
+                    }
+                  />
+                  <MetricCard
+                    label="CMJ"
+                    value={
+                      latestTest.cmj_cm != null
+                        ? `${latestTest.cmj_cm} cm`
+                        : '–'
+                    }
+                  />
+                  <MetricCard
+                    label="Aerob"
+                    value={
+                      latestTest.aerobic_value != null
+                        ? String(latestTest.aerobic_value)
+                        : '–'
+                    }
+                  />
+                  <MetricCard
+                    label="Readiness"
+                    value={latestTest.readiness || '–'}
+                  />
                 </div>
+
+                {playerTests.length > 1 && (
+                  <div style={{ marginTop: '18px' }}>
+                    <strong>Testhistorie</strong>
+                    <div
+                      style={{
+                        display: 'grid',
+                        gap: '8px',
+                        marginTop: '8px'
+                      }}
+                    >
+                      {[...playerTests]
+                        .sort((a, b) =>
+                          b.test_date.localeCompare(a.test_date)
+                        )
+                        .map(test => (
+                          <div
+                            key={test.id}
+                            style={historyRow}
+                          >
+                            <span>
+                              {formatDate(test.test_date)}
+                            </span>
+                            <span>
+                              {[
+                                test.body_weight_kg != null
+                                  ? `${test.body_weight_kg} kg`
+                                  : null,
+                                test.sprint_10m_seconds != null
+                                  ? `10 m ${test.sprint_10m_seconds} s`
+                                  : null,
+                                test.cmj_cm != null
+                                  ? `CMJ ${test.cmj_cm} cm`
+                                  : null
+                              ]
+                                .filter(Boolean)
+                                .join(' · ') || '–'}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
-          </div>
+          </section>
+        )}
 
-          <div style={panel}>
-            <h3 style={{ marginTop: 0 }}>
-              Skill / AC
-            </h3>
+        {profileTab === 'skillAc' && (
+          <section
+            style={{
+              ...panel,
+              marginTop: '14px'
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: '12px',
+                flexWrap: 'wrap'
+              }}
+            >
+              <div>
+                <h3 style={{ margin: 0 }}>
+                  Skill / AC
+                </h3>
+                <div
+                  style={{
+                    marginTop: '4px',
+                    color: '#777',
+                    fontSize: '13px'
+                  }}
+                >
+                  {playerSkillAc.length} Formulare
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  resetSkillAcForm();
+                  setShowSkillAcForm(true);
+                }}
+                style={primaryButton}
+              >
+                + Skill / AC
+              </button>
+            </div>
 
             {playerSkillAc.length === 0 ? (
-              <div style={{ color: '#777' }}>
+              <div
+                style={{
+                  color: '#777',
+                  marginTop: '16px'
+                }}
+              >
                 Noch keine Skill-/AC-Daten vorhanden.
               </div>
             ) : (
-              playerSkillAc
-                .slice(0, 2)
-                .map(form => (
-                  <div
+              <div
+                style={{
+                  display: 'grid',
+                  gap: '12px',
+                  marginTop: '16px'
+                }}
+              >
+                {playerSkillAc.map(form => (
+                  <article
                     key={form.id}
-                    style={{
-                      marginBottom: '12px'
-                    }}
+                    style={subPanel}
                   >
-                    <strong>
-                      {[
-                        form.period_old,
-                        form.period_new
-                      ]
-                        .filter(Boolean)
-                        .join(' → ') ||
-                        'Skill / AC'}
-                    </strong>
-
-                    {form.biggest_changes && (
-                      <div
-                        style={{
-                          marginTop: '5px'
-                        }}
-                      >
-                        {
-                          form.biggest_changes
-                        }
-                      </div>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        editSkillAcForm(form)
-                      }
+                    <div
                       style={{
-                        ...secondaryButton,
-                        marginTop: '8px',
-                        padding: '7px 10px'
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                        flexWrap: 'wrap'
                       }}
                     >
-                      Bearbeiten
-                    </button>
-                  </div>
-                ))
+                      <div>
+                        <strong>
+                          {[
+                            form.period_old,
+                            form.period_new
+                          ]
+                            .filter(Boolean)
+                            .join(' → ') || 'Skill / AC'}
+                        </strong>
+                        {(form.team_old || form.team_new) && (
+                          <div
+                            style={{
+                              marginTop: '3px',
+                              color: '#777',
+                              fontSize: '12px'
+                            }}
+                          >
+                            {[form.team_old, form.team_new]
+                              .filter(Boolean)
+                              .join(' → ')}
+                          </div>
+                        )}
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          editSkillAcForm(form)
+                        }
+                        style={smallButton}
+                      >
+                        Bearbeiten
+                      </button>
+                    </div>
+
+                    {form.biggest_changes && (
+                      <ProfileTextBlock
+                        label="Größte Veränderungen"
+                        value={form.biggest_changes}
+                      />
+                    )}
+                    {form.skill_new && (
+                      <ProfileTextBlock
+                        label="Skill"
+                        value={form.skill_new}
+                      />
+                    )}
+                    {form.ac_new && (
+                      <ProfileTextBlock
+                        label="AC"
+                        value={form.ac_new}
+                      />
+                    )}
+                    {form.reflection && (
+                      <ProfileTextBlock
+                        label="Reflexion"
+                        value={form.reflection}
+                      />
+                    )}
+                  </article>
+                ))}
+              </div>
             )}
-          </div>
-        </section>
+          </section>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ProfileTabButton({
+  active,
+  onClick,
+  children
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={
+        active
+          ? activeProfileTabButton
+          : profileTabButton
+      }
+    >
+      {children}
+    </button>
+  );
+}
+
+function MetricCard({
+  label,
+  value
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={metricCard}>
+      <div
+        style={{
+          color: '#777',
+          fontSize: '11px',
+          textTransform: 'uppercase',
+          fontWeight: 700
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          marginTop: '5px',
+          fontWeight: 800,
+          fontSize: '16px'
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ProfileTextBlock({
+  label,
+  value
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={{ marginTop: '12px' }}>
+      <div
+        style={{
+          color: '#777',
+          fontSize: '11px',
+          textTransform: 'uppercase',
+          fontWeight: 700
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          marginTop: '4px',
+          whiteSpace: 'pre-wrap'
+        }}
+      >
+        {value}
       </div>
     </div>
   );
@@ -2437,6 +2871,53 @@ const secondaryButton: React.CSSProperties = {
   borderRadius: '10px',
   cursor: 'pointer',
   fontWeight: 700
+};
+
+
+const profileTabButton: React.CSSProperties = {
+  border: '1px solid #d6d6d6',
+  background: '#fff',
+  color: '#222',
+  padding: '9px 14px',
+  borderRadius: '999px',
+  cursor: 'pointer',
+  fontWeight: 700
+};
+
+const activeProfileTabButton: React.CSSProperties = {
+  ...profileTabButton,
+  background: '#0b7a3b',
+  borderColor: '#0b7a3b',
+  color: '#fff'
+};
+
+const smallButton: React.CSSProperties = {
+  ...secondaryButton,
+  padding: '7px 10px',
+  fontSize: '12px'
+};
+
+const subPanel: React.CSSProperties = {
+  background: '#f8faf9',
+  border: '1px solid #e9eeeb',
+  borderRadius: '11px',
+  padding: '14px'
+};
+
+const metricCard: React.CSSProperties = {
+  background: '#f6f8f7',
+  borderRadius: '9px',
+  padding: '11px'
+};
+
+const historyRow: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '12px',
+  flexWrap: 'wrap',
+  padding: '9px 0',
+  borderBottom: '1px solid #eeeeee',
+  fontSize: '13px'
 };
 
 const errorBox: React.CSSProperties = {
