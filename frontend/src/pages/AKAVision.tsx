@@ -26,32 +26,6 @@ type AcademyPlayer = {
   bus_route?: string;
 };
 
-type AcademyFixture = {
-  id: number;
-  team: string;
-  match_date: string;
-  kickoff_time?: string;
-  opponent: string;
-  home_away?: string;
-  stadium_name?: string;
-  city?: string;
-  competition?: string;
-  result?: string;
-  status?: string;
-  notes?: string;
-};
-
-type AcademyMatch = {
-  id: number;
-  team: string;
-  match_date: string;
-  opponent: string;
-  competition?: string;
-  duration_minutes?: number;
-  result?: string;
-  notes?: string;
-};
-
 type IdealScore = {
   assessment_id: number;
   ideal_code: string;
@@ -160,9 +134,6 @@ type IdealScoreForm = {
 type Overview = {
   team: string;
   playerCount: number;
-  upcomingFixtureCount: number;
-  playedMatchCount: number;
-  totalMinutes: number;
 };
 
 type Props = {
@@ -174,7 +145,6 @@ type Props = {
 type Tab =
   | 'overview'
   | 'players'
-  | 'matches'
   | 'ideals'
   | 'scouting'
   | 'sportScience'
@@ -204,11 +174,7 @@ export default function AKAVision({
   const [players, setPlayers] =
     useState<AcademyPlayer[]>([]);
 
-  const [fixtures, setFixtures] =
-    useState<AcademyFixture[]>([]);
 
-  const [matches, setMatches] =
-    useState<AcademyMatch[]>([]);
 
 
 
@@ -282,8 +248,6 @@ export default function AKAVision({
       const [
         overviewData,
         playerData,
-        fixtureData,
-        matchData,
         idealsData,
         scoutingData,
         sportScienceData,
@@ -295,12 +259,6 @@ export default function AKAVision({
           ),
           apiGet(
             `/academy/players?team=${encodedTeam}`
-          ),
-          apiGet(
-            `/academy/fixtures?team=${encodedTeam}`
-          ),
-          apiGet(
-            `/academy/matches?team=${encodedTeam}`
           ),
           apiGet(
             `/academy/ideals?team=${encodedTeam}`
@@ -325,22 +283,6 @@ export default function AKAVision({
           playerData.players
         )
           ? playerData.players
-          : []
-      );
-
-      setFixtures(
-        Array.isArray(
-          fixtureData.fixtures
-        )
-          ? fixtureData.fixtures
-          : []
-      );
-
-      setMatches(
-        Array.isArray(
-          matchData.matches
-        )
-          ? matchData.matches
           : []
       );
 
@@ -425,8 +367,8 @@ export default function AKAVision({
           <h1>AKAVision</h1>
 
           <p>
-            Akademie-Dashboard für Spieler,
-            Spiele, Ideale, Sport Science und Scouting
+            Akademie-Dashboard für Stammdaten,
+            Ideale, Sport Science, Skill / AC und Scouting
           </p>
         </div>
 
@@ -503,13 +445,6 @@ export default function AKAVision({
         </TabButton>
 
         <TabButton
-          active={tab === 'matches'}
-          onClick={() => setTab('matches')}
-        >
-          Spiele
-        </TabButton>
-
-        <TabButton
           active={tab === 'ideals'}
           onClick={() => setTab('ideals')}
         >
@@ -554,8 +489,6 @@ export default function AKAVision({
               team={team}
               overview={overview}
               players={activePlayers}
-              fixtures={fixtures}
-              matches={matches}
             />
           )}
 
@@ -567,13 +500,6 @@ export default function AKAVision({
                   player.id
                 )
               }
-            />
-          )}
-
-          {tab === 'matches' && (
-            <MatchesTab
-              fixtures={fixtures}
-              matches={matches}
             />
           )}
 
@@ -611,7 +537,6 @@ export default function AKAVision({
       {selectedAcademyPlayer && (
         <AcademyPlayerProfile
           player={selectedAcademyPlayer}
-          matches={matches}
           idealAssessments={idealAssessments}
           sportScienceTests={sportScienceTests}
           skillAcForms={skillAcForms}
@@ -633,20 +558,12 @@ function OverviewTab({
   team,
   overview,
   players,
-  fixtures,
-  matches
+  players
 }: {
   team: AcademyTeam;
   overview: Overview | null;
   players: AcademyPlayer[];
-  fixtures: AcademyFixture[];
-  matches: AcademyMatch[];
 }) {
-  const upcoming =
-    fixtures.slice(0, 5);
-
-  const recent =
-    matches.slice(0, 5);
 
 
   return (
@@ -667,78 +584,6 @@ function OverviewTab({
             players.length
           }
         />
-
-        <Kpi
-          label="Kommende Spiele"
-          value={
-            overview?.upcomingFixtureCount ??
-            fixtures.length
-          }
-        />
-
-        <Kpi
-          label="Erfasste Spiele"
-          value={
-            overview?.playedMatchCount ??
-            matches.length
-          }
-        />
-
-        <Kpi
-          label="Einsatzminuten"
-          value={
-            overview?.totalMinutes ??
-            0
-          }
-        />
-      </section>
-
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(320px, 1fr))',
-          gap: '16px',
-          marginTop: '18px'
-        }}
-      >
-        <div style={panel}>
-          <h2 style={{ marginTop: 0 }}>
-            Nächste Spiele {team}
-          </h2>
-
-          {upcoming.length === 0 ? (
-            <div style={{ color: '#666' }}>
-              Keine kommenden Spiele vorhanden.
-            </div>
-          ) : (
-            upcoming.map(fixture => (
-              <FixtureRow
-                key={fixture.id}
-                fixture={fixture}
-              />
-            ))
-          )}
-        </div>
-
-        <div style={panel}>
-          <h2 style={{ marginTop: 0 }}>
-            Letzte Spiele {team}
-          </h2>
-
-          {recent.length === 0 ? (
-            <div style={{ color: '#666' }}>
-              Noch keine Spiele vorhanden.
-            </div>
-          ) : (
-            recent.map(match => (
-              <MatchRow
-                key={match.id}
-                match={match}
-              />
-            ))
-          )}
-        </div>
       </section>
 
       <section
@@ -936,60 +781,6 @@ function PlayersTab({
   );
 }
 
-
-function MatchesTab({
-  fixtures,
-  matches
-}: {
-  fixtures: AcademyFixture[];
-  matches: AcademyMatch[];
-}) {
-  return (
-    <section
-      style={{
-        display: 'grid',
-        gridTemplateColumns:
-          'repeat(auto-fit, minmax(330px, 1fr))',
-        gap: '16px',
-        marginTop: '18px'
-      }}
-    >
-      <div style={panel}>
-        <h2 style={{ marginTop: 0 }}>
-          Spielplan
-        </h2>
-
-        {fixtures.length === 0 ? (
-          <div>Keine Spielplan-Daten.</div>
-        ) : (
-          fixtures.map(fixture => (
-            <FixtureRow
-              key={fixture.id}
-              fixture={fixture}
-            />
-          ))
-        )}
-      </div>
-
-      <div style={panel}>
-        <h2 style={{ marginTop: 0 }}>
-          Gespielte Matches
-        </h2>
-
-        {matches.length === 0 ? (
-          <div>Keine Match-Daten.</div>
-        ) : (
-          matches.map(match => (
-            <MatchRow
-              key={match.id}
-              match={match}
-            />
-          ))
-        )}
-      </div>
-    </section>
-  );
-}
 
 function IdealsTab({
   players,
@@ -1769,100 +1560,6 @@ function TextBlock({
       >
         {value}
       </div>
-    </div>
-  );
-}
-
-function FixtureRow({
-  fixture
-}: {
-  fixture: AcademyFixture;
-}) {
-  return (
-    <div style={rowStyle}>
-      <div>
-        <strong>
-          {formatDate(
-            fixture.match_date
-          )}
-          {fixture.kickoff_time
-            ? ` · ${fixture.kickoff_time.slice(0, 5)}`
-            : ''}
-        </strong>
-
-        <div style={{ marginTop: '3px' }}>
-          {fixture.home_away ===
-          'Auswärts'
-            ? `${fixture.opponent} – SV Ried`
-            : `SV Ried – ${fixture.opponent}`}
-        </div>
-
-        <div
-          style={{
-            marginTop: '3px',
-            color: '#777',
-            fontSize: '12px'
-          }}
-        >
-          {[
-            fixture.competition,
-            fixture.stadium_name,
-            fixture.city
-          ]
-            .filter(Boolean)
-            .join(' · ')}
-        </div>
-      </div>
-
-      {fixture.result && (
-        <strong
-          style={{
-            fontSize: '18px'
-          }}
-        >
-          {fixture.result}
-        </strong>
-      )}
-    </div>
-  );
-}
-
-function MatchRow({
-  match
-}: {
-  match: AcademyMatch;
-}) {
-  return (
-    <div style={rowStyle}>
-      <div>
-        <strong>
-          {formatDate(
-            match.match_date
-          )}
-        </strong>
-
-        <div style={{ marginTop: '3px' }}>
-          {match.opponent}
-        </div>
-
-        <div
-          style={{
-            marginTop: '3px',
-            color: '#777',
-            fontSize: '12px'
-          }}
-        >
-          {match.competition ?? '–'}
-        </div>
-      </div>
-
-      <strong
-        style={{
-          fontSize: '18px'
-        }}
-      >
-        {match.result ?? '–'}
-      </strong>
     </div>
   );
 }
