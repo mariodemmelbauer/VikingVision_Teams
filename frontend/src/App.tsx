@@ -9,6 +9,7 @@ import ScoutingReports from './pages/ScoutingReports';
 import Watchlist from './pages/Watchlist';
 import Squad from './pages/Squad';
 import AKAVision from './pages/AKAVision';
+import PlayerArchive from './pages/PlayerArchive';
 
 import {
   initTeams,
@@ -26,6 +27,7 @@ type Page =
   | 'scoutingReports'
   | 'watchlist'
   | 'squad'
+  | 'playerArchive'
   | 'akavision';
 
 export default function App() {
@@ -279,6 +281,10 @@ export default function App() {
     }
   }
 
+  function openPlayerArchive() {
+    setPage('playerArchive');
+  }
+
   function openAKAVision() {
     setPage('akavision');
   }
@@ -352,6 +358,7 @@ export default function App() {
           user.displayName
         }
         onBack={backToDashboard}
+        onPlayersChanged={loadPlayers}
       />
     );
   }
@@ -372,7 +379,22 @@ export default function App() {
     return (
       <Squad
         players={players}
+        accessToken={user.accessToken}
+        apiBase={API_BASE}
         onBack={backToDashboard}
+        onOpenPlayer={openPlayer}
+        onArchived={loadPlayers}
+      />
+    );
+  }
+
+  if (page === 'playerArchive') {
+    return (
+      <PlayerArchive
+        accessToken={user.accessToken}
+        apiBase={API_BASE}
+        onBack={backToDashboard}
+        onRestored={loadPlayers}
         onOpenPlayer={openPlayer}
       />
     );
@@ -422,6 +444,9 @@ export default function App() {
       }
       onOpenSquad={
         openSquad
+      }
+      onOpenPlayerArchive={
+        openPlayerArchive
       }
       onOpenAKAVision={
         openAKAVision
