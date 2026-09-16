@@ -1017,6 +1017,63 @@ export default function AcademyPlayerProfile({
     setProfileSuccess(undefined);
   }
 
+  const sortedSkillAc =
+    [...playerSkillAc].sort(
+      (a, b) =>
+        Number(b.id) - Number(a.id)
+    );
+
+  const latestSkillAc =
+    sortedSkillAc[0];
+
+  function useLatestSkillAcAsBase() {
+    if (!latestSkillAc) {
+      return;
+    }
+
+    setEditingSkillAcId(null);
+
+    setSkillAcForm(current => ({
+      ...current,
+      period_old:
+        latestSkillAc.period_new ??
+        latestSkillAc.period_old ??
+        '',
+      period_new: '',
+      team_old:
+        latestSkillAc.team_new ??
+        latestSkillAc.team_old ??
+        player.team ??
+        '',
+      team_new:
+        player.team ??
+        latestSkillAc.team_new ??
+        '',
+      author_old:
+        latestSkillAc.author_new ??
+        latestSkillAc.author_old ??
+        '',
+      author_new: '',
+      skill_old:
+        latestSkillAc.skill_new ??
+        latestSkillAc.skill_old ??
+        '',
+      ac_old:
+        latestSkillAc.ac_new ??
+        latestSkillAc.ac_old ??
+        '',
+      consequence_general: '',
+      skill_new: '',
+      ac_new: '',
+      reflection: '',
+      biggest_changes: ''
+    }));
+
+    setShowSkillAcForm(true);
+    setProfileError(undefined);
+    setProfileSuccess(undefined);
+  }
+
   async function saveSkillAcForm() {
     if (!accessToken) {
       setProfileError(
@@ -1891,12 +1948,287 @@ export default function AcademyPlayerProfile({
                 alignItems: 'center'
               }}
             >
-              <h3 style={{ margin: 0 }}>
-                {editingSkillAcId != null
-                  ? 'Skill / AC bearbeiten'
-                  : 'Neues Skill-/AC-Formular'}
-              </h3>
+              <div>
+                <h3 style={{ margin: 0 }}>
+                  {editingSkillAcId != null
+                    ? 'Skill / AC Entwicklungsbogen bearbeiten'
+                    : 'Skill / AC Entwicklungsbogen'}
+                </h3>
 
+                <div
+                  style={{
+                    marginTop: '4px',
+                    color: '#777',
+                    fontSize: '13px'
+                  }}
+                >
+                  Entwicklung vom bisherigen Stand zum nächsten Entwicklungsschritt dokumentieren.
+                </div>
+              </div>
+
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  flexWrap: 'wrap'
+                }}
+              >
+                {editingSkillAcId == null && latestSkillAc && (
+                  <button
+                    type="button"
+                    onClick={useLatestSkillAcAsBase}
+                    style={secondaryButton}
+                  >
+                    Letzten Stand übernehmen
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSkillAcForm(false);
+                    resetSkillAcForm();
+                  }}
+                  style={secondaryButton}
+                >
+                  Abbrechen
+                </button>
+              </div>
+            </div>
+
+            <div
+              style={{
+                ...skillAcSection,
+                marginTop: '16px'
+              }}
+            >
+              <div style={skillAcSectionHeader}>
+                1 · Rahmen
+              </div>
+
+              <div
+                className="academy-skillac-form-grid"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(2, minmax(0, 1fr))',
+                  gap: '12px',
+                  marginTop: '10px'
+                }}
+              >
+                <TextInput
+                  label="Periode bisher"
+                  value={skillAcForm.period_old}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'period_old',
+                      value
+                    )
+                  }
+                />
+
+                <TextInput
+                  label="Periode neu"
+                  value={skillAcForm.period_new}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'period_new',
+                      value
+                    )
+                  }
+                />
+
+                <TextInput
+                  label="Team bisher"
+                  value={skillAcForm.team_old}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'team_old',
+                      value
+                    )
+                  }
+                />
+
+                <TextInput
+                  label="Team neu"
+                  value={skillAcForm.team_new}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'team_new',
+                      value
+                    )
+                  }
+                />
+
+                <TextInput
+                  label="Autor bisher"
+                  value={skillAcForm.author_old}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'author_old',
+                      value
+                    )
+                  }
+                />
+
+                <TextInput
+                  label="Autor neu"
+                  value={skillAcForm.author_new}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'author_new',
+                      value
+                    )
+                  }
+                />
+              </div>
+            </div>
+
+            <div style={skillAcSection}>
+              <div style={skillAcSectionHeader}>
+                2 · Skill
+              </div>
+
+              <div
+                className="academy-skillac-compare-grid"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(2, minmax(0, 1fr))',
+                  gap: '12px',
+                  marginTop: '10px'
+                }}
+              >
+                <Area
+                  label="Bisheriger Skill-Fokus"
+                  value={skillAcForm.skill_old}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'skill_old',
+                      value
+                    )
+                  }
+                />
+
+                <Area
+                  label="Neuer Skill-Fokus"
+                  value={skillAcForm.skill_new}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'skill_new',
+                      value
+                    )
+                  }
+                />
+              </div>
+            </div>
+
+            <div style={skillAcSection}>
+              <div style={skillAcSectionHeader}>
+                3 · AC
+              </div>
+
+              <div
+                className="academy-skillac-compare-grid"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(2, minmax(0, 1fr))',
+                  gap: '12px',
+                  marginTop: '10px'
+                }}
+              >
+                <Area
+                  label="Bisheriger AC-Fokus"
+                  value={skillAcForm.ac_old}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'ac_old',
+                      value
+                    )
+                  }
+                />
+
+                <Area
+                  label="Neuer AC-Fokus"
+                  value={skillAcForm.ac_new}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'ac_new',
+                      value
+                    )
+                  }
+                />
+              </div>
+            </div>
+
+            <div style={skillAcSection}>
+              <div style={skillAcSectionHeader}>
+                4 · Veränderung & Konsequenz
+              </div>
+
+              <div
+                className="academy-skillac-form-grid"
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns:
+                    'repeat(2, minmax(0, 1fr))',
+                  gap: '12px',
+                  marginTop: '10px'
+                }}
+              >
+                <Area
+                  label="Größte Veränderungen"
+                  value={skillAcForm.biggest_changes}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'biggest_changes',
+                      value
+                    )
+                  }
+                />
+
+                <Area
+                  label="Konsequenz allgemein"
+                  value={skillAcForm.consequence_general}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'consequence_general',
+                      value
+                    )
+                  }
+                />
+              </div>
+            </div>
+
+            <div style={skillAcSection}>
+              <div style={skillAcSectionHeader}>
+                5 · Reflexion
+              </div>
+
+              <div style={{ marginTop: '10px' }}>
+                <Area
+                  label="Reflexion / nächster Schritt"
+                  value={skillAcForm.reflection}
+                  onChange={value =>
+                    updateSkillAcField(
+                      'reflection',
+                      value
+                    )
+                  }
+                />
+              </div>
+            </div>
+
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '8px',
+                flexWrap: 'wrap',
+                marginTop: '16px'
+              }}
+            >
               <button
                 type="button"
                 onClick={() => {
@@ -1907,183 +2239,20 @@ export default function AcademyPlayerProfile({
               >
                 Abbrechen
               </button>
+
+              <button
+                type="button"
+                onClick={saveSkillAcForm}
+                disabled={savingSkillAc}
+                style={primaryButton}
+              >
+                {savingSkillAc
+                  ? 'Speichert…'
+                  : editingSkillAcId != null
+                    ? 'Skill / AC Bogen aktualisieren'
+                    : 'Skill / AC Bogen speichern'}
+              </button>
             </div>
-
-            <div
-              style={{
-                ...profileFormGrid,
-                marginTop: '14px'
-              }}
-            >
-              <TextInput
-                label="Periode alt"
-                value={skillAcForm.period_old}
-                onChange={value =>
-                  updateSkillAcField(
-                    'period_old',
-                    value
-                  )
-                }
-              />
-
-              <TextInput
-                label="Periode neu"
-                value={skillAcForm.period_new}
-                onChange={value =>
-                  updateSkillAcField(
-                    'period_new',
-                    value
-                  )
-                }
-              />
-
-              <TextInput
-                label="Team alt"
-                value={skillAcForm.team_old}
-                onChange={value =>
-                  updateSkillAcField(
-                    'team_old',
-                    value
-                  )
-                }
-              />
-
-              <TextInput
-                label="Team neu"
-                value={skillAcForm.team_new}
-                onChange={value =>
-                  updateSkillAcField(
-                    'team_new',
-                    value
-                  )
-                }
-              />
-
-              <TextInput
-                label="Autor alt"
-                value={skillAcForm.author_old}
-                onChange={value =>
-                  updateSkillAcField(
-                    'author_old',
-                    value
-                  )
-                }
-              />
-
-              <TextInput
-                label="Autor neu"
-                value={skillAcForm.author_new}
-                onChange={value =>
-                  updateSkillAcField(
-                    'author_new',
-                    value
-                  )
-                }
-              />
-            </div>
-
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns:
-                  'repeat(2, minmax(0, 1fr))',
-                gap: '12px',
-                marginTop: '14px'
-              }}
-            >
-              <Area
-                label="Skill alt"
-                value={skillAcForm.skill_old}
-                onChange={value =>
-                  updateSkillAcField(
-                    'skill_old',
-                    value
-                  )
-                }
-              />
-
-              <Area
-                label="Skill neu"
-                value={skillAcForm.skill_new}
-                onChange={value =>
-                  updateSkillAcField(
-                    'skill_new',
-                    value
-                  )
-                }
-              />
-
-              <Area
-                label="AC alt"
-                value={skillAcForm.ac_old}
-                onChange={value =>
-                  updateSkillAcField(
-                    'ac_old',
-                    value
-                  )
-                }
-              />
-
-              <Area
-                label="AC neu"
-                value={skillAcForm.ac_new}
-                onChange={value =>
-                  updateSkillAcField(
-                    'ac_new',
-                    value
-                  )
-                }
-              />
-
-              <Area
-                label="Größte Veränderungen"
-                value={skillAcForm.biggest_changes}
-                onChange={value =>
-                  updateSkillAcField(
-                    'biggest_changes',
-                    value
-                  )
-                }
-              />
-
-              <Area
-                label="Konsequenz allgemein"
-                value={skillAcForm.consequence_general}
-                onChange={value =>
-                  updateSkillAcField(
-                    'consequence_general',
-                    value
-                  )
-                }
-              />
-
-              <Area
-                label="Reflexion"
-                value={skillAcForm.reflection}
-                onChange={value =>
-                  updateSkillAcField(
-                    'reflection',
-                    value
-                  )
-                }
-              />
-            </div>
-
-            <button
-              type="button"
-              onClick={saveSkillAcForm}
-              disabled={savingSkillAc}
-              style={{
-                ...primaryButton,
-                marginTop: '16px'
-              }}
-            >
-              {savingSkillAc
-                ? 'Speichert…'
-                : editingSkillAcId != null
-                  ? 'Skill / AC aktualisieren'
-                  : 'Skill / AC speichern'}
-            </button>
           </section>
         )}
 
@@ -3048,118 +3217,401 @@ export default function AcademyPlayerProfile({
                     fontSize: '13px'
                   }}
                 >
-                  {playerSkillAc.length} Formulare
+                  {playerSkillAc.length} Entwicklungsbögen
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => {
-                  resetSkillAcForm();
-                  setShowSkillAcForm(true);
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '8px',
+                  flexWrap: 'wrap'
                 }}
-                style={primaryButton}
               >
-                + Skill / AC
-              </button>
+                {latestSkillAc && (
+                  <button
+                    type="button"
+                    onClick={useLatestSkillAcAsBase}
+                    style={secondaryButton}
+                  >
+                    Neuen Bogen aus letztem Stand
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    resetSkillAcForm();
+                    setShowSkillAcForm(true);
+                  }}
+                  style={primaryButton}
+                >
+                  + Skill / AC Bogen
+                </button>
+              </div>
             </div>
 
-            {playerSkillAc.length === 0 ? (
+            {!latestSkillAc ? (
               <div
                 style={{
                   color: '#777',
                   marginTop: '16px'
                 }}
               >
-                Noch keine Skill-/AC-Daten vorhanden.
+                Noch kein Skill-/AC-Entwicklungsbogen vorhanden.
               </div>
             ) : (
-              <div
-                style={{
-                  display: 'grid',
-                  gap: '12px',
-                  marginTop: '16px'
-                }}
-              >
-                {playerSkillAc.map(form => (
-                  <article
-                    key={form.id}
-                    style={subPanel}
+              <>
+                <div
+                  style={{
+                    marginTop: '18px'
+                  }}
+                >
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                      alignItems: 'baseline',
+                      flexWrap: 'wrap'
+                    }}
                   >
-                    <div
+                    <strong>
+                      Aktueller Entwicklungsbogen
+                    </strong>
+
+                    <span
                       style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'flex-start',
-                        gap: '12px',
-                        flexWrap: 'wrap'
+                        color: '#777',
+                        fontSize: '12px'
                       }}
                     >
-                      <div>
-                        <strong>
-                          {[
-                            form.period_old,
-                            form.period_new
-                          ]
-                            .filter(Boolean)
-                            .join(' → ') || 'Skill / AC'}
-                        </strong>
-                        {(form.team_old || form.team_new) && (
+                      {[
+                        latestSkillAc.period_old,
+                        latestSkillAc.period_new
+                      ]
+                        .filter(Boolean)
+                        .join(' → ') || 'Ohne Periodenangabe'}
+                    </span>
+                  </div>
+
+                  <div
+                    className="academy-skillac-current-grid"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns:
+                        'repeat(2, minmax(0, 1fr))',
+                      gap: '12px',
+                      marginTop: '10px'
+                    }}
+                  >
+                    <SkillAcCompareCard
+                      title="Skill"
+                      oldValue={latestSkillAc.skill_old}
+                      newValue={latestSkillAc.skill_new}
+                    />
+
+                    <SkillAcCompareCard
+                      title="AC"
+                      oldValue={latestSkillAc.ac_old}
+                      newValue={latestSkillAc.ac_new}
+                    />
+                  </div>
+
+                  <div
+                    className="academy-skillac-detail-grid"
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns:
+                        'repeat(3, minmax(0, 1fr))',
+                      gap: '10px',
+                      marginTop: '12px'
+                    }}
+                  >
+                    <SkillAcTextCard
+                      label="Größte Veränderungen"
+                      value={latestSkillAc.biggest_changes}
+                    />
+
+                    <SkillAcTextCard
+                      label="Konsequenz"
+                      value={latestSkillAc.consequence_general}
+                    />
+
+                    <SkillAcTextCard
+                      label="Reflexion"
+                      value={latestSkillAc.reflection}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: '10px',
+                      flexWrap: 'wrap',
+                      marginTop: '12px',
+                      paddingTop: '12px',
+                      borderTop: '1px solid #eeeeee',
+                      color: '#777',
+                      fontSize: '12px'
+                    }}
+                  >
+                    <span>
+                      Team:{' '}
+                      {[latestSkillAc.team_old, latestSkillAc.team_new]
+                        .filter(Boolean)
+                        .join(' → ') || '–'}
+                    </span>
+
+                    <span>
+                      Autor:{' '}
+                      {[latestSkillAc.author_old, latestSkillAc.author_new]
+                        .filter(Boolean)
+                        .join(' → ') || '–'}
+                    </span>
+                  </div>
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'flex-end',
+                      marginTop: '10px'
+                    }}
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        editSkillAcForm(latestSkillAc)
+                      }
+                      style={secondaryButton}
+                    >
+                      Aktuellen Bogen bearbeiten
+                    </button>
+                  </div>
+                </div>
+
+                {sortedSkillAc.length > 1 && (
+                  <div
+                    style={{
+                      marginTop: '20px',
+                      paddingTop: '18px',
+                      borderTop: '1px solid #eeeeee'
+                    }}
+                  >
+                    <strong>
+                      Verlauf
+                    </strong>
+
+                    <div
+                      style={{
+                        display: 'grid',
+                        gap: '10px',
+                        marginTop: '10px'
+                      }}
+                    >
+                      {sortedSkillAc.map(form => (
+                        <article
+                          key={form.id}
+                          style={subPanel}
+                        >
                           <div
                             style={{
-                              marginTop: '3px',
-                              color: '#777',
-                              fontSize: '12px'
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              gap: '12px',
+                              alignItems: 'flex-start',
+                              flexWrap: 'wrap'
                             }}
                           >
-                            {[form.team_old, form.team_new]
-                              .filter(Boolean)
-                              .join(' → ')}
+                            <div>
+                              <strong>
+                                {[
+                                  form.period_old,
+                                  form.period_new
+                                ]
+                                  .filter(Boolean)
+                                  .join(' → ') || 'Skill / AC'}
+                              </strong>
+
+                              {(form.team_old || form.team_new) && (
+                                <div
+                                  style={{
+                                    marginTop: '3px',
+                                    color: '#777',
+                                    fontSize: '12px'
+                                  }}
+                                >
+                                  {[form.team_old, form.team_new]
+                                    .filter(Boolean)
+                                    .join(' → ')}
+                                </div>
+                              )}
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                editSkillAcForm(form)
+                              }
+                              style={smallButton}
+                            >
+                              Bearbeiten
+                            </button>
                           </div>
-                        )}
-                      </div>
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          editSkillAcForm(form)
-                        }
-                        style={smallButton}
-                      >
-                        Bearbeiten
-                      </button>
+                          <div
+                            className="academy-skillac-history-grid"
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns:
+                                'repeat(2, minmax(0, 1fr))',
+                              gap: '10px',
+                              marginTop: '10px'
+                            }}
+                          >
+                            <SkillAcCompareCard
+                              title="Skill"
+                              oldValue={form.skill_old}
+                              newValue={form.skill_new}
+                              compact
+                            />
+
+                            <SkillAcCompareCard
+                              title="AC"
+                              oldValue={form.ac_old}
+                              newValue={form.ac_new}
+                              compact
+                            />
+                          </div>
+
+                          {form.biggest_changes && (
+                            <ProfileTextBlock
+                              label="Größte Veränderungen"
+                              value={form.biggest_changes}
+                            />
+                          )}
+
+                          {form.reflection && (
+                            <ProfileTextBlock
+                              label="Reflexion"
+                              value={form.reflection}
+                            />
+                          )}
+                        </article>
+                      ))}
                     </div>
-
-                    {form.biggest_changes && (
-                      <ProfileTextBlock
-                        label="Größte Veränderungen"
-                        value={form.biggest_changes}
-                      />
-                    )}
-                    {form.skill_new && (
-                      <ProfileTextBlock
-                        label="Skill"
-                        value={form.skill_new}
-                      />
-                    )}
-                    {form.ac_new && (
-                      <ProfileTextBlock
-                        label="AC"
-                        value={form.ac_new}
-                      />
-                    )}
-                    {form.reflection && (
-                      <ProfileTextBlock
-                        label="Reflexion"
-                        value={form.reflection}
-                      />
-                    )}
-                  </article>
-                ))}
-              </div>
+                  </div>
+                )}
+              </>
             )}
           </section>
         )}
+
+      </div>
+    </div>
+  );
+}
+
+function SkillAcCompareCard({
+  title,
+  oldValue,
+  newValue,
+  compact = false
+}: {
+  title: string;
+  oldValue?: string;
+  newValue?: string;
+  compact?: boolean;
+}) {
+  return (
+    <div style={skillAcCompareCard}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: '8px',
+          alignItems: 'center'
+        }}
+      >
+        <strong>{title}</strong>
+        <span style={profilePill}>
+          Entwicklung
+        </span>
+      </div>
+
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns:
+            'minmax(0, 1fr) auto minmax(0, 1fr)',
+          gap: compact ? '7px' : '10px',
+          alignItems: 'stretch',
+          marginTop: '10px'
+        }}
+      >
+        <div style={skillAcOldCard}>
+          <div style={skillAcMiniLabel}>
+            Bisher
+          </div>
+          <div
+            style={{
+              marginTop: '5px',
+              whiteSpace: 'pre-wrap'
+            }}
+          >
+            {oldValue || '–'}
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            fontWeight: 900,
+            color: '#0b7a3b'
+          }}
+        >
+          →
+        </div>
+
+        <div style={skillAcNewCard}>
+          <div style={skillAcMiniLabel}>
+            Neu
+          </div>
+          <div
+            style={{
+              marginTop: '5px',
+              whiteSpace: 'pre-wrap'
+            }}
+          >
+            {newValue || '–'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SkillAcTextCard({
+  label,
+  value
+}: {
+  label: string;
+  value?: string;
+}) {
+  return (
+    <div style={skillAcTextCard}>
+      <div style={skillAcMiniLabel}>
+        {label}
+      </div>
+      <div
+        style={{
+          marginTop: '5px',
+          whiteSpace: 'pre-wrap'
+        }}
+      >
+        {value || '–'}
       </div>
     </div>
   );
@@ -3669,6 +4121,57 @@ const profilePill: React.CSSProperties = {
   padding: '5px 9px',
   fontSize: '11px',
   fontWeight: 800
+};
+
+
+const skillAcSection: React.CSSProperties = {
+  marginTop: '14px',
+  padding: '14px',
+  border: '1px solid #e8ede9',
+  borderRadius: '12px',
+  background: '#f9fbfa'
+};
+
+const skillAcSectionHeader: React.CSSProperties = {
+  fontSize: '13px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  color: '#0b6b35'
+};
+
+const skillAcCompareCard: React.CSSProperties = {
+  border: '1px solid #e8ede9',
+  borderRadius: '12px',
+  padding: '12px',
+  background: '#f9fbfa'
+};
+
+const skillAcOldCard: React.CSSProperties = {
+  background: '#f4f4f4',
+  borderRadius: '9px',
+  padding: '10px',
+  minWidth: 0
+};
+
+const skillAcNewCard: React.CSSProperties = {
+  background: '#eef8f2',
+  borderRadius: '9px',
+  padding: '10px',
+  minWidth: 0
+};
+
+const skillAcTextCard: React.CSSProperties = {
+  border: '1px solid #eeeeee',
+  borderRadius: '10px',
+  padding: '11px',
+  background: '#fff'
+};
+
+const skillAcMiniLabel: React.CSSProperties = {
+  color: '#777',
+  fontSize: '10px',
+  fontWeight: 800,
+  textTransform: 'uppercase'
 };
 
 const historyRow: React.CSSProperties = {
