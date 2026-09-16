@@ -9,6 +9,7 @@ import Watchlist from './pages/Watchlist';
 import Squad from './pages/Squad';
 import AKAVision from './pages/AKAVision';
 import PlayerArchive from './pages/PlayerArchive';
+import P12SelfAssessmentPublic from './pages/academy/P12SelfAssessmentPublic';
 
 import {
   initTeams,
@@ -29,6 +30,11 @@ type Page =
   | 'akavision';
 
 export default function App() {
+  const publicP12InviteToken =
+    new URLSearchParams(
+      window.location.search
+    ).get('p12invite');
+
   const [page, setPage] =
     useState<Page>('dashboard');
 
@@ -60,6 +66,10 @@ export default function App() {
     useState<Player | null>(null);
 
   useEffect(() => {
+    if (publicP12InviteToken) {
+      return;
+    }
+
     async function start() {
       const result =
         await initTeams();
@@ -157,7 +167,7 @@ export default function App() {
     }
 
     start();
-  }, []);
+  }, [publicP12InviteToken]);
 
   async function loadPlayers() {
     const token = user.accessToken;
@@ -290,6 +300,15 @@ export default function App() {
     setPage('dashboard');
   }
 
+
+  if (publicP12InviteToken) {
+    return (
+      <P12SelfAssessmentPublic
+        token={publicP12InviteToken}
+        apiBase={API_BASE}
+      />
+    );
+  }
 
   const scoutingPlayers =
     players.filter(
