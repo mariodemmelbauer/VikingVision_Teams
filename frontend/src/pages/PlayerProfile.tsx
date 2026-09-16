@@ -49,6 +49,8 @@ export default function PlayerProfile({
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
+  const [confirmArchive, setConfirmArchive] =
+    useState(false);
   const [error, setError] = useState<string | undefined>();
   const [success, setSuccess] = useState<string | undefined>();
   const [form, setForm] = useState({
@@ -164,15 +166,6 @@ export default function PlayerProfile({
       return;
     }
 
-    const confirmed =
-      window.confirm(
-        `${player.name ?? 'Spieler'} aus dem Kader entfernen und ins Spielerarchiv verschieben?`
-      );
-
-    if (!confirmed) {
-      return;
-    }
-
     setArchiving(true);
     setError(undefined);
     setSuccess(undefined);
@@ -212,6 +205,7 @@ export default function PlayerProfile({
         'Spieler wurde aus dem Kader entfernt und ins Spielerarchiv verschoben.'
       );
 
+      setConfirmArchive(false);
       await onPlayerArchived?.();
     } catch (err) {
       setError(
@@ -277,7 +271,9 @@ export default function PlayerProfile({
               'Archiviert' && (
               <button
                 type="button"
-                onClick={archivePlayer}
+                onClick={() =>
+                  setConfirmArchive(true)
+                }
                 disabled={archiving}
                 style={archiveButton}
               >
@@ -299,6 +295,57 @@ export default function PlayerProfile({
 
       {error && <section style={errorBox}><strong>Fehler:</strong><div style={{ marginTop: '4px' }}>{error}</div></section>}
       {success && <section style={successBox}>{success}</section>}
+
+      {confirmArchive && (
+        <section style={confirmBox}>
+          <div>
+            <strong>
+              {player.name ?? 'Spieler'} aus dem Kader entfernen?
+            </strong>
+
+            <div
+              style={{
+                marginTop: '5px',
+                color: '#6b5a35',
+                fontSize: '13px'
+              }}
+            >
+              Der Spieler bleibt vollständig erhalten und wird ins Spielerarchiv verschoben.
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap',
+              marginTop: '10px'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setConfirmArchive(false)
+              }
+              disabled={archiving}
+              style={secondaryButton}
+            >
+              Abbrechen
+            </button>
+
+            <button
+              type="button"
+              onClick={archivePlayer}
+              disabled={archiving}
+              style={archiveButton}
+            >
+              {archiving
+                ? 'Wird archiviert…'
+                : 'Ja, ins Archiv'}
+            </button>
+          </div>
+        </section>
+      )}
 
       <section style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 320px) 1fr', gap: '20px', marginTop: '20px' }}>
         <div style={profileCard}>
@@ -456,3 +503,11 @@ const secondaryButton: React.CSSProperties = { border: '1px solid #d0d0d0', back
 const archiveButton: React.CSSProperties = { ...secondaryButton, color: '#8a5500', borderColor: '#e2c98d', background: '#fffaf0' };
 const errorBox: React.CSSProperties = { marginTop: '14px', padding: '12px 16px', background: '#fff3f3', color: '#a00000', borderRadius: '10px' };
 const successBox: React.CSSProperties = { marginTop: '14px', padding: '12px 16px', background: '#eef9f2', color: '#0b6b35', borderRadius: '10px' };
+
+const confirmBox: React.CSSProperties = {
+  marginTop: '14px',
+  background: '#fffaf0',
+  border: '1px solid #e2c98d',
+  borderRadius: '12px',
+  padding: '14px'
+};
