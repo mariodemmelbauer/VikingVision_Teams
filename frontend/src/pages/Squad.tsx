@@ -112,6 +112,10 @@ export default function Squad({
   const [archiveError, setArchiveError] =
     React.useState<string | undefined>();
 
+
+  const [pendingArchivePlayer, setPendingArchivePlayer] =
+    React.useState<Player | null>(null);
+
   async function archivePlayer(
     player: Player
   ) {
@@ -119,15 +123,6 @@ export default function Squad({
       setArchiveError(
         'Kein Teams-SSO-Token vorhanden.'
       );
-      return;
-    }
-
-    const confirmed =
-      window.confirm(
-        `${player.name ?? 'Spieler'} aus dem Kader entfernen und ins Spielerarchiv verschieben?`
-      );
-
-    if (!confirmed) {
       return;
     }
 
@@ -160,6 +155,7 @@ export default function Squad({
         );
       }
 
+      setPendingArchivePlayer(null);
       await onArchived?.();
     } catch (error) {
       setArchiveError(
@@ -171,6 +167,7 @@ export default function Squad({
       setArchivingId(null);
     }
   }
+
   const ownSquad =
     players.filter(
       player =>
@@ -283,6 +280,68 @@ export default function Squad({
           </strong>
         </span>
       </section>
+
+      {pendingArchivePlayer && (
+        <section
+          style={{
+            ...confirmBox,
+            marginTop: '14px'
+          }}
+        >
+          <div>
+            <strong>
+              {pendingArchivePlayer.name}
+              {' '}aus dem Kader entfernen?
+            </strong>
+
+            <div
+              style={{
+                marginTop: '5px',
+                color: '#6b5a35',
+                fontSize: '13px'
+              }}
+            >
+              Der Spieler wird nicht gelöscht, sondern ins Spielerarchiv verschoben.
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setPendingArchivePlayer(
+                  null
+                )
+              }
+              disabled={archivingId != null}
+              style={secondaryButton}
+            >
+              Abbrechen
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                archivePlayer(
+                  pendingArchivePlayer
+                )
+              }
+              disabled={archivingId != null}
+              style={archiveButton}
+            >
+              {archivingId != null
+                ? 'Wird archiviert…'
+                : 'Ja, ins Archiv'}
+            </button>
+          </div>
+        </section>
+      )}
 
       {archiveError && (
         <section style={errorBox}>
@@ -571,7 +630,9 @@ export default function Squad({
                           String(player.id)
                         }
                         onClick={() =>
-                          archivePlayer(player)
+                          setPendingArchivePlayer(
+                            player
+                          )
                         }
                         style={archiveButton}
                       >
@@ -650,4 +711,16 @@ const errorBox: React.CSSProperties = {
   background: '#fff3f3',
   color: '#a00000',
   borderRadius: '10px'
+};
+
+const confirmBox: React.CSSProperties = {
+  background: '#fffaf0',
+  border: '1px solid #e2c98d',
+  borderRadius: '12px',
+  padding: '14px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: '12px',
+  flexWrap: 'wrap'
 };
