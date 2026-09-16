@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import PlayerImage from '../components/PlayerImage';
 
 export type Player = {
   id: number | string;
@@ -34,11 +35,20 @@ type Props = {
   apiBase: string;
   onBack: () => void;
   onPlayerUpdated: (player: Player) => void;
+  onPlayerArchived?: () => Promise<void> | void;
 };
 
-export default function PlayerProfile({ player, accessToken, apiBase, onBack, onPlayerUpdated }: Props) {
+export default function PlayerProfile({
+  player,
+  accessToken,
+  apiBase,
+  onBack,
+  onPlayerUpdated,
+  onPlayerArchived
+}: Props) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const [success, setSuccess] = useState<string | undefined>();
   const [form, setForm] = useState({
@@ -146,6 +156,75 @@ export default function PlayerProfile({ player, accessToken, apiBase, onBack, on
     }
   }
 
+  async function archivePlayer() {
+    if (!accessToken) {
+      setError(
+        'Kein Teams-SSO-Token vorhanden.'
+      );
+      return;
+    }
+
+    const confirmed =
+      window.confirm(
+        `${player.name ?? 'Spieler'} aus dem Kader entfernen und ins Spielerarchiv verschieben?`
+      );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setArchiving(true);
+    setError(undefined);
+    setSuccess(undefined);
+
+    try {
+      const response =
+        await fetch(
+          `${apiBase}/squad/${player.id}/archive`,
+          {
+            method: 'PUT',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`,
+              'Content-Type':
+                'application/json'
+            },
+            body:
+              JSON.stringify({})
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+          'Spieler konnte nicht archiviert werden.'
+        );
+      }
+
+      onPlayerUpdated(
+        data.player
+      );
+
+      setSuccess(
+        'Spieler wurde aus dem Kader entfernt und ins Spielerarchiv verschoben.'
+      );
+
+      await onPlayerArchived?.();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Archivieren fehlgeschlagen.'
+      );
+    } finally {
+      setArchiving(false);
+    }
+  }
+
+
   return (
     <main className="page">
       <section className="hero">
@@ -155,12 +234,66 @@ export default function PlayerProfile({ player, accessToken, apiBase, onBack, on
           <p>VikingVision Spielerprofil</p>
         </div>
         <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {!editing && <button type="button" onClick={() => { setEditing(true); setError(undefined); setSuccess(undefined); }} style={primaryButton}>Bearbeiten</button>}
-          {editing && <>
-            <button type="button" onClick={savePlayer} disabled={saving} style={primaryButton}>{saving ? 'Speichert…' : 'Speichern'}</button>
-            <button type="button" onClick={cancelEdit} disabled={saving} style={secondaryButton}>Abbrechen</button>
-          </>}
-          <button type="button" onClick={onBack} style={secondaryButton}>← Spieler</button>
+          {!editing && (
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(true);
+                setError(undefined);
+                setSuccess(undefined);
+              }}
+              style={primaryButton}
+            >
+              Bearbeiten
+            </button>
+          )}
+
+          {editing && (
+            <>
+              <button
+                type="button"
+                onClick={savePlayer}
+                disabled={saving}
+                style={primaryButton}
+              >
+                {saving
+                  ? 'Speichert…'
+                  : 'Speichern'}
+              </button>
+
+              <button
+                type="button"
+                onClick={cancelEdit}
+                disabled={saving}
+                style={secondaryButton}
+              >
+                Abbrechen
+              </button>
+            </>
+          )}
+
+          {player.is_own_squad &&
+            player.squad_status !==
+              'Archiviert' && (
+              <button
+                type="button"
+                onClick={archivePlayer}
+                disabled={archiving}
+                style={archiveButton}
+              >
+                {archiving
+                  ? 'Archiviert…'
+                  : 'Aus Kader entfernen'}
+              </button>
+            )}
+
+          <button
+            type="button"
+            onClick={onBack}
+            style={secondaryButton}
+          >
+            ← Spieler
+          </button>
         </div>
       </section>
 
@@ -169,7 +302,25 @@ export default function PlayerProfile({ player, accessToken, apiBase, onBack, on
 
       <section style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 320px) 1fr', gap: '20px', marginTop: '20px' }}>
         <div style={profileCard}>
-          {player.image_path ? <img src={player.image_path} alt={player.name ?? 'Spieler'} style={{ width: '100%', aspectRatio: '4 / 5', objectFit: 'cover', borderRadius: '10px' }} /> : <div style={{ width: '100%', aspectRatio: '4 / 5', borderRadius: '10px', background: '#f1f1f1', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#777', fontSize: '16px' }}>Kein Bild</div>}
+          <div
+            style={{
+              width: '100%',
+              aspectRatio: '4 / 5',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              background: '#f1f1f1'
+            }}
+          >
+            <PlayerImage
+              imagePath={player.image_path}
+              alt={player.name ?? 'Spieler'}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover'
+              }}
+            />
+          </div>
           <div style={{ marginTop: '16px', fontSize: '22px', fontWeight: 700 }}>{player.name ?? 'Unbekannt'}</div>
           <div style={{ marginTop: '5px', color: '#666' }}>{player.primary_position ?? '–'}</div>
           {player.current_club && <div style={{ marginTop: '4px', fontSize: '14px', color: '#777' }}>{player.current_club}</div>}
@@ -187,7 +338,21 @@ export default function PlayerProfile({ player, accessToken, apiBase, onBack, on
           <Field label="Vertrag bis" type="date" value={String(form.contract_until)} editing={editing} onChange={value => updateField('contract_until', value)} />
           <Field label="Marktwert" value={String(form.market_value)} editing={editing} onChange={value => updateField('market_value', value)} />
           <Field label="Berateragentur" value={String(form.agent_agency)} editing={editing} onChange={value => updateField('agent_agency', value)} />
-          <Field label="Kaderstatus" value={String(form.squad_status)} editing={editing} onChange={value => updateField('squad_status', value)} />
+          <SelectField
+            label="Kaderstatus"
+            value={String(form.squad_status)}
+            editing={editing}
+            onChange={value =>
+              updateField(
+                'squad_status',
+                value
+              )
+            }
+            options={[
+              'Unter Vertrag',
+              'Ausgeliehen'
+            ]}
+          />
           <Field label="Priorität" value={String(form.priority)} editing={editing} onChange={value => updateField('priority', value)} />
           <Field label="Potenzial" value={String(form.potential)} editing={editing} onChange={value => updateField('potential', value)} />
           <Field label="Transfermarkt" value={String(form.transfermarkt_url)} editing={editing} onChange={value => updateField('transfermarkt_url', value)} />
@@ -212,8 +377,82 @@ function Field({ label, value, editing, onChange, type = 'text' }: { label: stri
   );
 }
 
+
+function SelectField({
+  label,
+  value,
+  editing,
+  onChange,
+  options
+}: {
+  label: string;
+  value: string;
+  editing: boolean;
+  onChange: (value: string) => void;
+  options: string[];
+}) {
+  return (
+    <div style={profileCard}>
+      <div
+        style={{
+          fontSize: '12px',
+          textTransform: 'uppercase',
+          color: '#777',
+          marginBottom: '6px'
+        }}
+      >
+        {label}
+      </div>
+
+      {editing ? (
+        <select
+          value={value}
+          onChange={event =>
+            onChange(
+              event.target.value
+            )
+          }
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            padding: '10px',
+            borderRadius: '8px',
+            border: '1px solid #ccc',
+            font: 'inherit',
+            background: '#fff'
+          }}
+        >
+          <option value="">
+            –
+          </option>
+
+          {options.map(option => (
+            <option
+              key={option}
+              value={option}
+            >
+              {option}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <div
+          style={{
+            fontSize: '16px',
+            fontWeight: 700,
+            wordBreak: 'break-word'
+          }}
+        >
+          {value || '–'}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const profileCard: React.CSSProperties = { background: '#ffffff', borderRadius: '14px', padding: '16px', border: '1px solid #ececec', boxShadow: '0 3px 14px rgba(0,0,0,0.04)' };
 const primaryButton: React.CSSProperties = { border: 'none', background: '#0b7a3b', color: '#ffffff', padding: '12px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 };
 const secondaryButton: React.CSSProperties = { border: '1px solid #d0d0d0', background: '#ffffff', color: '#222222', padding: '12px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 };
+const archiveButton: React.CSSProperties = { ...secondaryButton, color: '#8a5500', borderColor: '#e2c98d', background: '#fffaf0' };
 const errorBox: React.CSSProperties = { marginTop: '14px', padding: '12px 16px', background: '#fff3f3', color: '#a00000', borderRadius: '10px' };
 const successBox: React.CSSProperties = { marginTop: '14px', padding: '12px 16px', background: '#eef9f2', color: '#0b6b35', borderRadius: '10px' };
