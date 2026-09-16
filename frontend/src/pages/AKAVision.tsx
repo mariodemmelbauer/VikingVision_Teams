@@ -25,6 +25,7 @@ type AcademyPlayer = {
   school_class?: string;
   bus_use?: boolean;
   bus_route?: string;
+  is_p12?: boolean;
 };
 
 type IdealScore = {
