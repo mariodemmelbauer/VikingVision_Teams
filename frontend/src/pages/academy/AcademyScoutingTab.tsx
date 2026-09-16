@@ -955,4 +955,3 @@ const scoutingFormGrid: React.CSSProperties = {
     'repeat(2, minmax(0, 1fr))',
   gap: '12px'
 };
-
