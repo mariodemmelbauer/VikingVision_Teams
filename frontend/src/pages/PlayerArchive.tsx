@@ -20,6 +20,35 @@ export default function PlayerArchive({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
   const [workingId, setWorkingId] = useState<string | number | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('Alle');
+
+  const filteredPlayers =
+    players.filter(player => {
+      const query =
+        search.trim().toLocaleLowerCase('de');
+
+      const matchesSearch =
+        !query ||
+        [
+          player.name,
+          player.current_club,
+          player.primary_position,
+          player.nationality
+        ]
+          .filter(Boolean)
+          .some(value =>
+            String(value)
+              .toLocaleLowerCase('de')
+              .includes(query)
+          );
+
+      const matchesStatus =
+        statusFilter === 'Alle' ||
+        player.squad_status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    });
 
   useEffect(() => {
     loadArchive();
@@ -111,13 +140,51 @@ export default function PlayerArchive({
         </span>
       </section>
 
+      <section
+        style={{
+          ...panel,
+          marginTop: '14px',
+          display: 'grid',
+          gridTemplateColumns:
+            'minmax(220px, 1fr) minmax(180px, 260px)',
+          gap: '10px'
+        }}
+      >
+        <label>
+          <div style={labelStyle}>Suche</div>
+          <input
+            value={search}
+            onChange={event =>
+              setSearch(event.target.value)
+            }
+            placeholder="Name, Verein, Position …"
+            style={inputStyle}
+          />
+        </label>
+
+        <label>
+          <div style={labelStyle}>Kaderstatus</div>
+          <select
+            value={statusFilter}
+            onChange={event =>
+              setStatusFilter(event.target.value)
+            }
+            style={inputStyle}
+          >
+            <option value="Alle">Alle</option>
+            <option value="Unter Vertrag">Unter Vertrag</option>
+            <option value="Ausgeliehen">Ausgeliehen</option>
+          </select>
+        </label>
+      </section>
+
       {loading ? (
         <section style={{ ...panel, marginTop: '18px' }}>
           Archiv wird geladen…
         </section>
-      ) : players.length === 0 ? (
+      ) : filteredPlayers.length === 0 ? (
         <section style={{ ...panel, marginTop: '18px' }}>
-          Das Spielerarchiv ist aktuell leer.
+          Keine archivierten Spieler für die gewählten Filter gefunden.
         </section>
       ) : (
         <div
@@ -128,7 +195,7 @@ export default function PlayerArchive({
             marginTop: '18px'
           }}
         >
-          {players.map(player => (
+          {filteredPlayers.map(player => (
             <article key={player.id} style={panel}>
               <strong style={{ fontSize: '18px' }}>{player.name}</strong>
               <div style={subtle}>
@@ -209,4 +276,22 @@ const errorBox: React.CSSProperties = {
   background: '#fff3f3',
   color: '#a00000',
   borderRadius: '10px'
+};
+
+const labelStyle: React.CSSProperties = {
+  fontSize: '12px',
+  color: '#666',
+  fontWeight: 700,
+  marginBottom: '5px'
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  minHeight: '42px',
+  boxSizing: 'border-box',
+  border: '1px solid #d5d5d5',
+  borderRadius: '8px',
+  padding: '10px',
+  background: '#fff',
+  font: 'inherit'
 };
