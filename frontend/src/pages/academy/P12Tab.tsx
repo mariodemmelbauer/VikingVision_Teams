@@ -2446,27 +2446,105 @@ function printP12Profile(
       ${selfHtml}
       ${sportsHtml}
 
-      <script>
-        window.onload = () => setTimeout(() => window.print(), 150);
-      </script>
     </body>
     </html>
   `;
 
-  const printWindow =
-    window.open(
-      '',
-      '_blank',
-      'noopener,noreferrer'
+  const oldFrame =
+    document.getElementById(
+      'p12-print-frame'
     );
 
-  if (!printWindow) {
+  if (oldFrame) {
+    oldFrame.remove();
+  }
+
+  const frame =
+    document.createElement(
+      'iframe'
+    );
+
+  frame.id =
+    'p12-print-frame';
+
+  frame.setAttribute(
+    'title',
+    'P12 Druckansicht'
+  );
+
+  frame.style.position =
+    'fixed';
+  frame.style.right =
+    '0';
+  frame.style.bottom =
+    '0';
+  frame.style.width =
+    '1px';
+  frame.style.height =
+    '1px';
+  frame.style.border =
+    '0';
+  frame.style.opacity =
+    '0';
+  frame.style.pointerEvents =
+    'none';
+
+  document.body.appendChild(
+    frame
+  );
+
+  const printDocument =
+    frame.contentDocument ??
+    frame.contentWindow
+      ?.document;
+
+  if (!printDocument) {
+    frame.remove();
     return;
   }
 
-  printWindow.document.open();
-  printWindow.document.write(html);
-  printWindow.document.close();
+  printDocument.open();
+  printDocument.write(html);
+  printDocument.close();
+
+  const runPrint = () => {
+    const printWindow =
+      frame.contentWindow;
+
+    if (!printWindow) {
+      frame.remove();
+      return;
+    }
+
+    try {
+      printWindow.focus();
+      printWindow.print();
+    } finally {
+      window.setTimeout(
+        () => {
+          frame.remove();
+        },
+        1500
+      );
+    }
+  };
+
+  if (
+    printDocument.readyState ===
+    'complete'
+  ) {
+    window.setTimeout(
+      runPrint,
+      150
+    );
+  } else {
+    frame.onload = () => {
+      window.setTimeout(
+        runPrint,
+        150
+      );
+    };
+  }
 }
 
 function SportsScienceSection({
