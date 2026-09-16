@@ -907,9 +907,28 @@ function P12PlayerProfile({
           </div>
         </div>
 
-        <span style={pill}>
-          {player.season ?? 'P12'}
-        </span>
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            alignItems: 'center',
+            flexWrap: 'wrap'
+          }}
+        >
+          <span style={pill}>
+            {player.season ?? 'P12'}
+          </span>
+
+          <button
+            type="button"
+            onClick={() =>
+              printP12Profile(detail)
+            }
+            style={secondaryButton}
+          >
+            PDF / Drucken
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -1042,9 +1061,12 @@ function P12PlayerProfile({
 
           {profileTab === 'self' && (
             <SelfAssessmentSection
+              player={player}
               assessments={
                 detail.selfAssessments
               }
+              api={api}
+              onReload={onReload}
             />
           )}
 
@@ -2002,85 +2024,449 @@ function TrainerAssessmentSection({
 }
 
 function SelfAssessmentSection({
-  assessments
+  player,
+  assessments,
+  api,
+  onReload
 }: {
+  player: P12Player;
   assessments: SelfAssessment[];
+  api: (path: string, init?: RequestInit) => Promise<any>;
+  onReload: () => Promise<void>;
 }) {
-  if (assessments.length === 0) {
-    return (
+  const [periodLabel, setPeriodLabel] =
+    useState('Herbst 26');
+  const [expiresInDays, setExpiresInDays] =
+    useState('14');
+  const [inviteLink, setInviteLink] =
+    useState('');
+  const [working, setWorking] =
+    useState(false);
+  const [inviteError, setInviteError] =
+    useState<string | undefined>();
+  const [copied, setCopied] =
+    useState(false);
+
+  async function createInvite() {
+    setWorking(true);
+    setInviteError(undefined);
+    setInviteLink('');
+    setCopied(false);
+
+    try {
+      const data =
+        await api(
+          '/academy/p12/self-invites',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              p12_player_id:
+                player.id,
+              period_label:
+                periodLabel,
+              expires_in_days:
+                Number(
+                  expiresInDays
+                ) || 14
+            })
+          }
+        );
+
+      const token =
+        String(
+          data?.invite?.token ??
+          ''
+        );
+
+      if (!token) {
+        throw new Error(
+          'Einladungslink konnte nicht erstellt werden.'
+        );
+      }
+
+      setInviteLink(
+        `${window.location.origin}/?p12invite=${encodeURIComponent(token)}`
+      );
+    } catch (err) {
+      setInviteError(
+        err instanceof Error
+          ? err.message
+          : 'Einladung konnte nicht erstellt werden.'
+      );
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function copyInvite() {
+    if (!inviteLink) return;
+
+    try {
+      await navigator.clipboard.writeText(
+        inviteLink
+      );
+      setCopied(true);
+    } catch {
+      setCopied(false);
+    }
+  }
+
+  return (
+    <>
       <section
         style={{
           ...panel,
           marginTop: '14px'
         }}
       >
-        Noch keine Spielerbewertung vorhanden.
-        Die vorhandenen P12-Selbsteinschätzungen werden hier angezeigt.
+        <h3 style={{ marginTop: 0 }}>
+          Spieler zur Selbsteinschätzung einladen
+        </h3>
+
+        <p style={subtle}>
+          Der Link funktioniert außerhalb von Teams und kann einmalig verwendet werden.
+        </p>
+
+        <div
+          className="academy-p12-form-grid"
+          style={formGrid}
+        >
+          <TextField
+            label="Bewertungsphase"
+            value={periodLabel}
+            onChange={setPeriodLabel}
+          />
+
+          <SelectField
+            label="Link gültig"
+            value={expiresInDays}
+            options={[
+              '7',
+              '14',
+              '30'
+            ]}
+            optionLabel={value =>
+              `${value} Tage`
+            }
+            onChange={
+              setExpiresInDays
+            }
+          />
+        </div>
+
+        <div
+          style={{
+            display: 'flex',
+            gap: '8px',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            marginTop: '14px'
+          }}
+        >
+          <button
+            type="button"
+            onClick={createInvite}
+            disabled={working}
+            style={primaryButton}
+          >
+            {working
+              ? 'Link wird erstellt…'
+              : 'Einladungslink erstellen'}
+          </button>
+
+          {inviteLink && (
+            <button
+              type="button"
+              onClick={copyInvite}
+              style={secondaryButton}
+            >
+              {copied
+                ? 'Link kopiert'
+                : 'Link kopieren'}
+            </button>
+          )}
+        </div>
+
+        {inviteLink && (
+          <div
+            style={{
+              marginTop: '12px',
+              padding: '10px',
+              borderRadius: '8px',
+              background: '#f7f8f8',
+              wordBreak: 'break-all',
+              fontSize: '13px'
+            }}
+          >
+            {inviteLink}
+          </div>
+        )}
+
+        {inviteError && (
+          <div style={errorBox}>
+            {inviteError}
+          </div>
+        )}
       </section>
+
+      {assessments.length === 0 ? (
+        <section
+          style={{
+            ...panel,
+            marginTop: '14px'
+          }}
+        >
+          Noch keine Spielerbewertung vorhanden.
+        </section>
+      ) : (
+        <div
+          style={{
+            display: 'grid',
+            gap: '12px',
+            marginTop: '14px'
+          }}
+        >
+          {assessments.map(
+            assessment => (
+              <section
+                key={assessment.id}
+                style={panel}
+              >
+                <div style={toolbar}>
+                  <strong>
+                    {assessment.period_label}
+                  </strong>
+                  <span style={subtle}>
+                    {assessment.assessment_date ??
+                      '–'}
+                  </span>
+                </div>
+
+                <div
+                  className="academy-p12-form-grid"
+                  style={{
+                    ...formGrid,
+                    marginTop: '12px'
+                  }}
+                >
+                  <InfoBlock
+                    label="Stärken"
+                    value={
+                      assessment.strengths
+                    }
+                  />
+                  <InfoBlock
+                    label="Entwicklungsfelder"
+                    value={
+                      assessment.development_areas
+                    }
+                  />
+                  <InfoBlock
+                    label="Persönliche Ziele"
+                    value={
+                      assessment.personal_goals
+                    }
+                  />
+                  <InfoBlock
+                    label="Weitere Notizen"
+                    value={
+                      assessment.notes
+                    }
+                  />
+                </div>
+
+                {(assessment.scores ?? []).length > 0 && (
+                  <div
+                    style={{
+                      marginTop: '12px',
+                      display: 'grid',
+                      gap: '6px'
+                    }}
+                  >
+                    {(assessment.scores ?? [])
+                      .filter(
+                        score =>
+                          score.rating != null
+                      )
+                      .map(
+                        score => (
+                          <div
+                            key={`${score.category}-${score.detail}`}
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns:
+                                'minmax(0,1fr) 60px',
+                              gap: '10px',
+                              padding:
+                                '7px 0',
+                              borderBottom:
+                                '1px solid #f0f0f0'
+                            }}
+                          >
+                            <span>
+                              {score.detail}
+                            </span>
+                            <strong>
+                              {score.rating}/10
+                            </strong>
+                          </div>
+                        )
+                      )}
+                  </div>
+                )}
+              </section>
+            )
+          )}
+        </div>
+      )}
+    </>
+  );
+}
+
+function printP12Profile(
+  detail: PlayerDetail
+) {
+  const player =
+    detail.player;
+
+  const escape =
+    (value: unknown) =>
+      String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+
+  const lines =
+    (value?: string[]) =>
+      (value ?? [])
+        .map(
+          item =>
+            `<li>${escape(item)}</li>`
+        )
+        .join('');
+
+  const trainerHtml =
+    detail.trainerAssessments
+      .map(
+        assessment => `
+          <section>
+            <h3>Trainerbewertung · ${escape(assessment.period_label)}</h3>
+            <div class="muted">${escape(assessment.assessment_date ?? '')} ${assessment.coach_name ? `· ${escape(assessment.coach_name)}` : ''}</div>
+            ${(assessment.scores ?? [])
+              .map(
+                score =>
+                  `<div class="row"><span>${escape(score.detail)}</span><strong>${escape(score.coach_rating ?? score.p12_rating ?? '–')}/10</strong></div>`
+              )
+              .join('')}
+          </section>
+        `
+      )
+      .join('');
+
+  const selfHtml =
+    detail.selfAssessments
+      .map(
+        assessment => `
+          <section>
+            <h3>Spielerbewertung · ${escape(assessment.period_label)}</h3>
+            <p><strong>Stärken:</strong> ${escape(assessment.strengths ?? '–')}</p>
+            <p><strong>Entwicklungsfelder:</strong> ${escape(assessment.development_areas ?? '–')}</p>
+            <p><strong>Ziele:</strong> ${escape(assessment.personal_goals ?? '–')}</p>
+          </section>
+        `
+      )
+      .join('');
+
+  const sportsHtml =
+    detail.sportsScienceTests
+      .map(
+        test => `
+          <section>
+            <h3>Sportwissenschaft · ${escape(test.test_label)}</h3>
+            <div class="muted">${escape(test.test_date ?? '')}</div>
+            ${(test.values ?? [])
+              .filter(
+                value =>
+                  value.value != null
+              )
+              .map(
+                value =>
+                  `<div class="row"><span>${escape(value.metric)}</span><strong>${escape(value.value)} ${escape(value.unit ?? '')}</strong></div>`
+              )
+              .join('')}
+          </section>
+        `
+      )
+      .join('');
+
+  const html = `
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <title>P12 · ${escape(player.name ?? 'Spieler')}</title>
+      <style>
+        body { font-family: Arial, sans-serif; margin: 32px; color: #222; }
+        h1 { margin-bottom: 4px; }
+        h2 { border-bottom: 2px solid #0b7a3b; padding-bottom: 5px; margin-top: 28px; }
+        h3 { margin-bottom: 6px; }
+        section { break-inside: avoid; margin-top: 22px; }
+        .muted { color: #666; font-size: 12px; }
+        .row { display: flex; justify-content: space-between; gap: 20px; border-bottom: 1px solid #eee; padding: 6px 0; }
+        .pyramid { text-align: center; margin: 18px 0; }
+        .level { border: 1px solid #ccc; padding: 12px; margin: 6px auto; background: #f5f8f6; }
+        .top { width: 55%; }
+        .middle { width: 75%; }
+        .bottom { width: 95%; }
+        @media print {
+          body { margin: 18mm; }
+          button { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="muted">SV Oberbank Ried · P12</div>
+      <h1>${escape(player.name ?? 'P12-Spieler')}</h1>
+      <div>${escape(player.primary_position ?? '')} ${player.player_role ? `· ${escape(player.player_role)}` : ''} ${player.season ? `· ${escape(player.season)}` : ''}</div>
+
+      <h2>Fokus & Erwartungen</h2>
+      <p><strong>BASICS – 100 % Kontrolle:</strong><br/>${escape(player.focus_basics ?? '–')}</p>
+      <p><strong>Wenn ich gut im Spiel bin – 70 % Kontrolle:</strong><br/>${escape(player.focus_when_good ?? '–')}</p>
+      <p><strong>Fokus & Erwartungen:</strong><br/>${escape(player.expectations ?? '–')}</p>
+
+      <h2>P12-Pyramide</h2>
+      <div class="pyramid">
+        <div class="level top"><strong>${escape(player.pyramid_focus_title ?? 'FOKUS & ERWARTUNGEN')}</strong><ul>${lines(player.pyramid_output_items)}</ul></div>
+        <div class="level middle"><strong>${escape(player.pyramid_control_title ?? 'WENN ICH GUT IM SPIEL BIN – 70% KONTROLLE')}</strong><ul>${lines(player.pyramid_control_items)}</ul></div>
+        <div class="level bottom"><strong>${escape(player.pyramid_basics_title ?? 'BASICS – 100% KONTROLLE')}</strong><ul>${lines(player.pyramid_basics_items)}</ul></div>
+      </div>
+
+      ${trainerHtml}
+      ${selfHtml}
+      ${sportsHtml}
+
+      <script>
+        window.onload = () => setTimeout(() => window.print(), 150);
+      </script>
+    </body>
+    </html>
+  `;
+
+  const printWindow =
+    window.open(
+      '',
+      '_blank',
+      'noopener,noreferrer'
     );
+
+  if (!printWindow) {
+    return;
   }
 
-  return (
-    <div
-      style={{
-        display: 'grid',
-        gap: '12px',
-        marginTop: '14px'
-      }}
-    >
-      {assessments.map(
-        assessment => (
-          <section
-            key={assessment.id}
-            style={panel}
-          >
-            <div style={toolbar}>
-              <strong>
-                {assessment.period_label}
-              </strong>
-              <span style={subtle}>
-                {assessment.assessment_date ??
-                  '–'}
-              </span>
-            </div>
-
-            <div
-              className="academy-p12-form-grid"
-              style={{
-                ...formGrid,
-                marginTop: '12px'
-              }}
-            >
-              <InfoBlock
-                label="Stärken"
-                value={
-                  assessment.strengths
-                }
-              />
-              <InfoBlock
-                label="Entwicklungsfelder"
-                value={
-                  assessment.development_areas
-                }
-              />
-              <InfoBlock
-                label="Persönliche Ziele"
-                value={
-                  assessment.personal_goals
-                }
-              />
-              <InfoBlock
-                label="Weitere Notizen"
-                value={
-                  assessment.notes
-                }
-              />
-            </div>
-          </section>
-        )
-      )}
-    </div>
-  );
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
 }
 
 function SportsScienceSection({
