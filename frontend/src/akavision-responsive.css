@@ -169,3 +169,36 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+@media (max-width: 900px) {
+  .academy-p12-kpis,
+  .academy-p12-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .academy-p12-rating-row,
+  .academy-p12-metric-row {
+    grid-template-columns: 1fr 120px !important;
+  }
+
+  .academy-p12-rating-row > :last-child,
+  .academy-p12-metric-row > :last-child {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 600px) {
+  .academy-p12-kpis,
+  .academy-p12-form-grid,
+  .academy-p12-player-grid,
+  .academy-p12-rating-row,
+  .academy-p12-metric-row,
+  .academy-p12-history-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .academy-p12-pyramid > div {
+    width: 100% !important;
+  }
+}
