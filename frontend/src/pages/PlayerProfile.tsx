@@ -174,7 +174,7 @@ export default function PlayerProfile({
     try {
       const response =
         await fetch(
-          `${apiBase}/squad/${player.id}/archive`,
+          `${apiBase}/players/${player.id}/archive`,
           {
             method: 'PUT',
             headers: {
@@ -267,22 +267,22 @@ export default function PlayerProfile({
             </>
           )}
 
-          {player.is_own_squad &&
-            player.squad_status !==
-              'Archiviert' && (
-              <button
-                type="button"
-                onClick={() =>
-                  setConfirmArchive(true)
-                }
-                disabled={archiving}
-                style={archiveButton}
-              >
-                {archiving
-                  ? 'Archiviert…'
-                  : 'Aus Kader entfernen'}
-              </button>
-            )}
+          {!player.archived_at && (
+            <button
+              type="button"
+              onClick={() =>
+                setConfirmArchive(true)
+              }
+              disabled={archiving}
+              style={archiveButton}
+            >
+              {archiving
+                ? 'Archiviert…'
+                : player.is_own_squad
+                  ? 'Aus Kader entfernen'
+                  : 'Spieler archivieren'}
+            </button>
+          )}
 
           <button
             type="button"
@@ -301,7 +301,9 @@ export default function PlayerProfile({
         <section style={confirmBox}>
           <div>
             <strong>
-              {player.name ?? 'Spieler'} aus dem Kader entfernen?
+              {player.is_own_squad
+                ? `${player.name ?? 'Spieler'} aus dem Kader entfernen?`
+                : `${player.name ?? 'Spieler'} archivieren?`}
             </strong>
 
             <div
