@@ -332,6 +332,11 @@ export default function App() {
         onPlayerUpdated={
           handlePlayerUpdated
         }
+        onPlayerArchived={
+          async () => {
+            await loadPlayers();
+          }
+        }
       />
     );
   }
