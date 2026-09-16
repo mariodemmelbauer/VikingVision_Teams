@@ -686,7 +686,6 @@ function PlayersTab({
           [
             player.name,
             player.primary_position,
-            player.secondary_position,
             player.player_role,
             player.nationality,
             player.school_type,
