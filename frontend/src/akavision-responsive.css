@@ -202,3 +202,23 @@
     width: 100% !important;
   }
 }
+
+
+@media (max-width: 760px) {
+  .academy-p12-comparison-row,
+  .academy-p12-detail-comparison-row {
+    grid-template-columns: 1fr 70px 70px 60px !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .academy-p12-comparison-row,
+  .academy-p12-detail-comparison-row {
+    grid-template-columns: 1fr !important;
+  }
+
+  .academy-p12-comparison-row > *,
+  .academy-p12-detail-comparison-row > * {
+    text-align: left !important;
+  }
+}
