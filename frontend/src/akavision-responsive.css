@@ -276,3 +276,22 @@
       20px !important;
   }
 }
+
+
+/* VikingVision v25 – unified inner page headers */
+@media (max-width: 760px) {
+  .vv-page-header {
+    flex-direction: column !important;
+    gap: 14px !important;
+    padding: 18px !important;
+  }
+
+  .vv-page-header-actions {
+    width: 100%;
+    justify-content: flex-start !important;
+  }
+
+  .vv-page-header-meta {
+    gap: 6px !important;
+  }
+}
