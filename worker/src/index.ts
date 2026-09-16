@@ -2934,6 +2934,913 @@ export default {
 
     if (
       request.method === 'GET' &&
+      url.pathname === '/academy/p12'
+    ) {
+      try {
+        await authenticate(request);
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('p12_players')
+            .select('*')
+            .order(
+              'name',
+              {
+                ascending: true
+              }
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          players:
+            data ?? []
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      /^\/academy\/p12\/\d+$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          Number(
+            url.pathname
+              .split('/')
+              .pop()
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const [
+          playerResult,
+          trainerResult,
+          selfResult,
+          sportsResult
+        ] =
+          await Promise.all([
+            supabase
+              .from('p12_players')
+              .select('*')
+              .eq(
+                'id',
+                playerId
+              )
+              .single(),
+            supabase
+              .from(
+                'p12_trainer_assessments'
+              )
+              .select(
+                '*, scores:p12_trainer_scores(*)'
+              )
+              .eq(
+                'p12_player_id',
+                playerId
+              )
+              .order(
+                'assessment_date',
+                {
+                  ascending: false
+                }
+              ),
+            supabase
+              .from(
+                'p12_self_assessments'
+              )
+              .select(
+                '*, scores:p12_self_scores(*)'
+              )
+              .eq(
+                'p12_player_id',
+                playerId
+              )
+              .order(
+                'assessment_date',
+                {
+                  ascending: false
+                }
+              ),
+            supabase
+              .from(
+                'p12_sports_science_tests'
+              )
+              .select(
+                '*, values:p12_sports_science_values(*)'
+              )
+              .eq(
+                'p12_player_id',
+                playerId
+              )
+              .order(
+                'test_date',
+                {
+                  ascending: true
+                }
+              )
+          ]);
+
+        if (
+          playerResult.error
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                playerResult.error.message
+            },
+            404
+          );
+        }
+
+        const firstError =
+          trainerResult.error ??
+          selfResult.error ??
+          sportsResult.error;
+
+        if (firstError) {
+          return json(
+            {
+              ok: false,
+              error:
+                firstError.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          player:
+            playerResult.data,
+          trainerAssessments:
+            trainerResult.data ??
+            [],
+          selfAssessments:
+            selfResult.data ??
+            [],
+          sportsScienceTests:
+            sportsResult.data ??
+            []
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 player request failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/academy/p12/players'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        if (
+          typeof body.name !==
+            'string' ||
+          !body.name.trim()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Name ist erforderlich.'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const payload =
+          pickFields(
+            body,
+            [
+              'name',
+              'birth_date',
+              'primary_position',
+              'player_role',
+              'preferred_foot',
+              'current_club',
+              'height',
+              'nationality',
+              'start_date',
+              'lead_coach',
+              'season'
+            ]
+          );
+
+        payload.name =
+          String(
+            payload.name
+          ).trim();
+
+        payload.p12_status =
+          'Aktiv';
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('p12_players')
+            .insert(payload)
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            player: data
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 player creation failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'PUT' &&
+      /^\/academy\/p12\/players\/\d+$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          Number(
+            url.pathname
+              .split('/')
+              .pop()
+          );
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        const payload =
+          pickFields(
+            body,
+            [
+              'name',
+              'birth_date',
+              'primary_position',
+              'player_role',
+              'preferred_foot',
+              'current_club',
+              'height',
+              'nationality',
+              'p12_status',
+              'start_date',
+              'lead_coach',
+              'season',
+              'focus_basics',
+              'focus_when_good',
+              'expectations'
+            ]
+          );
+
+        payload.updated_at =
+          new Date()
+            .toISOString();
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('p12_players')
+            .update(payload)
+            .eq(
+              'id',
+              playerId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          player: data
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 player update failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'PUT' &&
+      /^\/academy\/p12\/players\/\d+\/pyramid$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const parts =
+          url.pathname
+            .split('/');
+
+        const playerId =
+          Number(
+            parts[
+              parts.length - 2
+            ]
+          );
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        const payload =
+          pickFields(
+            body,
+            [
+              'pyramid_basics_title',
+              'pyramid_control_title',
+              'pyramid_focus_title',
+              'pyramid_basics_items',
+              'pyramid_control_items',
+              'pyramid_output_items'
+            ]
+          );
+
+        payload.updated_at =
+          new Date()
+            .toISOString();
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('p12_players')
+            .update(payload)
+            .eq(
+              'id',
+              playerId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          player: data
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 pyramid update failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/academy/p12/trainer-assessments'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<{
+            p12_player_id?: number;
+            period_label?: string;
+            assessment_date?: string | null;
+            coach_name?: string | null;
+            team_label?: string | null;
+            notes?: string | null;
+            scores?: Array<
+              Record<
+                string,
+                unknown
+              >
+            >;
+          }>();
+
+        if (
+          !body.p12_player_id ||
+          !body.period_label?.trim()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'P12-Spieler und Bewertungsphase sind erforderlich.'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: assessment,
+          error: assessmentError
+        } =
+          await supabase
+            .from(
+              'p12_trainer_assessments'
+            )
+            .upsert(
+              {
+                p12_player_id:
+                  body.p12_player_id,
+                period_label:
+                  body.period_label.trim(),
+                assessment_date:
+                  body.assessment_date ??
+                  null,
+                coach_name:
+                  body.coach_name ??
+                  null,
+                team_label:
+                  body.team_label ??
+                  null,
+                notes:
+                  body.notes ?? null,
+                updated_at:
+                  new Date()
+                    .toISOString()
+              },
+              {
+                onConflict:
+                  'p12_player_id,period_label'
+              }
+            )
+            .select('*')
+            .single();
+
+        if (assessmentError) {
+          return json(
+            {
+              ok: false,
+              error:
+                assessmentError.message
+            },
+            500
+          );
+        }
+
+        const assessmentId =
+          assessment.id;
+
+        const {
+          error: deleteError
+        } =
+          await supabase
+            .from(
+              'p12_trainer_scores'
+            )
+            .delete()
+            .eq(
+              'assessment_id',
+              assessmentId
+            );
+
+        if (deleteError) {
+          return json(
+            {
+              ok: false,
+              error:
+                deleteError.message
+            },
+            500
+          );
+        }
+
+        const scoreRows =
+          (body.scores ?? [])
+            .filter(
+              score =>
+                score.category &&
+                score.detail
+            )
+            .map(
+              score => ({
+                assessment_id:
+                  assessmentId,
+                category:
+                  score.category,
+                detail:
+                  score.detail,
+                p12_rating:
+                  score.p12_rating ??
+                  null,
+                coach_rating:
+                  score.coach_rating ??
+                  0,
+                notes:
+                  score.notes ??
+                  null,
+                updated_at:
+                  new Date()
+                    .toISOString()
+              })
+            );
+
+        if (
+          scoreRows.length > 0
+        ) {
+          const {
+            error: scoreError
+          } =
+            await supabase
+              .from(
+                'p12_trainer_scores'
+              )
+              .insert(
+                scoreRows
+              );
+
+          if (scoreError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  scoreError.message
+              },
+              500
+            );
+          }
+        }
+
+        return json({
+          ok: true,
+          assessment
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 trainer assessment failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/academy/p12/sport-science'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<{
+            p12_player_id?: number;
+            test_label?: string;
+            test_date?: string | null;
+            scientist_name?: string | null;
+            notes?: string | null;
+            values?: Array<
+              Record<
+                string,
+                unknown
+              >
+            >;
+          }>();
+
+        if (
+          !body.p12_player_id ||
+          !body.test_label?.trim()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'P12-Spieler und Testphase sind erforderlich.'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: test,
+          error: testError
+        } =
+          await supabase
+            .from(
+              'p12_sports_science_tests'
+            )
+            .upsert(
+              {
+                p12_player_id:
+                  body.p12_player_id,
+                test_label:
+                  body.test_label.trim(),
+                test_date:
+                  body.test_date ??
+                  null,
+                scientist_name:
+                  body.scientist_name ??
+                  null,
+                notes:
+                  body.notes ??
+                  null,
+                updated_at:
+                  new Date()
+                    .toISOString()
+              },
+              {
+                onConflict:
+                  'p12_player_id,test_label'
+              }
+            )
+            .select('*')
+            .single();
+
+        if (testError) {
+          return json(
+            {
+              ok: false,
+              error:
+                testError.message
+            },
+            500
+          );
+        }
+
+        const testId =
+          test.id;
+
+        const {
+          error: deleteError
+        } =
+          await supabase
+            .from(
+              'p12_sports_science_values'
+            )
+            .delete()
+            .eq(
+              'test_id',
+              testId
+            );
+
+        if (deleteError) {
+          return json(
+            {
+              ok: false,
+              error:
+                deleteError.message
+            },
+            500
+          );
+        }
+
+        const valueRows =
+          (body.values ?? [])
+            .filter(
+              item =>
+                item.metric
+            )
+            .map(
+              item => ({
+                test_id:
+                  testId,
+                metric:
+                  item.metric,
+                value:
+                  item.value ??
+                  null,
+                unit:
+                  item.unit ??
+                  null,
+                normalized_score:
+                  item.normalized_score ??
+                  null,
+                updated_at:
+                  new Date()
+                    .toISOString()
+              })
+            );
+
+        if (
+          valueRows.length > 0
+        ) {
+          const {
+            error: valueError
+          } =
+            await supabase
+              .from(
+                'p12_sports_science_values'
+              )
+              .insert(
+                valueRows
+              );
+
+          if (valueError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  valueError.message
+              },
+              500
+            );
+          }
+        }
+
+        return json({
+          ok: true,
+          test
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 sport science failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'DELETE' &&
+      /^\/academy\/p12\/sport-science\/\d+$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const testId =
+          Number(
+            url.pathname
+              .split('/')
+              .pop()
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          error
+        } =
+          await supabase
+            .from(
+              'p12_sports_science_tests'
+            )
+            .delete()
+            .eq(
+              'id',
+              testId
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 sport science delete failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
       url.pathname === '/academy/overview'
     ) {
       try {
