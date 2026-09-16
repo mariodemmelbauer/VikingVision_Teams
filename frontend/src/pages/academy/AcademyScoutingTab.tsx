@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 type AcademyScoutingPlayer = {
   id: number;
@@ -53,11 +53,44 @@ export default function AcademyScoutingTab({
   const [showForm, setShowForm] =
     useState(false);
 
+
+  const [showPlayerForm, setShowPlayerForm] =
+    useState(false);
+
+  const [savingPlayer, setSavingPlayer] =
+    useState(false);
+
+  const [playerFormError, setPlayerFormError] =
+    useState<string | undefined>();
+
+  const [playerForm, setPlayerForm] =
+    useState({
+      name: '',
+      birth_date: '',
+      current_club: '',
+      primary_position: '',
+      secondary_position: '',
+      preferred_foot: '',
+      nationality: '',
+      height_cm: '',
+      notes: ''
+    });
+
   const [saving, setSaving] =
     useState(false);
 
   const [formError, setFormError] =
     useState<string | undefined>();
+
+
+  const [search, setSearch] =
+    useState('');
+
+  const [playerFilter, setPlayerFilter] =
+    useState('Alle');
+
+  const [positionFilter, setPositionFilter] =
+    useState('Alle');
 
   const [form, setForm] =
     useState({
@@ -83,6 +116,146 @@ export default function AcademyScoutingTab({
       recommendation: '',
       next_action: ''
     });
+
+  function updatePlayerField(
+    field: keyof typeof playerForm,
+    value: string
+  ) {
+    setPlayerForm(current => ({
+      ...current,
+      [field]: value
+    }));
+  }
+
+  function resetPlayerForm() {
+    setPlayerForm({
+      name: '',
+      birth_date: '',
+      current_club: '',
+      primary_position: '',
+      secondary_position: '',
+      preferred_foot: '',
+      nationality: '',
+      height_cm: '',
+      notes: ''
+    });
+
+    setPlayerFormError(undefined);
+  }
+
+  async function saveScoutingPlayer() {
+    if (!accessToken) {
+      setPlayerFormError(
+        'Kein Teams-SSO-Token vorhanden.'
+      );
+      return;
+    }
+
+    if (!playerForm.name.trim()) {
+      setPlayerFormError(
+        'Name ist ein Pflichtfeld.'
+      );
+      return;
+    }
+
+    setSavingPlayer(true);
+    setPlayerFormError(undefined);
+
+    const birthYear =
+      playerForm.birth_date
+        ? Number(
+            playerForm.birth_date
+              .slice(0, 4)
+          )
+        : null;
+
+    const height =
+      playerForm.height_cm === ''
+        ? null
+        : Number(
+            playerForm.height_cm
+          );
+
+    try {
+      const response =
+        await fetch(
+          `${apiBase}/academy/scouting/players`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`,
+              'Content-Type':
+                'application/json'
+            },
+            body: JSON.stringify({
+              name:
+                playerForm.name.trim(),
+              birth_date:
+                playerForm.birth_date ||
+                null,
+              birth_year:
+                Number.isFinite(
+                  birthYear
+                )
+                  ? birthYear
+                  : null,
+              current_club:
+                playerForm.current_club ||
+                null,
+              primary_position:
+                playerForm.primary_position ||
+                null,
+              secondary_position:
+                playerForm.secondary_position ||
+                null,
+              preferred_foot:
+                playerForm.preferred_foot ||
+                null,
+              nationality:
+                playerForm.nationality ||
+                null,
+              height_cm:
+                Number.isFinite(height)
+                  ? height
+                  : null,
+              notes:
+                playerForm.notes ||
+                null
+            })
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+          'Scouting-Spieler konnte nicht angelegt werden.'
+        );
+      }
+
+      setShowPlayerForm(false);
+      resetPlayerForm();
+
+      await onReload();
+
+      if (data?.player?.id != null) {
+        setPlayerFilter(
+          String(data.player.id)
+        );
+      }
+    } catch (err) {
+      setPlayerFormError(
+        err instanceof Error
+          ? err.message
+          : 'Spieler konnte nicht gespeichert werden.'
+      );
+    } finally {
+      setSavingPlayer(false);
+    }
+  }
 
   function updateField(
     field: keyof typeof form,
@@ -234,52 +407,705 @@ export default function AcademyScoutingTab({
   }
 
   const sortedPlayers =
-    [...players].sort(
-      (a, b) =>
-        a.name.localeCompare(
-          b.name,
-          'de'
-        )
+    useMemo(
+      () =>
+        [...players].sort(
+          (a, b) =>
+            a.name.localeCompare(
+              b.name,
+              'de'
+            )
+        ),
+      [players]
     );
+
+  const sortedReports =
+    useMemo(
+      () =>
+        [...reports].sort(
+          (a, b) =>
+            String(
+              b.observation_date ?? ''
+            ).localeCompare(
+              String(
+                a.observation_date ?? ''
+              )
+            )
+        ),
+      [reports]
+    );
+
+  const positions =
+    useMemo(
+      () => [
+        'Alle',
+        ...Array.from(
+          new Set(
+            [
+              ...players.map(
+                player =>
+                  player.primary_position
+              ),
+              ...reports.map(
+                report =>
+                  report.observed_position
+              )
+            ].filter(
+              (value): value is string =>
+                Boolean(value)
+            )
+          )
+        ).sort(
+          (a, b) =>
+            a.localeCompare(
+              b,
+              'de'
+            )
+        )
+      ],
+      [players, reports]
+    );
+
+  const playerReportInfo =
+    useMemo(
+      () =>
+        sortedPlayers.map(player => {
+          const playerReports =
+            sortedReports.filter(
+              report =>
+                report.player_id ===
+                player.id
+            );
+
+          return {
+            player,
+            reportCount:
+              playerReports.length,
+            latestReport:
+              playerReports[0]
+          };
+        }),
+      [sortedPlayers, sortedReports]
+    );
+
+  const filteredReports =
+    useMemo(
+      () => {
+        const query =
+          search
+            .trim()
+            .toLocaleLowerCase('de');
+
+        return sortedReports.filter(
+          report => {
+            const matchesSearch =
+              !query ||
+              [
+                report.player_name,
+                report.scout_name,
+                report.competition,
+                report.match_name,
+                report.opponent,
+                report.observed_position,
+                report.strengths,
+                report.development_areas,
+                report.recommendation,
+                report.next_action
+              ]
+                .filter(Boolean)
+                .some(value =>
+                  String(value)
+                    .toLocaleLowerCase(
+                      'de'
+                    )
+                    .includes(query)
+                );
+
+            const matchesPlayer =
+              playerFilter === 'Alle' ||
+              String(
+                report.player_id
+              ) === playerFilter;
+
+            const matchesPosition =
+              positionFilter === 'Alle' ||
+              report.observed_position ===
+                positionFilter ||
+              players.find(
+                player =>
+                  player.id ===
+                  report.player_id
+              )?.primary_position ===
+                positionFilter;
+
+            return (
+              matchesSearch &&
+              matchesPlayer &&
+              matchesPosition
+            );
+          }
+        );
+      },
+      [
+        sortedReports,
+        search,
+        playerFilter,
+        positionFilter,
+        players
+      ]
+    );
+
+  function resetFilters() {
+    setSearch('');
+    setPlayerFilter('Alle');
+    setPositionFilter('Alle');
+  }
 
   return (
     <section style={{ marginTop: '18px' }}>
       <section
         style={{
-          display: 'flex',
-          justifyContent:
-            'space-between',
-          gap: '12px',
-          flexWrap: 'wrap',
-          alignItems: 'center'
+          display: 'grid',
+          gridTemplateColumns:
+            'repeat(3, minmax(0, 1fr))',
+          gap: '10px'
+        }}
+        className="academy-scouting-kpis"
+      >
+        <ScoutingKpi
+          label="Scouting-Spieler"
+          value={players.length}
+        />
+
+        <ScoutingKpi
+          label="Berichte"
+          value={reports.length}
+        />
+
+        <ScoutingKpi
+          label="Spieler beobachtet"
+          value={
+            new Set(
+              reports.map(
+                report =>
+                  report.player_id
+              )
+            ).size
+          }
+        />
+      </section>
+
+      <section
+        style={{
+          ...panel,
+          marginTop: '14px'
         }}
       >
-        <div>
-          <strong>
-            {players.length} Scouting-Spieler
-          </strong>
-          <span
+        <div
+          style={{
+            display: 'flex',
+            justifyContent:
+              'space-between',
+            gap: '12px',
+            flexWrap: 'wrap',
+            alignItems: 'center'
+          }}
+        >
+          <div>
+            <strong>
+              Academy-Scouting
+            </strong>
+
+            <div
+              style={{
+                marginTop: '4px',
+                color: '#777',
+                fontSize: '13px'
+              }}
+            >
+              Spielerübersicht und Beobachtungsberichte
+            </div>
+          </div>
+
+          <div
             style={{
-              marginLeft: '12px',
-              color: '#666'
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap'
             }}
           >
-            {reports.length} Berichte
+            <button
+              type="button"
+              onClick={() => {
+                setShowPlayerForm(
+                  value => !value
+                );
+
+                if (!showPlayerForm) {
+                  resetPlayerForm();
+                }
+              }}
+              style={secondaryButton}
+            >
+              + Spieler anlegen
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                setShowForm(
+                  value => !value
+                )
+              }
+              style={primaryButton}
+            >
+              + Neuer Bericht
+            </button>
+          </div>
+        </div>
+
+        <div
+          className="academy-scouting-filters"
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'minmax(220px, 2fr) repeat(2, minmax(160px, 1fr)) auto',
+            gap: '10px',
+            alignItems: 'end',
+            marginTop: '14px'
+          }}
+        >
+          <Field label="Suche">
+            <input
+              value={search}
+              onChange={event =>
+                setSearch(
+                  event.target.value
+                )
+              }
+              placeholder="Spieler, Scout, Gegner, Empfehlung …"
+              style={inputStyle}
+            />
+          </Field>
+
+          <Field label="Spieler">
+            <select
+              value={playerFilter}
+              onChange={event =>
+                setPlayerFilter(
+                  event.target.value
+                )
+              }
+              style={inputStyle}
+            >
+              <option value="Alle">
+                Alle
+              </option>
+
+              {sortedPlayers.map(
+                player => (
+                  <option
+                    key={player.id}
+                    value={String(player.id)}
+                  >
+                    {player.name}
+                  </option>
+                )
+              )}
+            </select>
+          </Field>
+
+          <Field label="Position">
+            <select
+              value={positionFilter}
+              onChange={event =>
+                setPositionFilter(
+                  event.target.value
+                )
+              }
+              style={inputStyle}
+            >
+              {positions.map(
+                position => (
+                  <option
+                    key={position}
+                    value={position}
+                  >
+                    {position}
+                  </option>
+                )
+              )}
+            </select>
+          </Field>
+
+          <button
+            type="button"
+            onClick={resetFilters}
+            style={secondaryButton}
+          >
+            Zurücksetzen
+          </button>
+        </div>
+      </section>
+
+      <section
+        style={{
+          marginTop: '16px'
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            gap: '10px',
+            alignItems: 'baseline',
+            flexWrap: 'wrap'
+          }}
+        >
+          <strong>
+            Scouting-Spieler
+          </strong>
+
+          <span
+            style={{
+              color: '#777',
+              fontSize: '12px'
+            }}
+          >
+            Klick auf einen Spieler filtert die Berichte
           </span>
         </div>
 
-        <button
-          type="button"
-          onClick={() =>
-            setShowForm(
-              value => !value
-            )
-          }
-          style={primaryButton}
+        <div
+          className="academy-scouting-player-grid"
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'repeat(auto-fill, minmax(230px, 1fr))',
+            gap: '10px',
+            marginTop: '9px'
+          }}
         >
-          + Neuer Bericht
-        </button>
+          {playerReportInfo.map(
+            ({
+              player,
+              reportCount,
+              latestReport
+            }) => (
+              <button
+                key={player.id}
+                type="button"
+                onClick={() =>
+                  setPlayerFilter(
+                    String(player.id)
+                  )
+                }
+                style={{
+                  ...scoutingPlayerCard,
+                  borderColor:
+                    playerFilter ===
+                    String(player.id)
+                      ? '#0b7a3b'
+                      : '#ececec'
+                }}
+              >
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent:
+                      'space-between',
+                    gap: '8px',
+                    alignItems:
+                      'flex-start'
+                  }}
+                >
+                  <div>
+                    <strong>
+                      {player.name}
+                    </strong>
+
+                    <div
+                      style={{
+                        marginTop: '3px',
+                        color: '#777',
+                        fontSize: '12px'
+                      }}
+                    >
+                      {[
+                        player.primary_position,
+                        player.current_club
+                      ]
+                        .filter(Boolean)
+                        .join(' · ') ||
+                        'Keine Stammdaten'}
+                    </div>
+                  </div>
+
+                  <span style={roleBadge}>
+                    {reportCount}
+                  </span>
+                </div>
+
+                <div
+                  style={{
+                    marginTop: '10px',
+                    color: '#666',
+                    fontSize: '12px'
+                  }}
+                >
+                  {latestReport
+                    ? `Letzte Beobachtung: ${formatDate(
+                        latestReport.observation_date
+                      )}`
+                    : 'Noch kein Bericht'}
+                </div>
+              </button>
+            )
+          )}
+        </div>
       </section>
+
+      {showPlayerForm && (
+        <section
+          style={{
+            ...panel,
+            marginTop: '14px'
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              gap: '12px',
+              flexWrap: 'wrap',
+              alignItems: 'center'
+            }}
+          >
+            <div>
+              <h3 style={{ margin: 0 }}>
+                Scouting-Spieler anlegen
+              </h3>
+
+              <div
+                style={{
+                  marginTop: '4px',
+                  color: '#777',
+                  fontSize: '13px'
+                }}
+              >
+                Der Spieler wird in der Academy-Scouting-Datenbank gespeichert und steht danach direkt für Berichte zur Verfügung.
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setShowPlayerForm(false);
+                resetPlayerForm();
+              }}
+              style={secondaryButton}
+            >
+              Schließen
+            </button>
+          </div>
+
+          {playerFormError && (
+            <div style={errorBox}>
+              {playerFormError}
+            </div>
+          )}
+
+          <div
+            className="academy-scouting-player-form"
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(2, minmax(0, 1fr))',
+              gap: '12px',
+              marginTop: '16px'
+            }}
+          >
+            <Field label="Name *">
+              <input
+                value={playerForm.name}
+                onChange={event =>
+                  updatePlayerField(
+                    'name',
+                    event.target.value
+                  )
+                }
+                placeholder="Vorname Nachname"
+                style={inputStyle}
+              />
+            </Field>
+
+            <Field label="Geburtsdatum">
+              <input
+                type="date"
+                value={playerForm.birth_date}
+                onChange={event =>
+                  updatePlayerField(
+                    'birth_date',
+                    event.target.value
+                  )
+                }
+                style={inputStyle}
+              />
+            </Field>
+
+            <Field label="Aktueller Verein">
+              <input
+                value={playerForm.current_club}
+                onChange={event =>
+                  updatePlayerField(
+                    'current_club',
+                    event.target.value
+                  )
+                }
+                placeholder="z. B. FC Musterstadt"
+                style={inputStyle}
+              />
+            </Field>
+
+            <Field label="Nationalität">
+              <input
+                value={playerForm.nationality}
+                onChange={event =>
+                  updatePlayerField(
+                    'nationality',
+                    event.target.value
+                  )
+                }
+                style={inputStyle}
+              />
+            </Field>
+
+            <Field label="Hauptposition">
+              <input
+                value={playerForm.primary_position}
+                onChange={event =>
+                  updatePlayerField(
+                    'primary_position',
+                    event.target.value
+                  )
+                }
+                placeholder="z. B. Innenverteidiger"
+                style={inputStyle}
+              />
+            </Field>
+
+            <Field label="Nebenposition">
+              <input
+                value={playerForm.secondary_position}
+                onChange={event =>
+                  updatePlayerField(
+                    'secondary_position',
+                    event.target.value
+                  )
+                }
+                style={inputStyle}
+              />
+            </Field>
+
+            <Field label="Starker Fuß">
+              <select
+                value={playerForm.preferred_foot}
+                onChange={event =>
+                  updatePlayerField(
+                    'preferred_foot',
+                    event.target.value
+                  )
+                }
+                style={inputStyle}
+              >
+                <option value="">
+                  –
+                </option>
+                <option value="Rechts">
+                  Rechts
+                </option>
+                <option value="Links">
+                  Links
+                </option>
+                <option value="Beidfüßig">
+                  Beidfüßig
+                </option>
+              </select>
+            </Field>
+
+            <Field label="Größe (cm)">
+              <input
+                type="number"
+                min="120"
+                max="230"
+                value={playerForm.height_cm}
+                onChange={event =>
+                  updatePlayerField(
+                    'height_cm',
+                    event.target.value
+                  )
+                }
+                style={inputStyle}
+              />
+            </Field>
+
+            <div
+              style={{
+                gridColumn: '1 / -1'
+              }}
+            >
+              <Field label="Notizen">
+                <textarea
+                  rows={4}
+                  value={playerForm.notes}
+                  onChange={event =>
+                    updatePlayerField(
+                      'notes',
+                      event.target.value
+                    )
+                  }
+                  style={{
+                    ...inputStyle,
+                    resize: 'vertical'
+                  }}
+                />
+              </Field>
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: '8px',
+              flexWrap: 'wrap',
+              marginTop: '16px'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setShowPlayerForm(false);
+                resetPlayerForm();
+              }}
+              style={secondaryButton}
+            >
+              Abbrechen
+            </button>
+
+            <button
+              type="button"
+              onClick={saveScoutingPlayer}
+              disabled={savingPlayer}
+              style={primaryButton}
+            >
+              {savingPlayer
+                ? 'Speichert…'
+                : 'Spieler anlegen'}
+            </button>
+          </div>
+        </section>
+      )}
 
       {showForm && (
         <section
@@ -572,14 +1398,56 @@ export default function AcademyScoutingTab({
 
       <section
         style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fill, minmax(320px, 1fr))',
-          gap: '14px',
-          marginTop: '18px'
+          marginTop: '20px'
         }}
       >
-        {reports.map(report => (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent:
+              'space-between',
+            gap: '10px',
+            flexWrap: 'wrap',
+            alignItems: 'baseline'
+          }}
+        >
+          <strong>
+            Berichte
+          </strong>
+
+          <span
+            style={{
+              color: '#777',
+              fontSize: '12px'
+            }}
+          >
+            {filteredReports.length} von {reports.length}
+          </span>
+        </div>
+
+        {filteredReports.length === 0 ? (
+          <div
+            style={{
+              ...panel,
+              marginTop: '10px',
+              color: '#777'
+            }}
+          >
+            Keine Scoutingberichte für die gewählten Filter gefunden.
+          </div>
+        ) : (
+          <div
+            className="academy-scouting-report-grid"
+            style={{
+              display: 'grid',
+              gridTemplateColumns:
+                'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: '14px',
+              marginTop: '10px'
+            }}
+          >
+            {filteredReports.map(report => (
+
           <article
             key={report.id}
             style={panel}
@@ -717,9 +1585,45 @@ export default function AcademyScoutingTab({
               />
             )}
           </article>
-        ))}
+        
+            ))}
+          </div>
+        )}
       </section>
     </section>
+  );
+}
+
+function ScoutingKpi({
+  label,
+  value
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div style={scoutingKpiCard}>
+      <div
+        style={{
+          color: '#777',
+          fontSize: '11px',
+          textTransform: 'uppercase',
+          fontWeight: 700
+        }}
+      >
+        {label}
+      </div>
+
+      <div
+        style={{
+          marginTop: '5px',
+          fontSize: '26px',
+          fontWeight: 900
+        }}
+      >
+        {value}
+      </div>
+    </div>
   );
 }
 
@@ -893,6 +1797,23 @@ const panel: React.CSSProperties = {
   borderRadius: '14px',
   padding: '18px',
   boxShadow: '0 3px 14px rgba(0,0,0,0.04)'
+};
+
+
+const scoutingKpiCard: React.CSSProperties = {
+  ...panel,
+  padding: '15px'
+};
+
+const scoutingPlayerCard: React.CSSProperties = {
+  background: '#fff',
+  border: '1px solid #ececec',
+  borderRadius: '12px',
+  padding: '13px',
+  textAlign: 'left',
+  cursor: 'pointer',
+  color: 'inherit',
+  font: 'inherit'
 };
 
 const fieldLabel: React.CSSProperties = {
