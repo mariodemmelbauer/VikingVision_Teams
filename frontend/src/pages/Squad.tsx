@@ -449,8 +449,17 @@ export default function Squad({
                         }}
                       >
                         <PlayerImage
+                          playerId={
+                            player.id
+                          }
                           imagePath={
                             player.image_path
+                          }
+                          accessToken={
+                            accessToken
+                          }
+                          apiBase={
+                            apiBase
                           }
                           alt={
                             player.name ??
