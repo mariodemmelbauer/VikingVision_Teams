@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 
 import Dashboard from './pages/Dashboard';
-import Players from './pages/Players';
 import PlayerProfile, {
   Player
 } from './pages/PlayerProfile';
@@ -22,7 +21,6 @@ const API_BASE =
 
 type Page =
   | 'dashboard'
-  | 'players'
   | 'playerProfile'
   | 'scoutingReports'
   | 'watchlist'
@@ -323,7 +321,14 @@ export default function App() {
     page === 'playerProfile' &&
     selectedPlayer
   ) {
-    return (
+    const scoutingPlayers =
+    players.filter(
+      player =>
+        !player.is_own_squad &&
+        !player.archived_at
+    );
+
+  return (
       <PlayerProfile
         player={selectedPlayer}
         accessToken={user.accessToken}
@@ -341,24 +346,13 @@ export default function App() {
     );
   }
 
-  if (page === 'players') {
-    return (
-      <Players
-        players={players}
-        loading={playersLoading}
-        error={playersError}
-        onBack={backToDashboard}
-        onOpenPlayer={openPlayer}
-      />
-    );
-  }
 
   if (page === 'scoutingReports') {
     return (
       <ScoutingReports
         accessToken={user.accessToken}
         apiBase={API_BASE}
-        players={players}
+        players={scoutingPlayers}
         currentScoutName={
           user.displayName
         }
@@ -437,9 +431,6 @@ export default function App() {
       playerCount={playerCount}
       supabaseError={
         supabaseError
-      }
-      onOpenPlayers={
-        openPlayers
       }
       onOpenScoutingReports={
         openScoutingReports
