@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import { useEffect, useState } from 'react';
 import type { Player } from './PlayerProfile';
 
@@ -120,25 +121,18 @@ export default function PlayerArchive({
 
   return (
     <main className="page">
-      <section className="hero">
-        <div>
-          <div className="eyebrow">SV Oberbank Ried</div>
-          <h1>Spielerarchiv</h1>
-          <p>Aus dem Kader entfernte Spieler bleiben in VikingVision erhalten</p>
-        </div>
-
-        <button type="button" onClick={onBack} style={secondaryButton}>
-          ← Dashboard
-        </button>
-      </section>
+      <PageHeader
+        title="Spielerarchiv"
+        description="Archivierte Spieler bleiben mit Profil und Historie vollständig erhalten."
+        onBack={onBack}
+        meta={
+          <span>
+            {players.length} archivierte Spieler
+          </span>
+        }
+      />
 
       {error && <section style={errorBox}>{error}</section>}
-
-      <section className="status" style={{ marginTop: '18px' }}>
-        <span>
-          Archivierte Spieler: <strong>{players.length}</strong>
-        </span>
-      </section>
 
       <section
         style={{
