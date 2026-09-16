@@ -9,8 +9,6 @@ type Props = {
   supabaseOk: boolean | null;
   playerCount: number | null;
   supabaseError?: string;
-
-  onOpenPlayers: () => void;
   onOpenScoutingReports: () => void;
   onOpenWatchlist: () => void;
   onOpenSquad: () => void;
@@ -28,7 +26,6 @@ export default function Dashboard({
   supabaseOk,
   playerCount,
   supabaseError,
-  onOpenPlayers,
   onOpenScoutingReports,
   onOpenWatchlist,
   onOpenSquad,
@@ -143,13 +140,6 @@ export default function Dashboard({
         )}
 
       <section className="grid">
-        <button
-          className="card"
-          type="button"
-          onClick={onOpenPlayers}
-        >
-          Spieler
-        </button>
 
         <button
           className="card"
