@@ -332,6 +332,7 @@ export default function App() {
         }
         onBack={backToDashboard}
         onPlayersChanged={loadPlayers}
+        onOpenPlayer={openPlayer}
       />
     );
   }
