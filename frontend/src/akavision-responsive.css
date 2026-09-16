@@ -1,0 +1,31 @@
+/* AKAVision Teams production refinements */
+@media (max-width: 760px) {
+  .page {
+    padding: 12px !important;
+  }
+
+  .hero {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+
+  .status {
+    align-items: flex-start !important;
+    flex-direction: column !important;
+  }
+
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  button {
+    min-height: 42px;
+  }
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
