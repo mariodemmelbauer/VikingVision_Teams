@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Player } from './PlayerProfile';
+import PageHeader from '../components/PageHeader';
 
 export type ScoutingReport = {
   id: number | string;
@@ -661,20 +662,18 @@ export default function ScoutingReports({
 
   return (
     <main className="page">
-      <section className="hero">
-        <div>
-          <div className="eyebrow">SV Oberbank Ried</div>
-          <h1>Scouting</h1>
-          <p>
-            Externe Spieler und Scoutingberichte verwalten.
-            Spieler aus „Unser Kader“ werden hier bewusst nicht angezeigt.
-          </p>
-        </div>
-
-        <button type="button" onClick={onBack} style={secondaryButton}>
-          ← Dashboard
-        </button>
-      </section>
+      <PageHeader
+        title="Scouting"
+        description="Externe Spieler und Scoutingberichte zentral verwalten."
+        onBack={onBack}
+        meta={
+          <>
+            <span>{players.length} Spieler</span>
+            <span>·</span>
+            <span>{reports.length} Berichte</span>
+          </>
+        }
+      />
 
       {error && (
         <section style={errorBox}>
