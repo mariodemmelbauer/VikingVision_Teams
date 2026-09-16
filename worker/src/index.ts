@@ -2039,6 +2039,104 @@ export default {
     }
 
     if (
+      request.method === 'PUT' &&
+      url.pathname.startsWith(
+        '/scouting/'
+      ) &&
+      url.pathname.endsWith(
+        '/to-squad'
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          url.pathname
+            .slice(
+              '/scouting/'.length,
+              -'/to-squad'.length
+            )
+            .replace(
+              /^\/|\/$/g,
+              ''
+            );
+
+        if (!playerId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Player ID missing'
+            },
+            400
+          );
+        }
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        const allowedStatus =
+          body.squad_status ===
+            'Ausgeliehen'
+            ? 'Ausgeliehen'
+            : 'Unter Vertrag';
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .update({
+              is_own_squad: true,
+              archived_at: null,
+              squad_status:
+                allowedStatus,
+              updated_at:
+                new Date()
+                  .toISOString()
+            })
+            .eq(
+              'id',
+              playerId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error: error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          player: data
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Move to squad failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
       request.method === 'GET' &&
       url.pathname === '/squad'
     ) {
