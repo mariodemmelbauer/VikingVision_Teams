@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import { useEffect, useMemo, useState } from 'react';
 import type { Player } from './PlayerProfile';
 
@@ -277,24 +278,18 @@ export default function Watchlist({
 
   return (
     <main className="page">
-      <section className="hero">
-        <div>
-          <div className="eyebrow">
-            SV Oberbank Ried
-          </div>
-          <h1>Watchlist</h1>
-          <p>
-            Spieler priorisieren und den Scoutingprozess organisieren
-          </p>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            gap: '10px',
-            flexWrap: 'wrap'
-          }}
-        >
+      <PageHeader
+        title="Watchlist"
+        description="Kandidaten priorisieren und nächste Scouting-Schritte organisieren."
+        onBack={onBack}
+        meta={
+          <span>
+            {loading
+              ? 'Wird geladen…'
+              : `${entries.length} Einträge`}
+          </span>
+        }
+        actions={
           <button
             type="button"
             onClick={startNew}
@@ -302,16 +297,8 @@ export default function Watchlist({
           >
             + Spieler hinzufügen
           </button>
-
-          <button
-            type="button"
-            onClick={onBack}
-            style={secondaryButton}
-          >
-            ← Dashboard
-          </button>
-        </div>
-      </section>
+        }
+      />
 
       {error && (
         <section style={errorBox}>
