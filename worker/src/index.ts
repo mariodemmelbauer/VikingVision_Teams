@@ -382,6 +382,114 @@ function imageContentType(
   return 'image/jpeg';
 }
 
+
+function normalizePlayerName(
+  value: unknown
+) {
+  return String(value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('de')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+function transfermarktPlayerId(
+  value: unknown
+) {
+  if (
+    typeof value !== 'string' ||
+    !value.trim()
+  ) {
+    return null;
+  }
+
+  try {
+    const parsed =
+      new URL(value.trim());
+
+    const match =
+      parsed.pathname.match(
+        /\/spieler\/(\d+)(?:\/|$)/i
+      );
+
+    return match?.[1] ?? null;
+  } catch {
+    const match =
+      value.match(
+        /\/spieler\/(\d+)(?:\/|$)/i
+      );
+
+    return match?.[1] ?? null;
+  }
+}
+
+function duplicateReason(
+  candidate: Record<string, unknown>,
+  existing:
+    Array<Record<string, unknown>>
+) {
+  const tmId =
+    transfermarktPlayerId(
+      candidate.transfermarkt_url
+    );
+
+  if (tmId) {
+    const duplicate =
+      existing.find(
+        player =>
+          transfermarktPlayerId(
+            player.transfermarkt_url
+          ) === tmId
+      );
+
+    if (duplicate) {
+      return {
+        player: duplicate,
+        reason:
+          'Transfermarkt-Profil bereits vorhanden'
+      };
+    }
+  }
+
+  const name =
+    normalizePlayerName(
+      candidate.name
+    );
+
+  const birthDate =
+    normalizeNullableDate(
+      candidate.birth_date
+    );
+
+  if (
+    name &&
+    birthDate
+  ) {
+    const duplicate =
+      existing.find(
+        player =>
+          normalizePlayerName(
+            player.name
+          ) === name &&
+          normalizeNullableDate(
+            player.birth_date
+          ) === birthDate
+      );
+
+    if (duplicate) {
+      return {
+        player: duplicate,
+        reason:
+          'Name und Geburtsdatum bereits vorhanden'
+      };
+    }
+  }
+
+  return null;
+}
+
 export default {
   async fetch(
     request: Request,
@@ -804,23 +912,81 @@ export default {
         payload.name =
           String(payload.name).trim();
 
+        payload.birth_date =
+          normalizeNullableDate(
+            payload.birth_date
+          );
+
         if (
           payload.birth_date &&
           !payload.birth_year
         ) {
           const year =
             Number(
-              String(payload.birth_date)
-                .slice(0, 4)
+              String(
+                payload.birth_date
+              ).slice(0, 4)
             );
 
-          if (Number.isFinite(year)) {
-            payload.birth_year = year;
+          if (
+            Number.isFinite(year)
+          ) {
+            payload.birth_year =
+              year;
           }
         }
 
         const supabase =
           createSupabase(env);
+
+        const {
+          data: existingPlayers,
+          error: existingError
+        } =
+          await supabase
+            .from('players')
+            .select(
+              'id,name,birth_date,transfermarkt_url,is_own_squad,archived_at'
+            );
+
+        if (existingError) {
+          return json(
+            {
+              ok: false,
+              error:
+                existingError.message
+            },
+            500
+          );
+        }
+
+        const duplicate =
+          duplicateReason(
+            payload,
+            (existingPlayers ??
+              []) as Array<
+                Record<
+                  string,
+                  unknown
+                >
+              >
+          );
+
+        if (duplicate) {
+          return json(
+            {
+              ok: false,
+              duplicate: true,
+              reason:
+                duplicate.reason,
+              player:
+                duplicate.player,
+              error:
+                `Dublettenverdacht: ${duplicate.reason}`
+            },
+            409
+          );
+        }
 
         const {
           data,
@@ -969,17 +1135,14 @@ export default {
           createSupabase(env);
 
         const {
-          data: existing,
+          data: existingPlayers,
           error: existingError
         } =
           await supabase
             .from('players')
-            .select('*')
-            .eq(
-              'transfermarkt_url',
-              tmUrl.toString()
-            )
-            .maybeSingle();
+            .select(
+              'id,name,birth_date,transfermarkt_url,is_own_squad,archived_at'
+            );
 
         if (existingError) {
           return json(
@@ -992,11 +1155,31 @@ export default {
           );
         }
 
-        if (existing) {
+        const duplicate =
+          duplicateReason(
+            {
+              name,
+              transfermarkt_url:
+                tmUrl.toString()
+            },
+            (existingPlayers ??
+              []) as Array<
+                Record<
+                  string,
+                  unknown
+                >
+              >
+          );
+
+        if (duplicate) {
           return json({
             ok: true,
-            player: existing,
+            player:
+              duplicate.player,
+            duplicate: true,
             existing: true,
+            reason:
+              duplicate.reason,
             scraped
           });
         }
@@ -1071,7 +1254,9 @@ export default {
           }>();
 
         if (
-          !Array.isArray(body.players) ||
+          !Array.isArray(
+            body.players
+          ) ||
           body.players.length === 0
         ) {
           return json(
@@ -1120,103 +1305,204 @@ export default {
           'player_role'
         ];
 
-        const rows =
-          body.players
-            .map(row => {
-              const payload =
-                pickFields(
-                  row,
-                  allowedFields
-                );
-
-              if (
-                typeof payload.name !==
-                  'string' ||
-                !payload.name.trim()
-              ) {
-                return null;
-              }
-
-              payload.name =
-                payload.name.trim();
-
-              payload.birth_date =
-                normalizeNullableDate(
-                  payload.birth_date
-                );
-
-              if (
-                typeof payload.birth_date ===
-                  'string'
-              ) {
-                const year =
-                  Number(
-                    payload.birth_date.slice(
-                      0,
-                      4
-                    )
-                  );
-
-                if (
-                  Number.isFinite(year)
-                ) {
-                  payload.birth_year =
-                    year;
-                }
-              }
-
-              return payload;
-            })
-            .filter(
-              (
-                row
-              ): row is Record<
-                string,
-                unknown
-              > =>
-                row !== null
-            );
-
-        if (rows.length === 0) {
-          return json(
-            {
-              ok: false,
-              error:
-                'Keine gültigen Spielerzeilen gefunden.'
-            },
-            400
-          );
-        }
-
         const supabase =
           createSupabase(env);
 
         const {
-          data,
-          error
+          data: currentPlayers,
+          error: currentError
         } =
           await supabase
             .from('players')
-            .insert(rows)
-            .select('*');
+            .select(
+              'id,name,birth_date,transfermarkt_url,is_own_squad,archived_at'
+            );
 
-        if (error) {
+        if (currentError) {
           return json(
             {
               ok: false,
-              error: error.message
+              error:
+                currentError.message
             },
             500
           );
+        }
+
+        const knownPlayers =
+          [
+            ...(currentPlayers ??
+              [])
+          ] as Array<
+            Record<
+              string,
+              unknown
+            >
+          >;
+
+        const insertRows:
+          Array<
+            Record<
+              string,
+              unknown
+            >
+          > = [];
+
+        const duplicates:
+          Array<
+            Record<
+              string,
+              unknown
+            >
+          > = [];
+
+        const skipped:
+          Array<
+            Record<
+              string,
+              unknown
+            >
+          > = [];
+
+        for (
+          let index = 0;
+          index <
+          body.players.length;
+          index += 1
+        ) {
+          const raw =
+            body.players[index];
+
+          const payload =
+            pickFields(
+              raw,
+              allowedFields
+            );
+
+          if (
+            typeof payload.name !==
+              'string' ||
+            !payload.name.trim()
+          ) {
+            skipped.push({
+              row: index + 2,
+              reason:
+                'Name fehlt'
+            });
+            continue;
+          }
+
+          payload.name =
+            payload.name.trim();
+
+          payload.birth_date =
+            normalizeNullableDate(
+              payload.birth_date
+            );
+
+          if (
+            typeof payload.birth_date ===
+              'string'
+          ) {
+            const year =
+              Number(
+                payload.birth_date.slice(
+                  0,
+                  4
+                )
+              );
+
+            if (
+              Number.isFinite(year)
+            ) {
+              payload.birth_year =
+                year;
+            }
+          }
+
+          const duplicate =
+            duplicateReason(
+              payload,
+              knownPlayers
+            );
+
+          if (duplicate) {
+            duplicates.push({
+              row: index + 2,
+              name:
+                payload.name,
+              reason:
+                duplicate.reason,
+              existing_player:
+                duplicate.player
+            });
+            continue;
+          }
+
+          insertRows.push(
+            payload
+          );
+
+          knownPlayers.push(
+            payload
+          );
+        }
+
+        let inserted:
+          Array<
+            Record<
+              string,
+              unknown
+            >
+          > = [];
+
+        if (
+          insertRows.length > 0
+        ) {
+          const {
+            data,
+            error
+          } =
+            await supabase
+              .from('players')
+              .insert(insertRows)
+              .select('*');
+
+          if (error) {
+            return json(
+              {
+                ok: false,
+                error:
+                  error.message
+              },
+              500
+            );
+          }
+
+          inserted =
+            (data ?? []) as Array<
+              Record<
+                string,
+                unknown
+              >
+            >;
         }
 
         return json(
           {
             ok: true,
             count:
-              data?.length ?? 0,
+              inserted.length,
+            new_count:
+              inserted.length,
+            duplicate_count:
+              duplicates.length,
+            skipped_count:
+              skipped.length,
             players:
-              data ?? []
+              inserted,
+            duplicates,
+            skipped
           },
           201
         );
@@ -2108,6 +2394,73 @@ export default {
       }
     }
 
+
+    if (
+      request.method === 'PUT' &&
+      /^\/players\/[^/]+\/archive$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          url.pathname
+            .split('/')[2];
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .update({
+              is_own_squad: false,
+              archived_at:
+                new Date()
+                  .toISOString(),
+              updated_at:
+                new Date()
+                  .toISOString()
+            })
+            .eq(
+              'id',
+              playerId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          player: data
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Archive failed'
+          },
+          401
+        );
+      }
+    }
 
     if (
       request.method === 'PUT' &&
