@@ -1,3 +1,4 @@
+import PageHeader from '../components/PageHeader';
 import { useState } from 'react';
 import PlayerImage from '../components/PlayerImage';
 
@@ -222,77 +223,91 @@ export default function PlayerProfile({
 
   return (
     <main className="page">
-      <section className="hero">
-        <div>
-          <div className="eyebrow">SV Oberbank Ried</div>
-          <h1>{player.name ?? 'Spielerprofil'}</h1>
-          <p>VikingVision Spielerprofil</p>
-        </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-          {!editing && (
-            <button
-              type="button"
-              onClick={() => {
-                setEditing(true);
-                setError(undefined);
-                setSuccess(undefined);
-              }}
-              style={primaryButton}
-            >
-              Bearbeiten
-            </button>
-          )}
-
-          {editing && (
-            <>
+      <PageHeader
+        title={player.name ?? 'Spielerprofil'}
+        description="VikingVision Spielerprofil"
+        onBack={onBack}
+        backLabel="Dashboard"
+        meta={
+          <>
+            <span>
+              {player.primary_position ?? 'Position offen'}
+            </span>
+            {player.current_club && (
+              <>
+                <span>·</span>
+                <span>
+                  {player.current_club}
+                </span>
+              </>
+            )}
+            <span>·</span>
+            <span>
+              {player.is_own_squad
+                ? 'Unser Kader'
+                : 'Scouting'}
+            </span>
+          </>
+        }
+        actions={
+          <>
+            {!editing && (
               <button
                 type="button"
-                onClick={savePlayer}
-                disabled={saving}
+                onClick={() => {
+                  setEditing(true);
+                  setError(undefined);
+                  setSuccess(undefined);
+                }}
                 style={primaryButton}
               >
-                {saving
-                  ? 'Speichert…'
-                  : 'Speichern'}
+                Bearbeiten
               </button>
+            )}
 
+            {editing && (
+              <>
+                <button
+                  type="button"
+                  onClick={savePlayer}
+                  disabled={saving}
+                  style={primaryButton}
+                >
+                  {saving
+                    ? 'Speichert…'
+                    : 'Speichern'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={cancelEdit}
+                  disabled={saving}
+                  style={secondaryButton}
+                >
+                  Abbrechen
+                </button>
+              </>
+            )}
+
+            {!player.archived_at && (
               <button
                 type="button"
-                onClick={cancelEdit}
-                disabled={saving}
-                style={secondaryButton}
+                onClick={() =>
+                  setConfirmArchive(true)
+                }
+                disabled={archiving}
+                style={archiveButton}
               >
-                Abbrechen
+                {archiving
+                  ? 'Archiviert…'
+                  : player.is_own_squad
+                    ? 'Aus Kader entfernen'
+                    : 'Spieler archivieren'}
               </button>
-            </>
-          )}
-
-          {!player.archived_at && (
-            <button
-              type="button"
-              onClick={() =>
-                setConfirmArchive(true)
-              }
-              disabled={archiving}
-              style={archiveButton}
-            >
-              {archiving
-                ? 'Archiviert…'
-                : player.is_own_squad
-                  ? 'Aus Kader entfernen'
-                  : 'Spieler archivieren'}
-            </button>
-          )}
-
-          <button
-            type="button"
-            onClick={onBack}
-            style={secondaryButton}
-          >
-            ← Spieler
-          </button>
-        </div>
-      </section>
+            )}
+          </>
+        }
+      />
 
       {error && <section style={errorBox}><strong>Fehler:</strong><div style={{ marginTop: '4px' }}>{error}</div></section>}
       {success && <section style={successBox}>{success}</section>}
