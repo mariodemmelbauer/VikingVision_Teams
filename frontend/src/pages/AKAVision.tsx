@@ -3,6 +3,7 @@ import '../akavision-responsive.css';
 import AcademyPlayerProfile from './academy/AcademyPlayerProfile';
 import AcademyScoutingTab from './academy/AcademyScoutingTab';
 import P12Tab from './academy/P12Tab';
+import PageHeader from '../components/PageHeader';
 
 type AcademyTeam = 'U15' | 'U16' | 'U18' | 'JWR';
 
@@ -361,28 +362,22 @@ export default function AKAVision({
 
   return (
     <main className="page">
-      <section className="hero">
-        <div>
-          <div className="eyebrow">
-            SV Oberbank Ried
-          </div>
-
-          <h1>AKAVision</h1>
-
-          <p>
-            Akademie-Dashboard für Stammdaten,
-            Ideale, Sport Science, Skill / AC, P12 und Scouting
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onBack}
-          style={secondaryButton}
-        >
-          ← VikingVision
-        </button>
-      </section>
+      <PageHeader
+        section="SV Oberbank Ried · Akademie"
+        title="AKAVision"
+        description="Spielerentwicklung, Ideale, Sport Science, Skill / AC, P12 und Academy-Scouting."
+        onBack={onBack}
+        backLabel="VikingVision"
+        meta={
+          <>
+            <span>{team}</span>
+            <span>·</span>
+            <span>
+              {players.length} Spieler
+            </span>
+          </>
+        }
+      />
 
       <section
         style={{
