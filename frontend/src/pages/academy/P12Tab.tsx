@@ -2435,15 +2435,20 @@ function SportsScienceSection({
                       <div
                         style={{
                           fontSize: '13px',
-                          fontWeight: metric.target
-                            ? 700
-                            : 400,
-                          color: metric.target
-                            ? '#0b6b35'
-                            : '#999'
+                          fontWeight:
+                            'target' in metric &&
+                            metric.target
+                              ? 700
+                              : 400,
+                          color:
+                            'target' in metric &&
+                            metric.target
+                              ? '#0b6b35'
+                              : '#999'
                         }}
                       >
-                        {metric.target
+                        {'target' in metric &&
+                        metric.target
                           ? `Sollwert Profis: ${metric.target}`
                           : '–'}
                       </div>
