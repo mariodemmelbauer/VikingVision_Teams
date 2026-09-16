@@ -1741,6 +1741,102 @@ export default {
     if (
       request.method === 'POST' &&
       url.pathname ===
+        '/academy/scouting/players'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<
+            Record<string, unknown>
+          >();
+
+        if (
+          typeof body.name !== 'string' ||
+          !body.name.trim()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'name is required'
+            },
+            400
+          );
+        }
+
+        const payload =
+          pickFields(
+            body,
+            [
+              'name',
+              'birth_date',
+              'birth_year',
+              'current_club',
+              'primary_position',
+              'secondary_position',
+              'preferred_foot',
+              'nationality',
+              'height_cm',
+              'notes'
+            ]
+          );
+
+        payload.name =
+          String(
+            payload.name
+          ).trim();
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_scouting_players'
+            )
+            .insert(payload)
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            player: data
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy scouting player creation failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
         '/academy/scouting/reports'
     ) {
       try {
