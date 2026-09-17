@@ -357,6 +357,12 @@ export default function ScoutingReports({
 
     return [...reports]
       .filter(report => {
+        const reportPlayer = players.find(
+          player =>
+            String(player.id) ===
+            String(report.player_id)
+        );
+
         const matchesSearch =
           !query ||
           [
@@ -387,10 +393,6 @@ export default function ScoutingReports({
         const matchesPlayer =
           playerFilter === 'Alle' ||
           String(report.player_id) === playerFilter;
-
-        const reportPlayer = players.find(
-          player => String(player.id) === String(report.player_id)
-        );
 
         const matchesPosition =
           positionFilter === 'Alle' ||
