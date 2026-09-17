@@ -1882,8 +1882,8 @@ export default {
 
     if (
       request.method === 'PUT' &&
-      url.pathname.startsWith(
-        '/players/'
+      /^\/players\/[^/]+$/.test(
+        url.pathname
       )
     ) {
       try {
@@ -1893,10 +1893,7 @@ export default {
 
         const playerId =
           url.pathname
-            .substring(
-              '/players/'.length
-            )
-            .trim();
+            .split('/')[2];
 
         if (!playerId) {
           return json(
@@ -2005,6 +2002,187 @@ export default {
         );
       }
     }
+
+    if (
+      request.method === 'DELETE' &&
+      /^\/players\/[^/]+$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          url.pathname
+            .split('/')[2];
+
+        if (!playerId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Player ID missing'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: player,
+          error: playerError
+        } =
+          await supabase
+            .from('players')
+            .select(
+              'id,name,image_path'
+            )
+            .eq(
+              'id',
+              playerId
+            )
+            .maybeSingle();
+
+        if (playerError) {
+          return json(
+            {
+              ok: false,
+              error:
+                playerError.message
+            },
+            500
+          );
+        }
+
+        if (!player) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Spieler wurde nicht gefunden.'
+            },
+            404
+          );
+        }
+
+        const {
+          error: deleteError
+        } =
+          await supabase
+            .from('players')
+            .delete()
+            .eq(
+              'id',
+              playerId
+            );
+
+        if (deleteError) {
+          return json(
+            {
+              ok: false,
+              error:
+                deleteError.message
+            },
+            500
+          );
+        }
+
+        // Best effort: remove the player's image from Supabase Storage.
+        // A failed image cleanup must not undo an otherwise successful
+        // permanent player deletion.
+        const imagePath =
+          typeof player.image_path ===
+            'string'
+            ? player.image_path.trim()
+            : '';
+
+        if (imagePath) {
+          try {
+            const normalized =
+              normalizeStoragePath(
+                imagePath
+              );
+
+            const fileName =
+              normalized.path
+                .split('/')
+                .filter(Boolean)
+                .pop() ??
+              normalized.path;
+
+            const buckets =
+              normalized.bucket
+                ? [
+                    normalized.bucket
+                  ]
+                : [
+                    'spielerbilder',
+                    'player-images',
+                    'uploads'
+                  ];
+
+            const paths =
+              Array.from(
+                new Set(
+                  [
+                    normalized.path,
+                    fileName,
+                    `spielerbilder/${fileName}`
+                  ].filter(Boolean)
+                )
+              );
+
+            for (
+              const bucket
+              of buckets
+            ) {
+              for (
+                const path
+                of paths
+              ) {
+                const {
+                  error
+                } =
+                  await supabase
+                    .storage
+                    .from(bucket)
+                    .remove([path]);
+
+                if (!error) {
+                  break;
+                }
+              }
+            }
+          } catch {
+            // Ignore storage cleanup errors after a successful DB delete.
+          }
+        }
+
+        return json({
+          ok: true,
+          deleted: true,
+          player_id:
+            playerId,
+          player_name:
+            player.name ??
+            null
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Player delete failed'
+          },
+          401
+        );
+      }
+    }
+
 
     if (
       request.method === 'GET' &&
