@@ -21,6 +21,10 @@ export default function PlayerArchive({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | undefined>();
   const [workingId, setWorkingId] = useState<string | number | null>(null);
+  const [pendingDelete, setPendingDelete] =
+    useState<Player | null>(null);
+  const [deletingId, setDeletingId] =
+    useState<string | number | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('Alle');
 
@@ -116,6 +120,51 @@ export default function PlayerArchive({
       setError(err instanceof Error ? err.message : 'Wiederherstellen fehlgeschlagen.');
     } finally {
       setWorkingId(null);
+    }
+  }
+
+  async function deletePlayer(
+    player: Player
+  ) {
+    if (!accessToken) return;
+
+    setDeletingId(player.id);
+    setError(undefined);
+
+    try {
+      const response =
+        await fetch(
+          `${apiBase}/players/${player.id}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`
+            }
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+          'Spieler konnte nicht gelöscht werden.'
+        );
+      }
+
+      setPendingDelete(null);
+      await loadArchive();
+      await onRestored?.();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Löschen fehlgeschlagen.'
+      );
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -219,10 +268,82 @@ export default function PlayerArchive({
                     ? 'Stellt wieder her…'
                     : 'In Kader zurückholen'}
                 </button>
+
+                <button
+                  type="button"
+                  disabled={
+                    String(deletingId) ===
+                    String(player.id)
+                  }
+                  onClick={() =>
+                    setPendingDelete(player)
+                  }
+                  style={deleteButton}
+                >
+                  Löschen
+                </button>
               </div>
             </article>
           ))}
         </div>
+      )}
+
+      {pendingDelete && (
+        <section
+          style={{
+            ...panel,
+            marginTop: '18px',
+            borderColor: '#e5b8b8',
+            background: '#fff4f4'
+          }}
+        >
+          <strong>
+            {pendingDelete.name ?? 'Spieler'} endgültig löschen?
+          </strong>
+
+          <div
+            style={{
+              marginTop: '6px',
+              color: '#7a2222',
+              fontSize: '13px'
+            }}
+          >
+            Profil, Scoutingberichte und Watchlist-Zuordnungen werden dauerhaft gelöscht.
+            Diese Aktion kann nicht rückgängig gemacht werden.
+          </div>
+
+          <div style={buttonRow}>
+            <button
+              type="button"
+              onClick={() =>
+                setPendingDelete(null)
+              }
+              disabled={
+                deletingId !== null
+              }
+              style={secondaryButton}
+            >
+              Abbrechen
+            </button>
+
+            <button
+              type="button"
+              onClick={() =>
+                deletePlayer(
+                  pendingDelete
+                )
+              }
+              disabled={
+                deletingId !== null
+              }
+              style={deleteButton}
+            >
+              {deletingId !== null
+                ? 'Wird gelöscht…'
+                : 'Ja, endgültig löschen'}
+            </button>
+          </div>
+        </section>
       )}
     </main>
   );
@@ -288,4 +409,15 @@ const inputStyle: React.CSSProperties = {
   padding: '10px',
   background: '#fff',
   font: 'inherit'
+};
+
+
+const deleteButton: React.CSSProperties = {
+  border: '1px solid #e5b8b8',
+  background: '#fff4f4',
+  color: '#a00000',
+  padding: '10px 14px',
+  borderRadius: '9px',
+  cursor: 'pointer',
+  fontWeight: 700
 };
