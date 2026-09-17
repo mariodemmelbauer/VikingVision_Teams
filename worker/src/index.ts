@@ -507,10 +507,62 @@ function transfermarktContractDate(
   );
 }
 
-function transfermarktProfileData(
+function transfermarktFullName(
   html: string,
   url: URL
 ) {
+  const firstName =
+    transfermarktInfoValue(
+      html,
+      [
+        'Vorname:',
+        'First name:'
+      ]
+    );
+
+  const lastName =
+    transfermarktInfoValue(
+      html,
+      [
+        'Nachname:',
+        'Last name:'
+      ]
+    );
+
+  if (
+    firstName &&
+    lastName
+  ) {
+    return `${firstName} ${lastName}`
+      .replace(
+        /\s+/g,
+        ' '
+      )
+      .trim();
+  }
+
+  const headline =
+    /<h1[^>]*class=["'][^"']*data-header__headline-wrapper[^"']*["'][^>]*>([\s\S]*?)<\/h1>/i
+      .exec(
+        html
+      )?.[1];
+
+  if (headline) {
+    const clean =
+      stripHtml(
+        headline
+      )
+        .replace(
+          /^\s*#?\d+\s*/,
+          ''
+        )
+        .trim();
+
+    if (clean) {
+      return clean;
+    }
+  }
+
   const ogTitle =
     metaContent(
       html,
@@ -519,18 +571,31 @@ function transfermarktProfileData(
 
   const title =
     /<title[^>]*>([\s\S]*?)<\/title>/i
-      .exec(html)?.[1] ??
+      .exec(
+        html
+      )?.[1] ??
     '';
 
+  return cleanTransfermarktTitle(
+    ogTitle ||
+    decodeHtml(
+      title
+    ) ||
+    transfermarktNameFromUrl(
+      url
+    )
+  );
+}
+
+
+function transfermarktProfileData(
+  html: string,
+  url: URL
+) {
   const name =
-    cleanTransfermarktTitle(
-      ogTitle ||
-      decodeHtml(
-        title
-      ) ||
-      transfermarktNameFromUrl(
-        url
-      )
+    transfermarktFullName(
+      html,
+      url
     );
 
   const birthRaw =
@@ -751,6 +816,71 @@ function normalizeIdentityText(
     );
 }
 
+function nationalityTokens(
+  value: unknown
+) {
+  const normalized =
+    normalizeIdentityText(
+      value
+    );
+
+  if (!normalized) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      normalized
+        .split(
+          /\s*(?:,|\/|\||;|\+| und | and )\s*/i
+        )
+        .map(
+          item =>
+            item.trim()
+        )
+        .filter(Boolean)
+    )
+  );
+}
+
+function nationalitiesCompatible(
+  left: unknown,
+  right: unknown
+) {
+  const a =
+    nationalityTokens(
+      left
+    );
+
+  const b =
+    nationalityTokens(
+      right
+    );
+
+  if (
+    a.length === 0 ||
+    b.length === 0
+  ) {
+    return true;
+  }
+
+  return a.some(
+    leftValue =>
+      b.some(
+        rightValue =>
+          leftValue ===
+            rightValue ||
+          leftValue.includes(
+            rightValue
+          ) ||
+          rightValue.includes(
+            leftValue
+          )
+      )
+  );
+}
+
+
 function transfermarktIdentityMatch(
   player:
     Record<
@@ -819,20 +949,18 @@ function transfermarktIdentityMatch(
   }
 
   const playerNationality =
-    normalizeIdentityText(
-      player.nationality
-    );
+    player.nationality;
 
   const candidateNationality =
-    normalizeIdentityText(
-      candidate.nationality
-    );
+    candidate.nationality;
 
   if (
     playerNationality &&
     candidateNationality &&
-    playerNationality !==
+    !nationalitiesCompatible(
+      playerNationality,
       candidateNationality
+    )
   ) {
     return {
       ok: false,
