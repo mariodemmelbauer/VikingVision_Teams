@@ -66,6 +66,9 @@ export default function App() {
   const [selectedPlayer, setSelectedPlayer] =
     useState<Player | null>(null);
 
+  const [playerReturnPage, setPlayerReturnPage] =
+    useState<Page>('dashboard');
+
   useEffect(() => {
     if (publicP12InviteToken) {
       return;
@@ -276,10 +279,31 @@ export default function App() {
   }
 
   function openPlayer(
-    player: Player
+    player: Player,
+    returnPage: Page = 'dashboard'
   ) {
     setSelectedPlayer(player);
+    setPlayerReturnPage(returnPage);
     setPage('playerProfile');
+  }
+
+  function backFromPlayer() {
+    setPage(playerReturnPage);
+  }
+
+  function playerBackLabel() {
+    switch (playerReturnPage) {
+      case 'squad':
+        return 'Unser Kader';
+      case 'scoutingReports':
+        return 'Scouting';
+      case 'watchlist':
+        return 'Watchlist';
+      case 'playerArchive':
+        return 'Spielerarchiv';
+      default:
+        return 'Dashboard';
+    }
   }
 
   function handlePlayerUpdated(
@@ -307,7 +331,11 @@ export default function App() {
   ) {
     return (
       <AppShell
-        currentPage={page}
+        currentPage={
+          page === 'playerProfile'
+            ? playerReturnPage
+            : page
+        }
         displayName={
           user.displayName ??
           'VikingVision User'
@@ -350,7 +378,8 @@ export default function App() {
         player={selectedPlayer}
         accessToken={user.accessToken}
         apiBase={API_BASE}
-        onBack={backToDashboard}
+        onBack={backFromPlayer}
+        backLabel={playerBackLabel()}
         onPlayerUpdated={
           handlePlayerUpdated
         }
@@ -375,7 +404,12 @@ export default function App() {
         }
         onBack={backToDashboard}
         onPlayersChanged={loadPlayers}
-        onOpenPlayer={openPlayer}
+        onOpenPlayer={player =>
+          openPlayer(
+            player,
+            'scoutingReports'
+          )
+        }
       />
     );
   }
@@ -387,7 +421,12 @@ export default function App() {
         apiBase={API_BASE}
         players={players}
         onBack={backToDashboard}
-        onOpenPlayer={openPlayer}
+        onOpenPlayer={player =>
+          openPlayer(
+            player,
+            'watchlist'
+          )
+        }
       />
     );
   }
@@ -399,7 +438,12 @@ export default function App() {
         accessToken={user.accessToken}
         apiBase={API_BASE}
         onBack={backToDashboard}
-        onOpenPlayer={openPlayer}
+        onOpenPlayer={player =>
+          openPlayer(
+            player,
+            'squad'
+          )
+        }
         onArchived={loadPlayers}
       />
     );
@@ -412,7 +456,12 @@ export default function App() {
         apiBase={API_BASE}
         onBack={backToDashboard}
         onRestored={loadPlayers}
-        onOpenPlayer={openPlayer}
+        onOpenPlayer={player =>
+          openPlayer(
+            player,
+            'playerArchive'
+          )
+        }
       />
     );
   }
