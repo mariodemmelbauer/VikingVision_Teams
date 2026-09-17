@@ -66,6 +66,11 @@ type PlayerForm = {
   nationality: string;
   height_cm: string;
   transfermarkt_url: string;
+  league: string;
+  scouting_role_1: string;
+  scouting_role_2: string;
+  scouting_role_3: string;
+  potential: string;
   notes: string;
 };
 
@@ -100,6 +105,11 @@ const emptyPlayerForm: PlayerForm = {
   nationality: '',
   height_cm: '',
   transfermarkt_url: '',
+  league: '',
+  scouting_role_1: '',
+  scouting_role_2: '',
+  scouting_role_3: '',
+  potential: '',
   notes: ''
 };
 
@@ -449,6 +459,11 @@ export default function ScoutingReports({
               ? null
               : Number(playerForm.height_cm),
           transfermarkt_url: playerForm.transfermarkt_url || null,
+          league: playerForm.league || null,
+          scouting_role_1: playerForm.scouting_role_1 || null,
+          scouting_role_2: playerForm.scouting_role_2 || null,
+          scouting_role_3: playerForm.scouting_role_3 || null,
+          potential: playerForm.potential || null,
           notes: playerForm.notes || null,
           is_own_squad: false
         })
@@ -958,7 +973,13 @@ export default function ScoutingReports({
             Unterstützt .xlsx und .csv. Die erste Zeile muss Spaltenüberschriften enthalten. Pflichtfeld: Name.
           </p>
           <p style={subtle}>
-            Erkannte Spalten: Name, Geburtsdatum, Position, Nebenposition, Fuß, Nationalität, Größe, Verein, Vertrag bis, Marktwert, Berateragentur, Transfermarkt, Video, Priorität, Potenzial, Kaderstatus, Im Kader.
+            Für eure Scouting-Liste wird die vorhandene Struktur direkt erkannt:
+            NAME, GEBURTSDATUM, LIGA, VEREIN, NATIONALITÄT, GRÖSSE, FUß,
+            ROLLE 1, ROLLE 2, ROLLE 3, POTENZIAL und SONSTIGES.
+          </p>
+          <p style={subtle}>
+            Zusätzlich bleiben die bisherigen Import-Spalten wie Position, Nebenposition,
+            Transfermarkt, Marktwert, Vertrag bis usw. weiterhin unterstützt.
           </p>
 
           <input
@@ -988,7 +1009,12 @@ export default function ScoutingReports({
             <TextInput label="Starker Fuß" value={playerForm.preferred_foot} onChange={value => updatePlayerField('preferred_foot', value)} />
             <TextInput label="Größe (cm)" type="number" value={playerForm.height_cm} onChange={value => updatePlayerField('height_cm', value)} />
             <TextInput label="Transfermarkt" value={playerForm.transfermarkt_url} onChange={value => updatePlayerField('transfermarkt_url', value)} />
-            <Field label="Notizen">
+            <TextInput label="Liga" value={playerForm.league} onChange={value => updatePlayerField('league', value)} />
+            <TextInput label="Rolle 1" value={playerForm.scouting_role_1} onChange={value => updatePlayerField('scouting_role_1', value)} />
+            <TextInput label="Rolle 2" value={playerForm.scouting_role_2} onChange={value => updatePlayerField('scouting_role_2', value)} />
+            <TextInput label="Rolle 3" value={playerForm.scouting_role_3} onChange={value => updatePlayerField('scouting_role_3', value)} />
+            <TextInput label="Potenzial" value={playerForm.potential} onChange={value => updatePlayerField('potential', value)} />
+            <Field label="Sonstiges / Notizen">
               <textarea
                 rows={4}
                 value={playerForm.notes}
@@ -1105,10 +1131,52 @@ export default function ScoutingReports({
                 <div>
                   <strong>{player.name}</strong>
                   <div style={subtle}>
-                    {[player.primary_position, player.current_club]
+                    {[
+                      player.primary_position,
+                      player.current_club,
+                      player.league
+                    ]
                       .filter(Boolean)
                       .join(' · ') || 'Keine Stammdaten'}
                   </div>
+
+                  {(player.scouting_role_1 ||
+                    player.scouting_role_2 ||
+                    player.scouting_role_3) && (
+                    <div
+                      style={{
+                        ...subtle,
+                        color: '#0b6b35',
+                        fontWeight: 700
+                      }}
+                    >
+                      {[
+                        player.scouting_role_1,
+                        player.scouting_role_2,
+                        player.scouting_role_3
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </div>
+                  )}
+
+                  {player.potential != null &&
+                    String(player.potential).trim() && (
+                      <div style={subtle}>
+                        Potenzial: {String(player.potential)}
+                      </div>
+                    )}
+
+                  {player.notes && (
+                    <div
+                      style={{
+                        ...subtle,
+                        whiteSpace: 'pre-wrap'
+                      }}
+                    >
+                      {player.notes}
+                    </div>
+                  )}
                 </div>
                 <span style={pill}>{count}</span>
               </div>
@@ -1779,18 +1847,38 @@ async function unzipXlsx(buffer: ArrayBuffer) {
 function normalizePlayerRow(row: Record<string, string>) {
   const normalized = new Map(
     Object.entries(row).map(([key, value]) => [
-      key.toLocaleLowerCase('de').replace(/[\s_\-/.]/g, ''),
-      value
+      key
+        .toLocaleLowerCase('de')
+        .replace(/[ä]/g, 'ae')
+        .replace(/[ö]/g, 'oe')
+        .replace(/[ü]/g, 'ue')
+        .replace(/[ß]/g, 'ss')
+        .replace(/[\s_\-/.]/g, ''),
+      String(value ?? '').trim()
     ])
   );
 
+  const normalizeHeader = (value: string) =>
+    value
+      .toLocaleLowerCase('de')
+      .replace(/[ä]/g, 'ae')
+      .replace(/[ö]/g, 'oe')
+      .replace(/[ü]/g, 'ue')
+      .replace(/[ß]/g, 'ss')
+      .replace(/[\s_\-/.]/g, '');
+
   const get = (...names: string[]) => {
     for (const name of names) {
-      const value = normalized.get(
-        name.toLocaleLowerCase('de').replace(/[\s_\-/.]/g, '')
-      );
-      if (value) return value;
+      const value =
+        normalized.get(
+          normalizeHeader(name)
+        );
+
+      if (value) {
+        return value;
+      }
     }
+
     return '';
   };
 
@@ -1800,23 +1888,161 @@ function normalizePlayerRow(row: Record<string, string>) {
     );
 
   return {
-    name: get('Name', 'Spieler'),
-    birth_date: normalizeDate(get('Geburtsdatum', 'BirthDate')),
-    primary_position: get('Position', 'Hauptposition', 'PrimaryPosition') || null,
-    secondary_position: get('Nebenposition', 'SecondaryPosition') || null,
-    preferred_foot: get('Fuß', 'Fuss', 'PreferredFoot') || null,
-    nationality: get('Nationalität', 'Nationalitaet', 'Nationality') || null,
-    height_cm: nullableNumber(get('Größe', 'Groesse', 'Height', 'HeightCm')),
-    current_club: get('Verein', 'AktuellerVerein', 'Club', 'CurrentClub') || null,
-    contract_until: normalizeDate(get('Vertragbis', 'ContractUntil')),
-    market_value: get('Marktwert', 'MarketValue') || null,
-    agent_agency: get('Berateragentur', 'Agentur', 'Agency') || null,
-    transfermarkt_url: get('Transfermarkt', 'TransfermarktURL') || null,
-    video_url: get('Video', 'VideoURL') || null,
-    priority: nullableNumber(get('Priorität', 'Prioritaet', 'Priority')),
-    potential: nullableNumber(get('Potenzial', 'Potential')),
-    squad_status: get('Kaderstatus', 'Status') || null,
-    is_own_squad: bool(get('ImKader', 'OwnSquad', 'IsOwnSquad'))
+    name:
+      get(
+        'NAME',
+        'Name',
+        'Spieler'
+      ),
+    birth_date:
+      normalizeDate(
+        get(
+          'GEBURTSDATUM',
+          'Geburtsdatum',
+          'BirthDate'
+        )
+      ),
+    league:
+      get(
+        'LIGA',
+        'Liga',
+        'League'
+      ) || null,
+    current_club:
+      get(
+        'VEREIN',
+        'Verein',
+        'AktuellerVerein',
+        'Club',
+        'CurrentClub'
+      ) || null,
+    nationality:
+      get(
+        'NATIONALITÄT',
+        'Nationalität',
+        'Nationalitaet',
+        'Nationality'
+      ) || null,
+    height_cm:
+      nullableNumber(
+        get(
+          'GRÖSSE',
+          'Größe',
+          'Groesse',
+          'Height',
+          'HeightCm'
+        )
+      ),
+    preferred_foot:
+      get(
+        'FUß',
+        'FUSS',
+        'Fuß',
+        'Fuss',
+        'PreferredFoot'
+      ) || null,
+    scouting_role_1:
+      get(
+        'ROLLE 1',
+        'ROLLE1',
+        'Rolle 1',
+        'Rolle1',
+        'Role 1',
+        'Role1'
+      ) || null,
+    scouting_role_2:
+      get(
+        'ROLLE 2',
+        'ROLLE2',
+        'Rolle 2',
+        'Rolle2',
+        'Role 2',
+        'Role2'
+      ) || null,
+    scouting_role_3:
+      get(
+        'ROLLE 3',
+        'ROLLE3',
+        'Rolle 3',
+        'Rolle3',
+        'Role 3',
+        'Role3'
+      ) || null,
+    potential:
+      get(
+        'POTENZIAL',
+        'Potenzial',
+        'Potential'
+      ) || null,
+    notes:
+      get(
+        'SONSTIGES',
+        'Sonstiges',
+        'Notizen',
+        'Notes'
+      ) || null,
+
+    // Existing VikingVision import columns remain supported.
+    primary_position:
+      get(
+        'Position',
+        'Hauptposition',
+        'PrimaryPosition'
+      ) || null,
+    secondary_position:
+      get(
+        'Nebenposition',
+        'SecondaryPosition'
+      ) || null,
+    contract_until:
+      normalizeDate(
+        get(
+          'Vertragbis',
+          'ContractUntil'
+        )
+      ),
+    market_value:
+      get(
+        'Marktwert',
+        'MarketValue'
+      ) || null,
+    agent_agency:
+      get(
+        'Berateragentur',
+        'Agentur',
+        'Agency'
+      ) || null,
+    transfermarkt_url:
+      get(
+        'Transfermarkt',
+        'TransfermarktURL'
+      ) || null,
+    video_url:
+      get(
+        'Video',
+        'VideoURL'
+      ) || null,
+    priority:
+      nullableNumber(
+        get(
+          'Priorität',
+          'Prioritaet',
+          'Priority'
+        )
+      ),
+    squad_status:
+      get(
+        'Kaderstatus',
+        'Status'
+      ) || null,
+    is_own_squad:
+      bool(
+        get(
+          'ImKader',
+          'OwnSquad',
+          'IsOwnSquad'
+        )
+      )
   };
 }
 
