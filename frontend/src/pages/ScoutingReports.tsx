@@ -136,6 +136,10 @@ export default function ScoutingReports({
     useState<Player | null>(null);
   const [archivingPlayer, setArchivingPlayer] =
     useState(false);
+  const [pendingDeletePlayer, setPendingDeletePlayer] =
+    useState<Player | null>(null);
+  const [deletingPlayer, setDeletingPlayer] =
+    useState(false);
   const [importResult, setImportResult] =
     useState<{
       newCount: number;
@@ -616,6 +620,41 @@ export default function ScoutingReports({
     }
   }
 
+  async function deleteScoutingPlayer(
+    player: Player
+  ) {
+    setDeletingPlayer(true);
+    setError(undefined);
+    setSuccess(undefined);
+
+    try {
+      await authFetch(
+        `/players/${player.id}`,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      setSuccess(
+        `${player.name ?? 'Spieler'} wurde endgültig gelöscht.`
+      );
+
+      setPendingDeletePlayer(null);
+      setPlayerFilter('Alle');
+
+      await reloadPlayers();
+      await loadReports();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Spieler konnte nicht gelöscht werden.'
+      );
+    } finally {
+      setDeletingPlayer(false);
+    }
+  }
+
   async function movePlayerToSquad(
     player: Player
   ) {
@@ -1077,6 +1116,19 @@ export default function ScoutingReports({
                   type="button"
                   onClick={event => {
                     event.stopPropagation();
+                    setPendingDeletePlayer(
+                      player
+                    );
+                  }}
+                  style={deleteButton}
+                >
+                  Löschen
+                </button>
+
+                <button
+                  type="button"
+                  onClick={event => {
+                    event.stopPropagation();
                     setPendingSquadStatus(
                       'Unter Vertrag'
                     );
@@ -1138,6 +1190,57 @@ export default function ScoutingReports({
                 {archivingPlayer
                   ? 'Archiviert…'
                   : 'Ja, archivieren'}
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {pendingDeletePlayer && (
+        <section
+          style={{
+            ...panel,
+            marginTop: '18px',
+            borderColor: '#e5b8b8',
+            background: '#fff4f4'
+          }}
+        >
+          <div style={toolbar}>
+            <div>
+              <strong>
+                {pendingDeletePlayer.name} endgültig löschen?
+              </strong>
+              <div style={subtle}>
+                Das Spielerprofil sowie zugehörige Scoutingberichte und Watchlist-Einträge werden dauerhaft gelöscht.
+                Diese Aktion kann nicht rückgängig gemacht werden.
+              </div>
+            </div>
+
+            <div style={buttonRow}>
+              <button
+                type="button"
+                onClick={() =>
+                  setPendingDeletePlayer(null)
+                }
+                disabled={deletingPlayer}
+                style={secondaryButton}
+              >
+                Abbrechen
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  deleteScoutingPlayer(
+                    pendingDeletePlayer
+                  )
+                }
+                disabled={deletingPlayer}
+                style={deleteButton}
+              >
+                {deletingPlayer
+                  ? 'Wird gelöscht…'
+                  : 'Ja, endgültig löschen'}
               </button>
             </div>
           </div>
@@ -1693,6 +1796,17 @@ const archiveButton: React.CSSProperties = {
   border: '1px solid #e2c98d',
   background: '#fffaf0',
   color: '#8a5500',
+  padding: '7px 10px',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontWeight: 700,
+  fontSize: '12px'
+};
+
+const deleteButton: React.CSSProperties = {
+  border: '1px solid #e5b8b8',
+  background: '#fff4f4',
+  color: '#a00000',
   padding: '7px 10px',
   borderRadius: '8px',
   cursor: 'pointer',
