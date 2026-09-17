@@ -2072,13 +2072,13 @@ export default {
         }
 
         if (
-          body.players.length > 500
+          body.players.length > 2000
         ) {
           return json(
             {
               ok: false,
               error:
-                'Maximal 500 Spieler pro Import.'
+                'Maximal 2000 Spieler pro Import.'
             },
             400
           );
@@ -2340,33 +2340,54 @@ export default {
         if (
           insertRows.length > 0
         ) {
-          const {
-            data,
-            error
-          } =
-            await supabase
-              .from('players')
-              .insert(insertRows)
-              .select('*');
+          const chunkSize =
+            250;
 
-          if (error) {
-            return json(
-              {
-                ok: false,
-                error:
-                  error.message
-              },
-              500
+          for (
+            let offset = 0;
+            offset <
+            insertRows.length;
+            offset += chunkSize
+          ) {
+            const chunk =
+              insertRows.slice(
+                offset,
+                offset + chunkSize
+              );
+
+            const {
+              data,
+              error
+            } =
+              await supabase
+                .from('players')
+                .insert(chunk)
+                .select('*');
+
+            if (error) {
+              return json(
+                {
+                  ok: false,
+                  error:
+                    `Import ab Zeile ${offset + 2} fehlgeschlagen: ${error.message}`,
+                  inserted_count:
+                    inserted.length
+                },
+                500
+              );
+            }
+
+            inserted.push(
+              ...(
+                (data ?? []) as Array<
+                  Record<
+                    string,
+                    unknown
+                  >
+                >
+              )
             );
           }
-
-          inserted =
-            (data ?? []) as Array<
-              Record<
-                string,
-                unknown
-              >
-            >;
         }
 
         return json(
