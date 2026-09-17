@@ -2836,6 +2836,23 @@ export default {
           url.pathname
             .split('/')[2];
 
+        let requestedUrl = '';
+
+        try {
+          const body =
+            await request.json<{
+              url?: string;
+            }>();
+
+          requestedUrl =
+            typeof body?.url ===
+              'string'
+              ? body.url.trim()
+              : '';
+        } catch {
+          // Empty body is valid for the normal refresh flow.
+        }
+
         const supabase =
           createSupabase(env);
 
@@ -2888,15 +2905,56 @@ export default {
           null = null;
 
         let matchBasis = '';
+        let matchSource =
+          'search';
 
-        if (
-          typeof player.transfermarkt_url ===
-            'string' &&
-          player.transfermarkt_url.trim()
-        ) {
+        const directUrl =
+          requestedUrl ||
+          (
+            typeof player.transfermarkt_url ===
+              'string'
+              ? player.transfermarkt_url.trim()
+              : ''
+          );
+
+        if (directUrl) {
+          let directProfileUrl:
+            URL;
+
+          try {
+            directProfileUrl =
+              new URL(
+                directUrl
+              );
+          } catch {
+            return json(
+              {
+                ok: false,
+                error:
+                  'Der Transfermarkt-Link ist ungültig.'
+              },
+              400
+            );
+          }
+
+          if (
+            !/(^|\.)transfermarkt\./i.test(
+              directProfileUrl.hostname
+            )
+          ) {
+            return json(
+              {
+                ok: false,
+                error:
+                  'Der Link muss auf ein Transfermarkt-Profil verweisen.'
+              },
+              400
+            );
+          }
+
           const directProfile =
             await fetchTransfermarktProfile(
-              player.transfermarkt_url.trim()
+              directProfileUrl.toString()
             );
 
           const identity =
@@ -2918,8 +2976,9 @@ export default {
               {
                 ok: false,
                 error:
-                  `Der hinterlegte Transfermarkt-Link gehört wahrscheinlich zu einem anderen Spieler: ${identity.reason}`,
-                match_error: true
+                  `Der Transfermarkt-Link konnte nicht sicher zugeordnet werden: ${identity.reason}`,
+                match_error:
+                  true
               },
               409
             );
@@ -2930,6 +2989,11 @@ export default {
 
           matchBasis =
             identity.reason;
+
+          matchSource =
+            requestedUrl
+              ? 'manual_url'
+              : 'stored_url';
         } else {
           const searchUrl =
             new URL(
@@ -2989,7 +3053,7 @@ export default {
               {
                 ok: false,
                 error:
-                  'Kein Transfermarkt-Kandidat für diesen Namen gefunden.'
+                  'Kein Transfermarkt-Kandidat für diesen Namen gefunden. Bitte den direkten Transfermarkt-Link im Spielerprofil eintragen.'
               },
               404
             );
@@ -3003,7 +3067,7 @@ export default {
             of candidateUrls
           ) {
             try {
-              const profile =
+              const candidateProfile =
                 await fetchTransfermarktProfile(
                   candidateUrl
                 );
@@ -3014,7 +3078,7 @@ export default {
                     string,
                     unknown
                   >,
-                  profile.data as Record<
+                  candidateProfile.data as Record<
                     string,
                     unknown
                   >
@@ -3024,7 +3088,7 @@ export default {
                 identity.ok
               ) {
                 matchedProfile =
-                  profile;
+                  candidateProfile;
                 matchBasis =
                   identity.reason;
                 break;
@@ -3052,7 +3116,7 @@ export default {
               {
                 ok: false,
                 error:
-                  'Kein Transfermarkt-Profil mit passendem Namen, Geburtsdatum und – sofern vorhanden – Nationalität gefunden.',
+                  'Kein sicher passendes Transfermarkt-Profil gefunden. Bitte den direkten Transfermarkt-Link im Spielerprofil eintragen.',
                 checked_candidates:
                   candidateUrls.length,
                 candidate_errors:
@@ -3134,8 +3198,11 @@ export default {
           player: data,
           match_basis:
             matchBasis,
+          match_source:
+            matchSource,
           discovered:
-            !player.transfermarkt_url,
+            matchSource ===
+              'search',
           refreshed_fields:
             Object.keys(
               updateData
