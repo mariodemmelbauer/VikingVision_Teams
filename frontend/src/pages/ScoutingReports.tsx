@@ -156,8 +156,10 @@ export default function ScoutingReports({
     useState<{
       newCount: number;
       duplicateCount: number;
+      academyConflictCount: number;
       skippedCount: number;
       duplicates: Array<Record<string, any>>;
+      academyConflicts: Array<Record<string, any>>;
       skipped: Array<Record<string, any>>;
     } | null>(null);
 
@@ -516,6 +518,7 @@ export default function ScoutingReports({
           ? {
               newCount: 0,
               duplicateCount: 1,
+              academyConflictCount: 0,
               skippedCount: 0,
               duplicates: [
                 {
@@ -523,6 +526,7 @@ export default function ScoutingReports({
                   reason: data?.reason
                 }
               ],
+              academyConflicts: [],
               skipped: []
             }
           : null
@@ -572,20 +576,29 @@ export default function ScoutingReports({
         data?.new_count ?? data?.count ?? 0;
       const duplicateCount =
         data?.duplicate_count ?? 0;
+      const academyConflictCount =
+        data?.academy_conflict_count ?? 0;
       const skippedCount =
         data?.skipped_count ?? 0;
 
       setSuccess(
-        `Excel-Import abgeschlossen: ${newCount} neu, ${duplicateCount} Dublette(n), ${skippedCount} übersprungen.`
+        `Excel-Import abgeschlossen: ${newCount} neu, ${duplicateCount} bereits in VikingVision/Kader, ${academyConflictCount} Treffer in AKAVision, ${skippedCount} übersprungen.`
       );
 
       setImportResult({
         newCount,
         duplicateCount,
+        academyConflictCount,
         skippedCount,
         duplicates:
           Array.isArray(data?.duplicates)
             ? data.duplicates
+            : [],
+        academyConflicts:
+          Array.isArray(
+            data?.academy_conflicts
+          )
+            ? data.academy_conflicts
             : [],
         skipped:
           Array.isArray(data?.skipped)
@@ -597,6 +610,84 @@ export default function ScoutingReports({
       await reloadPlayers();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Excel-Import fehlgeschlagen.');
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  async function importAcademyConflict(
+    conflict: Record<string, any>
+  ) {
+    const candidate =
+      conflict?.candidate;
+
+    if (
+      !candidate ||
+      !candidate.name
+    ) {
+      setError(
+        'Für diesen AKAVision-Treffer fehlen Importdaten.'
+      );
+      return;
+    }
+
+    setImporting(true);
+    setError(undefined);
+    setSuccess(undefined);
+
+    try {
+      await authFetch(
+        '/players',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            ...candidate,
+            is_own_squad: false
+          })
+        }
+      );
+
+      setImportResult(
+        current => {
+          if (!current) {
+            return current;
+          }
+
+          const remaining =
+            current.academyConflicts
+              .filter(
+                item =>
+                  item.row !==
+                  conflict.row
+              );
+
+          return {
+            ...current,
+            newCount:
+              current.newCount + 1,
+            academyConflictCount:
+              Math.max(
+                0,
+                current.academyConflictCount -
+                1
+              ),
+            academyConflicts:
+              remaining
+          };
+        }
+      );
+
+      setSuccess(
+        `${candidate.name} wurde trotz AKAVision-Treffer zusätzlich ins Scouting übernommen.`
+      );
+
+      await reloadPlayers();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Spieler konnte nicht übernommen werden.'
+      );
     } finally {
       setImporting(false);
     }
@@ -806,7 +897,10 @@ export default function ScoutingReports({
               Neu: <strong>{importResult.newCount}</strong>
             </span>
             <span>
-              Dubletten: <strong>{importResult.duplicateCount}</strong>
+              VikingVision/Kader: <strong>{importResult.duplicateCount}</strong>
+            </span>
+            <span>
+              AKAVision: <strong>{importResult.academyConflictCount}</strong>
             </span>
             <span>
               Übersprungen: <strong>{importResult.skippedCount}</strong>
@@ -815,12 +909,95 @@ export default function ScoutingReports({
 
           {importResult.duplicates.length > 0 && (
             <div style={{ marginTop: '12px' }}>
-              <strong>Dubletten</strong>
+              <strong>
+                Bereits in VikingVision / Unser Kader
+              </strong>
+              <div style={subtle}>
+                Diese Spieler werden nicht erneut importiert.
+              </div>
               {importResult.duplicates.slice(0, 12).map((item, index) => (
                 <div key={index} style={subtle}>
-                  Zeile {item.row ?? '–'} · {item.name ?? item.existing_player?.name ?? 'Spieler'} · {item.reason ?? 'bereits vorhanden'}
+                  Zeile {item.row ?? '–'} · {item.name ?? item.existing_player?.name ?? 'Spieler'} · {item.source ?? 'VikingVision'} · {item.reason ?? 'bereits vorhanden'}
                 </div>
               ))}
+            </div>
+          )}
+
+          {importResult.academyConflicts.length > 0 && (
+            <div
+              style={{
+                marginTop: '14px',
+                padding: '12px',
+                border: '1px solid #e2c98d',
+                borderRadius: '10px',
+                background: '#fffaf0'
+              }}
+            >
+              <strong>
+                Treffer in AKAVision – Entscheidung erforderlich
+              </strong>
+
+              <div style={subtle}>
+                Diese Spieler wurden vorerst nicht ins Scouting importiert.
+                Bei Bedarf kannst du sie einzeln trotzdem übernehmen.
+              </div>
+
+              <div
+                style={{
+                  display: 'grid',
+                  gap: '8px',
+                  marginTop: '10px'
+                }}
+              >
+                {importResult.academyConflicts.map((item, index) => (
+                  <div
+                    key={`${item.row ?? index}-${item.name ?? 'player'}`}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      gap: '12px',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      padding: '10px',
+                      background: '#fff',
+                      border: '1px solid #ece1c7',
+                      borderRadius: '8px'
+                    }}
+                  >
+                    <div>
+                      <strong>
+                        {item.name ?? 'Spieler'}
+                      </strong>
+                      <div style={subtle}>
+                        Excel Zeile {item.row ?? '–'} ·
+                        AKAVision {item.academy_player?.team ?? '–'} ·
+                        {item.reason ?? 'mögliche Dublette'}
+                      </div>
+                      <div style={subtle}>
+                        {[
+                          item.academy_player?.birth_date,
+                          item.academy_player?.current_club
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        importAcademyConflict(
+                          item
+                        )
+                      }
+                      disabled={importing}
+                      style={archiveButton}
+                    >
+                      Trotzdem ins Scouting übernehmen
+                    </button>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
