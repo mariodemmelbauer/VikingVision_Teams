@@ -858,6 +858,76 @@ function duplicateReason(
   return null;
 }
 
+
+function academyDuplicateReason(
+  candidate: Record<string, unknown>,
+  academyPlayers:
+    Array<Record<string, unknown>>
+) {
+  const name =
+    normalizePlayerName(
+      candidate.name
+    );
+
+  if (!name) {
+    return null;
+  }
+
+  const birthDate =
+    normalizeNullableDate(
+      candidate.birth_date
+    );
+
+  if (birthDate) {
+    const duplicate =
+      academyPlayers.find(
+        player =>
+          normalizePlayerName(
+            player.name
+          ) === name &&
+          normalizeNullableDate(
+            player.birth_date
+          ) === birthDate
+      );
+
+    if (duplicate) {
+      return {
+        player: duplicate,
+        reason:
+          'Name und Geburtsdatum bereits in AKAVision vorhanden'
+      };
+    }
+  }
+
+  const currentClub =
+    normalizePlayerName(
+      candidate.current_club
+    );
+
+  if (currentClub) {
+    const duplicate =
+      academyPlayers.find(
+        player =>
+          normalizePlayerName(
+            player.name
+          ) === name &&
+          normalizePlayerName(
+            player.current_club
+          ) === currentClub
+      );
+
+    if (duplicate) {
+      return {
+        player: duplicate,
+        reason:
+          'Name und Verein bereits in AKAVision vorhanden'
+      };
+    }
+  }
+
+  return null;
+}
+
 export default {
   async fetch(
     request: Request,
@@ -2044,26 +2114,58 @@ export default {
         const supabase =
           createSupabase(env);
 
-        const {
-          data: currentPlayers,
-          error: currentError
-        } =
-          await supabase
-            .from('players')
-            .select(
-              'id,name,birth_date,transfermarkt_url,is_own_squad,archived_at'
-            );
+        const [
+          currentPlayersResult,
+          academyPlayersResult
+        ] =
+          await Promise.all([
+            supabase
+              .from('players')
+              .select(
+                'id,name,birth_date,current_club,transfermarkt_url,is_own_squad,archived_at'
+              ),
+            supabase
+              .from(
+                'academy_players'
+              )
+              .select(
+                'id,name,birth_date,current_club,team,squad_status'
+              )
+          ]);
 
-        if (currentError) {
+        if (
+          currentPlayersResult.error
+        ) {
           return json(
             {
               ok: false,
               error:
-                currentError.message
+                currentPlayersResult.error.message
             },
             500
           );
         }
+
+        if (
+          academyPlayersResult.error
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                academyPlayersResult.error.message
+            },
+            500
+          );
+        }
+
+        const currentPlayers =
+          currentPlayersResult.data ??
+          [];
+
+        const academyPlayers =
+          academyPlayersResult.data ??
+          [];
 
         const knownPlayers =
           [
@@ -2093,6 +2195,14 @@ export default {
           > = [];
 
         const skipped:
+          Array<
+            Record<
+              string,
+              unknown
+            >
+          > = [];
+
+        const academyConflicts:
           Array<
             Record<
               string,
@@ -2169,8 +2279,43 @@ export default {
                 payload.name,
               reason:
                 duplicate.reason,
+              source:
+                duplicate.player
+                  ?.is_own_squad
+                  ? 'Unser Kader'
+                  : 'VikingVision',
               existing_player:
                 duplicate.player
+            });
+            continue;
+          }
+
+          const academyDuplicate =
+            academyDuplicateReason(
+              payload,
+              academyPlayers as Array<
+                Record<
+                  string,
+                  unknown
+                >
+              >
+            );
+
+          if (
+            academyDuplicate
+          ) {
+            academyConflicts.push({
+              row: index + 2,
+              name:
+                payload.name,
+              reason:
+                academyDuplicate.reason,
+              source:
+                'AKAVision',
+              academy_player:
+                academyDuplicate.player,
+              candidate:
+                payload
             });
             continue;
           }
@@ -2233,11 +2378,15 @@ export default {
               inserted.length,
             duplicate_count:
               duplicates.length,
+            academy_conflict_count:
+              academyConflicts.length,
             skipped_count:
               skipped.length,
             players:
               inserted,
             duplicates,
+            academy_conflicts:
+              academyConflicts,
             skipped
           },
           201
