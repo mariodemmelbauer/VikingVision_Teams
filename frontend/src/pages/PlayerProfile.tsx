@@ -29,6 +29,7 @@ export type Player = {
   jersey_number?: string;
   player_role?: string;
   archived_at?: string;
+  transfermarkt_updated_at?: string;
 };
 
 type Props = {
@@ -60,6 +61,8 @@ export default function PlayerProfile({
   const [confirmDelete, setConfirmDelete] =
     useState(false);
   const [deleting, setDeleting] =
+    useState(false);
+  const [refreshingTransfermarkt, setRefreshingTransfermarkt] =
     useState(false);
   const [error, setError] = useState<string | undefined>();
   const [success, setSuccess] = useState<string | undefined>();
@@ -165,6 +168,126 @@ export default function PlayerProfile({
       setError(err instanceof Error ? err.message : 'Speichern fehlgeschlagen.');
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function refreshTransfermarkt() {
+    if (!accessToken) {
+      setError(
+        'Kein Teams-SSO-Token vorhanden.'
+      );
+      return;
+    }
+
+    if (!player.transfermarkt_url) {
+      setError(
+        'Bitte zuerst einen Transfermarkt-Link im Spielerprofil hinterlegen.'
+      );
+      return;
+    }
+
+    setRefreshingTransfermarkt(
+      true
+    );
+    setError(undefined);
+    setSuccess(undefined);
+
+    try {
+      const response =
+        await fetch(
+          `${apiBase}/players/${player.id}/refresh-transfermarkt`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`
+            }
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+          'Transfermarkt-Daten konnten nicht aktualisiert werden.'
+        );
+      }
+
+      if (!data.player) {
+        throw new Error(
+          'Keine aktualisierten Spielerdaten erhalten.'
+        );
+      }
+
+      onPlayerUpdated(
+        data.player
+      );
+
+      setForm({
+        name:
+          data.player.name ?? '',
+        birth_date:
+          data.player.birth_date ?? '',
+        primary_position:
+          data.player.primary_position ?? '',
+        secondary_position:
+          data.player.secondary_position ?? '',
+        preferred_foot:
+          data.player.preferred_foot ?? '',
+        nationality:
+          data.player.nationality ?? '',
+        height_cm:
+          data.player.height_cm ??
+          data.player.height ??
+          '',
+        current_club:
+          data.player.current_club ?? '',
+        contract_until:
+          data.player.contract_until ??
+          data.player.contract_end ??
+          '',
+        market_value:
+          data.player.market_value ?? '',
+        agent_agency:
+          data.player.agent_agency ?? '',
+        squad_status:
+          data.player.squad_status ?? '',
+        priority:
+          data.player.priority ?? '',
+        potential:
+          data.player.potential ?? '',
+        notes:
+          data.player.notes ?? '',
+        transfermarkt_url:
+          data.player.transfermarkt_url ?? '',
+        video_url:
+          data.player.video_url ?? ''
+      });
+
+      const fields =
+        Array.isArray(
+          data.refreshed_fields
+        )
+          ? data.refreshed_fields.length
+          : 0;
+
+      setSuccess(
+        fields > 0
+          ? `Transfermarkt-Daten wurden aktualisiert (${fields} Felder).`
+          : 'Transfermarkt wurde geprüft. Es konnten keine neuen Stammdaten ausgelesen werden.'
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Transfermarkt-Aktualisierung fehlgeschlagen.'
+      );
+    } finally {
+      setRefreshingTransfermarkt(
+        false
+      );
     }
   }
 
@@ -345,6 +468,25 @@ export default function PlayerProfile({
                   Abbrechen
                 </button>
               </>
+            )}
+
+            {player.transfermarkt_url && (
+              <button
+                type="button"
+                onClick={
+                  refreshTransfermarkt
+                }
+                disabled={
+                  refreshingTransfermarkt
+                }
+                style={
+                  transfermarktButton
+                }
+              >
+                {refreshingTransfermarkt
+                  ? 'Transfermarkt wird aktualisiert…'
+                  : 'Transfermarkt-Daten aktualisieren'}
+              </button>
             )}
 
             {!player.archived_at && (
@@ -547,6 +689,22 @@ export default function PlayerProfile({
           <Field label="Priorität" value={String(form.priority)} editing={editing} onChange={value => updateField('priority', value)} />
           <Field label="Potenzial" value={String(form.potential)} editing={editing} onChange={value => updateField('potential', value)} />
           <Field label="Transfermarkt" value={String(form.transfermarkt_url)} editing={editing} onChange={value => updateField('transfermarkt_url', value)} />
+          {!editing &&
+            player.transfermarkt_updated_at && (
+              <div
+                style={{
+                  gridColumn: '1 / -1',
+                  color: '#777',
+                  fontSize: '12px',
+                  marginTop: '-6px'
+                }}
+              >
+                Transfermarkt zuletzt aktualisiert:{' '}
+                {new Date(
+                  player.transfermarkt_updated_at
+                ).toLocaleString('de-DE')}
+              </div>
+            )}
           <Field label="Video" value={String(form.video_url)} editing={editing} onChange={value => updateField('video_url', value)} />
         </div>
       </section>
@@ -645,6 +803,12 @@ const profileCard: React.CSSProperties = { background: '#ffffff', borderRadius: 
 const primaryButton: React.CSSProperties = { border: 'none', background: '#0b7a3b', color: '#ffffff', padding: '12px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 };
 const secondaryButton: React.CSSProperties = { border: '1px solid #d0d0d0', background: '#ffffff', color: '#222222', padding: '12px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 };
 const archiveButton: React.CSSProperties = { ...secondaryButton, color: '#8a5500', borderColor: '#e2c98d', background: '#fffaf0' };
+const transfermarktButton: React.CSSProperties = {
+  ...secondaryButton,
+  color: '#0b6b35',
+  borderColor: '#9cc8ad',
+  background: '#f4faf6'
+};
 const deleteButton: React.CSSProperties = { ...secondaryButton, color: '#a00000', borderColor: '#e5b8b8', background: '#fff4f4' };
 const errorBox: React.CSSProperties = { marginTop: '14px', padding: '12px 16px', background: '#fff3f3', color: '#a00000', borderRadius: '10px' };
 const successBox: React.CSSProperties = { marginTop: '14px', padding: '12px 16px', background: '#eef9f2', color: '#0b6b35', borderRadius: '10px' };
