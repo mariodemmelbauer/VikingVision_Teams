@@ -321,6 +321,28 @@ export default function App() {
     );
   }
 
+  async function handlePlayerDeleted(
+    playerId: number | string
+  ) {
+    setPlayers(current =>
+      current.filter(
+        player =>
+          String(player.id) !==
+          String(playerId)
+      )
+    );
+
+    setSelectedPlayer(null);
+
+    try {
+      await loadPlayers();
+    } catch {
+      // The local list is already updated.
+    }
+
+    setPage(playerReturnPage);
+  }
+
   function backToDashboard() {
     setPage('dashboard');
   }
@@ -387,6 +409,9 @@ export default function App() {
           async () => {
             await loadPlayers();
           }
+        }
+        onPlayerDeleted={
+          handlePlayerDeleted
         }
       />
     );
