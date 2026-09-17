@@ -1633,7 +1633,11 @@ export default {
               'video_url',
               'is_own_squad',
               'jersey_number',
-              'player_role'
+              'player_role',
+              'league',
+              'scouting_role_1',
+              'scouting_role_2',
+              'scouting_role_3'
             ]
           );
 
@@ -2030,7 +2034,11 @@ export default {
           'video_url',
           'is_own_squad',
           'jersey_number',
-          'player_role'
+          'player_role',
+          'league',
+          'scouting_role_1',
+          'scouting_role_2',
+          'scouting_role_3'
         ];
 
         const supabase =
@@ -2520,7 +2528,11 @@ export default {
           'potential',
           'notes',
           'transfermarkt_url',
-          'video_url'
+          'video_url',
+          'league',
+          'scouting_role_1',
+          'scouting_role_2',
+          'scouting_role_3'
         ];
 
         const updateData =
