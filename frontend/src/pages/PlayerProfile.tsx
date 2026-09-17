@@ -39,6 +39,7 @@ type Props = {
   backLabel?: string;
   onPlayerUpdated: (player: Player) => void;
   onPlayerArchived?: () => Promise<void> | void;
+  onPlayerDeleted?: (playerId: number | string) => Promise<void> | void;
 };
 
 export default function PlayerProfile({
@@ -48,12 +49,17 @@ export default function PlayerProfile({
   onBack,
   backLabel = 'Dashboard',
   onPlayerUpdated,
-  onPlayerArchived
+  onPlayerArchived,
+  onPlayerDeleted
 }: Props) {
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [archiving, setArchiving] = useState(false);
   const [confirmArchive, setConfirmArchive] =
+    useState(false);
+  const [confirmDelete, setConfirmDelete] =
+    useState(false);
+  const [deleting, setDeleting] =
     useState(false);
   const [error, setError] = useState<string | undefined>();
   const [success, setSuccess] = useState<string | undefined>();
@@ -222,6 +228,56 @@ export default function PlayerProfile({
     }
   }
 
+  async function deletePlayer() {
+    if (!accessToken) {
+      setError(
+        'Kein Teams-SSO-Token vorhanden.'
+      );
+      return;
+    }
+
+    setDeleting(true);
+    setError(undefined);
+    setSuccess(undefined);
+
+    try {
+      const response =
+        await fetch(
+          `${apiBase}/players/${player.id}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`
+            }
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+          'Spieler konnte nicht gelöscht werden.'
+        );
+      }
+
+      setConfirmDelete(false);
+      await onPlayerDeleted?.(
+        player.id
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Löschen fehlgeschlagen.'
+      );
+    } finally {
+      setDeleting(false);
+    }
+  }
+
 
   return (
     <main className="page">
@@ -307,6 +363,19 @@ export default function PlayerProfile({
                     : 'Spieler archivieren'}
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() =>
+                setConfirmDelete(true)
+              }
+              disabled={deleting}
+              style={deleteButton}
+            >
+              {deleting
+                ? 'Löscht…'
+                : 'Spieler löschen'}
+            </button>
           </>
         }
       />
@@ -362,6 +431,58 @@ export default function PlayerProfile({
               {archiving
                 ? 'Wird archiviert…'
                 : 'Ja, ins Archiv'}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {confirmDelete && (
+        <section style={deleteConfirmBox}>
+          <div>
+            <strong>
+              {player.name ?? 'Spieler'} endgültig löschen?
+            </strong>
+
+            <div
+              style={{
+                marginTop: '5px',
+                color: '#7a2222',
+                fontSize: '13px'
+              }}
+            >
+              Diese Aktion kann nicht rückgängig gemacht werden.
+              Spielerprofil, Scoutingberichte und Watchlist-Zuordnungen werden dauerhaft gelöscht.
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: 'flex',
+              gap: '8px',
+              flexWrap: 'wrap',
+              marginTop: '10px'
+            }}
+          >
+            <button
+              type="button"
+              onClick={() =>
+                setConfirmDelete(false)
+              }
+              disabled={deleting}
+              style={secondaryButton}
+            >
+              Abbrechen
+            </button>
+
+            <button
+              type="button"
+              onClick={deletePlayer}
+              disabled={deleting}
+              style={deleteButton}
+            >
+              {deleting
+                ? 'Wird endgültig gelöscht…'
+                : 'Ja, endgültig löschen'}
             </button>
           </div>
         </section>
@@ -524,6 +645,7 @@ const profileCard: React.CSSProperties = { background: '#ffffff', borderRadius: 
 const primaryButton: React.CSSProperties = { border: 'none', background: '#0b7a3b', color: '#ffffff', padding: '12px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 };
 const secondaryButton: React.CSSProperties = { border: '1px solid #d0d0d0', background: '#ffffff', color: '#222222', padding: '12px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 };
 const archiveButton: React.CSSProperties = { ...secondaryButton, color: '#8a5500', borderColor: '#e2c98d', background: '#fffaf0' };
+const deleteButton: React.CSSProperties = { ...secondaryButton, color: '#a00000', borderColor: '#e5b8b8', background: '#fff4f4' };
 const errorBox: React.CSSProperties = { marginTop: '14px', padding: '12px 16px', background: '#fff3f3', color: '#a00000', borderRadius: '10px' };
 const successBox: React.CSSProperties = { marginTop: '14px', padding: '12px 16px', background: '#eef9f2', color: '#0b6b35', borderRadius: '10px' };
 
@@ -531,6 +653,15 @@ const confirmBox: React.CSSProperties = {
   marginTop: '14px',
   background: '#fffaf0',
   border: '1px solid #e2c98d',
+  borderRadius: '12px',
+  padding: '14px'
+};
+
+
+const deleteConfirmBox: React.CSSProperties = {
+  marginTop: '14px',
+  background: '#fff4f4',
+  border: '1px solid #e5b8b8',
   borderRadius: '12px',
   padding: '14px'
 };
