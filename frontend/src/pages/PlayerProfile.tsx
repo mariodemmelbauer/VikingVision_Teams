@@ -68,6 +68,8 @@ export default function PlayerProfile({
     useState(false);
   const [refreshingTransfermarkt, setRefreshingTransfermarkt] =
     useState(false);
+  const [transfermarktLinkDraft, setTransfermarktLinkDraft] =
+    useState(player.transfermarkt_url ?? '');
   const [error, setError] = useState<string | undefined>();
   const [success, setSuccess] = useState<string | undefined>();
   const [form, setForm] = useState({
@@ -187,7 +189,9 @@ export default function PlayerProfile({
     }
   }
 
-  async function refreshTransfermarkt() {
+  async function refreshTransfermarkt(
+    explicitUrl?: string
+  ) {
     if (!accessToken) {
       setError(
         'Kein Teams-SSO-Token vorhanden.'
@@ -195,12 +199,11 @@ export default function PlayerProfile({
       return;
     }
 
-    if (!player.transfermarkt_url) {
-      setError(
-        'Bitte zuerst einen Transfermarkt-Link im Spielerprofil hinterlegen.'
-      );
-      return;
-    }
+    const urlToUse =
+      explicitUrl?.trim() ||
+      transfermarktLinkDraft.trim() ||
+      player.transfermarkt_url?.trim() ||
+      '';
 
     setRefreshingTransfermarkt(
       true
@@ -216,8 +219,19 @@ export default function PlayerProfile({
             method: 'POST',
             headers: {
               Authorization:
-                `Bearer ${accessToken}`
-            }
+                `Bearer ${accessToken}`,
+              'Content-Type':
+                'application/json'
+            },
+            body:
+              JSON.stringify(
+                urlToUse
+                  ? {
+                      url:
+                        urlToUse
+                    }
+                  : {}
+              )
           }
         );
 
@@ -239,6 +253,11 @@ export default function PlayerProfile({
 
       onPlayerUpdated(
         data.player
+      );
+
+      setTransfermarktLinkDraft(
+        data.player.transfermarkt_url ??
+        ''
       );
 
       setForm({
@@ -277,17 +296,21 @@ export default function PlayerProfile({
         notes:
           data.player.notes ?? '',
         transfermarkt_url:
-          data.player.transfermarkt_url ?? '',
+          data.player.transfermarkt_url ??
+          '',
         video_url:
           data.player.video_url ?? '',
         league:
           data.player.league ?? '',
         scouting_role_1:
-          data.player.scouting_role_1 ?? '',
+          data.player.scouting_role_1 ??
+          '',
         scouting_role_2:
-          data.player.scouting_role_2 ?? '',
+          data.player.scouting_role_2 ??
+          '',
         scouting_role_3:
-          data.player.scouting_role_3 ?? ''
+          data.player.scouting_role_3 ??
+          ''
       });
 
       const fields =
@@ -297,10 +320,22 @@ export default function PlayerProfile({
           ? data.refreshed_fields.length
           : 0;
 
+      const sourceText =
+        data.match_source ===
+          'manual_url'
+          ? 'Direkter Transfermarkt-Link bestätigt.'
+          : data.match_source ===
+              'stored_url'
+            ? 'Gespeicherter Transfermarkt-Link bestätigt.'
+            : 'Transfermarkt-Profil automatisch gefunden.';
+
       setSuccess(
-        fields > 0
-          ? `Transfermarkt-Daten wurden aktualisiert (${fields} Felder).`
-          : 'Transfermarkt wurde geprüft. Es konnten keine neuen Stammdaten ausgelesen werden.'
+        `${sourceText} ${data.match_basis ?? ''} ${fields} Feld(er) aktualisiert.`
+          .replace(
+            /\s+/g,
+            ' '
+          )
+          .trim()
       );
     } catch (err) {
       setError(
@@ -494,24 +529,24 @@ export default function PlayerProfile({
               </>
             )}
 
-            {player.transfermarkt_url && (
-              <button
-                type="button"
-                onClick={
-                  refreshTransfermarkt
-                }
-                disabled={
-                  refreshingTransfermarkt
-                }
-                style={
-                  transfermarktButton
-                }
-              >
-                {refreshingTransfermarkt
-                  ? 'Transfermarkt wird aktualisiert…'
-                  : 'Transfermarkt-Daten aktualisieren'}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() =>
+                refreshTransfermarkt()
+              }
+              disabled={
+                refreshingTransfermarkt
+              }
+              style={
+                transfermarktButton
+              }
+            >
+              {refreshingTransfermarkt
+                ? 'Transfermarkt wird aktualisiert…'
+                : player.transfermarkt_url
+                  ? 'Transfermarkt-Daten aktualisieren'
+                  : 'Transfermarkt-Profil suchen'}
+            </button>
 
             {!player.archived_at && (
               <button
@@ -548,6 +583,84 @@ export default function PlayerProfile({
 
       {error && <section style={errorBox}><strong>Fehler:</strong><div style={{ marginTop: '4px' }}>{error}</div></section>}
       {success && <section style={successBox}>{success}</section>}
+
+      <section
+        style={{
+          ...transfermarktPanel,
+          marginTop: '14px'
+        }}
+      >
+        <div>
+          <strong>
+            Transfermarkt-Profil
+          </strong>
+          <div
+            style={{
+              marginTop: '4px',
+              color: '#777',
+              fontSize: '12px'
+            }}
+          >
+            Falls die automatische Suche keinen sicheren Treffer findet, direkten Transfermarkt-Link eintragen. Der Link wird erst gespeichert, wenn Name und Geburtsdatum – und sofern vorhanden Nationalität – geprüft wurden.
+          </div>
+        </div>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns:
+              'minmax(260px, 1fr) auto',
+            gap: '10px',
+            marginTop: '10px',
+            alignItems: 'end'
+          }}
+        >
+          <label>
+            <div
+              style={{
+                fontSize: '12px',
+                fontWeight: 700,
+                color: '#666',
+                marginBottom: '5px'
+              }}
+            >
+              Transfermarkt-Link
+            </div>
+            <input
+              value={
+                transfermarktLinkDraft
+              }
+              onChange={event =>
+                setTransfermarktLinkDraft(
+                  event.target.value
+                )
+              }
+              placeholder="https://www.transfermarkt.at/.../profil/spieler/..."
+              style={inputStyle}
+            />
+          </label>
+
+          <button
+            type="button"
+            onClick={() =>
+              refreshTransfermarkt(
+                transfermarktLinkDraft
+              )
+            }
+            disabled={
+              refreshingTransfermarkt ||
+              !transfermarktLinkDraft.trim()
+            }
+            style={
+              transfermarktButton
+            }
+          >
+            {refreshingTransfermarkt
+              ? 'Prüft…'
+              : 'Link prüfen & aktualisieren'}
+          </button>
+        </div>
+      </section>
 
       {confirmArchive && (
         <section style={confirmBox}>
@@ -838,6 +951,13 @@ const transfermarktButton: React.CSSProperties = {
   background: '#f4faf6'
 };
 const deleteButton: React.CSSProperties = { ...secondaryButton, color: '#a00000', borderColor: '#e5b8b8', background: '#fff4f4' };
+const transfermarktPanel: React.CSSProperties = {
+  background: '#f4faf6',
+  border: '1px solid #b9d9c7',
+  borderRadius: '12px',
+  padding: '14px'
+};
+
 const errorBox: React.CSSProperties = { marginTop: '14px', padding: '12px 16px', background: '#fff3f3', color: '#a00000', borderRadius: '10px' };
 const successBox: React.CSSProperties = { marginTop: '14px', padding: '12px 16px', background: '#eef9f2', color: '#0b6b35', borderRadius: '10px' };
 
