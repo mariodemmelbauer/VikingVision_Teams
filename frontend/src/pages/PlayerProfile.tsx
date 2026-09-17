@@ -951,6 +951,17 @@ const transfermarktButton: React.CSSProperties = {
   background: '#f4faf6'
 };
 const deleteButton: React.CSSProperties = { ...secondaryButton, color: '#a00000', borderColor: '#e5b8b8', background: '#fff4f4' };
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  minHeight: '42px',
+  boxSizing: 'border-box',
+  border: '1px solid #d5d5d5',
+  borderRadius: '8px',
+  padding: '10px',
+  background: '#fff',
+  font: 'inherit'
+};
+
 const transfermarktPanel: React.CSSProperties = {
   background: '#f4faf6',
   border: '1px solid #b9d9c7',
