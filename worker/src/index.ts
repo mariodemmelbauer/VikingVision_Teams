@@ -270,6 +270,374 @@ function cleanTransfermarktTitle(
     .trim();
 }
 
+
+function stripHtml(
+  value: string
+) {
+  return decodeHtml(
+    value
+      .replace(
+        /<br\s*\/?>/gi,
+        ' '
+      )
+      .replace(
+        /<[^>]+>/g,
+        ' '
+      )
+      .replace(
+        /\s+/g,
+        ' '
+      )
+  ).trim();
+}
+
+function transfermarktInfoValue(
+  html: string,
+  labels: string[]
+) {
+  for (
+    const label
+    of labels
+  ) {
+    const escaped =
+      label.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&'
+      );
+
+    const patterns = [
+      new RegExp(
+        `<span[^>]*class=["'][^"']*info-table__content[^"']*["'][^>]*>\\s*${escaped}\\s*<\\/span>[\\s\\S]{0,500}?<span[^>]*class=["'][^"']*info-table__content--bold[^"']*["'][^>]*>([\\s\\S]*?)<\\/span>`,
+        'i'
+      ),
+      new RegExp(
+        `${escaped}[\\s\\S]{0,450}?<span[^>]*class=["'][^"']*info-table__content--bold[^"']*["'][^>]*>([\\s\\S]*?)<\\/span>`,
+        'i'
+      ),
+      new RegExp(
+        `${escaped}[\\s\\S]{0,300}?<[^>]+>([^<>]{1,120})<\\/[^>]+>`,
+        'i'
+      )
+    ];
+
+    for (
+      const pattern
+      of patterns
+    ) {
+      const match =
+        pattern.exec(html);
+
+      if (
+        match?.[1]
+      ) {
+        const value =
+          stripHtml(
+            match[1]
+          );
+
+        if (value) {
+          return value;
+        }
+      }
+    }
+  }
+
+  return '';
+}
+
+function transfermarktNationality(
+  html: string
+) {
+  const value =
+    transfermarktInfoValue(
+      html,
+      [
+        'Nationalität:',
+        'Citizenship:'
+      ]
+    );
+
+  if (value) {
+    return value
+      .replace(
+        /\s+/g,
+        ' '
+      )
+      .trim();
+  }
+
+  const labelIndex =
+    html.search(
+      /Nationalität:|Citizenship:/i
+    );
+
+  if (
+    labelIndex >= 0
+  ) {
+    const segment =
+      html.slice(
+        labelIndex,
+        labelIndex + 1200
+      );
+
+    const flag =
+      /(?:title|alt)=["']([^"']+)["']/i
+        .exec(
+          segment
+        )?.[1];
+
+    if (flag) {
+      return decodeHtml(
+        flag
+      ).trim();
+    }
+  }
+
+  return '';
+}
+
+function transfermarktHeightCm(
+  value: string
+) {
+  const normalized =
+    value
+      .replace(',', '.')
+      .replace(/\s+/g, ' ')
+      .trim();
+
+  const meter =
+    normalized.match(
+      /(\d(?:\.\d{1,2})?)\s*m\b/i
+    );
+
+  if (meter) {
+    const cm =
+      Math.round(
+        Number(
+          meter[1]
+        ) *
+        100
+      );
+
+    return Number.isFinite(cm)
+      ? cm
+      : null;
+  }
+
+  const cm =
+    normalized.match(
+      /(\d{3})\s*cm\b/i
+    );
+
+  if (cm) {
+    return Number(
+      cm[1]
+    );
+  }
+
+  return null;
+}
+
+function transfermarktMarketValue(
+  html: string
+) {
+  const direct =
+    transfermarktInfoValue(
+      html,
+      [
+        'Marktwert:',
+        'Current market value:'
+      ]
+    );
+
+  if (direct) {
+    return direct;
+  }
+
+  const patterns = [
+    /class=["'][^"']*data-header__market-value-wrapper[^"']*["'][^>]*>([\s\S]{0,400}?)<\/div>/i,
+    /class=["'][^"']*data-header__market-value-wrapper[^"']*["'][^>]*>([\s\S]{0,400}?)<\/a>/i,
+    /(?:Marktwert|market value)[\s\S]{0,120}?((?:€|EUR)\s*[\d.,]+\s*(?:Mio\.|M|Tsd\.|k)?)/i
+  ];
+
+  for (
+    const pattern
+    of patterns
+  ) {
+    const match =
+      pattern.exec(html);
+
+    if (
+      match?.[1]
+    ) {
+      const value =
+        stripHtml(
+          match[1]
+        );
+
+      if (value) {
+        return value;
+      }
+    }
+  }
+
+  return '';
+}
+
+function transfermarktBirthDate(
+  value: string
+) {
+  const date =
+    value.match(
+      /(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/
+    );
+
+  if (!date) {
+    return null;
+  }
+
+  return `${date[3]}-${date[2].padStart(2, '0')}-${date[1].padStart(2, '0')}`;
+}
+
+function transfermarktContractDate(
+  value: string
+) {
+  return transfermarktBirthDate(
+    value
+  );
+}
+
+function transfermarktProfileData(
+  html: string,
+  url: URL
+) {
+  const ogTitle =
+    metaContent(
+      html,
+      'og:title'
+    );
+
+  const title =
+    /<title[^>]*>([\s\S]*?)<\/title>/i
+      .exec(html)?.[1] ??
+    '';
+
+  const name =
+    cleanTransfermarktTitle(
+      ogTitle ||
+      decodeHtml(
+        title
+      ) ||
+      transfermarktNameFromUrl(
+        url
+      )
+    );
+
+  const birthRaw =
+    transfermarktInfoValue(
+      html,
+      [
+        'Geburtsdatum/Alter:',
+        'Date of birth/Age:'
+      ]
+    );
+
+  const position =
+    transfermarktInfoValue(
+      html,
+      [
+        'Position:',
+        'Position:'
+      ]
+    );
+
+  const foot =
+    transfermarktInfoValue(
+      html,
+      [
+        'Fuß:',
+        'Foot:'
+      ]
+    );
+
+  const heightRaw =
+    transfermarktInfoValue(
+      html,
+      [
+        'Größe:',
+        'Height:'
+      ]
+    );
+
+  const contractRaw =
+    transfermarktInfoValue(
+      html,
+      [
+        'Vertrag bis:',
+        'Contract expires:'
+      ]
+    );
+
+  const agent =
+    transfermarktInfoValue(
+      html,
+      [
+        'Berater:',
+        'Player agent:'
+      ]
+    );
+
+  const club =
+    transfermarktInfoValue(
+      html,
+      [
+        'Aktueller Verein:',
+        'Current club:'
+      ]
+    );
+
+  const image =
+    metaContent(
+      html,
+      'og:image'
+    );
+
+  return {
+    name:
+      name || null,
+    birth_date:
+      transfermarktBirthDate(
+        birthRaw
+      ),
+    primary_position:
+      position || null,
+    preferred_foot:
+      foot || null,
+    nationality:
+      transfermarktNationality(
+        html
+      ) || null,
+    height_cm:
+      transfermarktHeightCm(
+        heightRaw
+      ),
+    current_club:
+      club || null,
+    contract_until:
+      transfermarktContractDate(
+        contractRaw
+      ),
+    agent_agency:
+      agent || null,
+    market_value:
+      transfermarktMarketValue(
+        html
+      ) || null,
+    image_path:
+      image || null
+  };
+}
+
 function normalizeNullableDate(
   value: unknown
 ) {
@@ -1879,6 +2247,230 @@ export default {
         );
       }
     }
+
+    if (
+      request.method === 'POST' &&
+      /^\/players\/[^/]+\/refresh-transfermarkt$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          url.pathname
+            .split('/')[2];
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: player,
+          error: playerError
+        } =
+          await supabase
+            .from('players')
+            .select(
+              'id,name,transfermarkt_url'
+            )
+            .eq(
+              'id',
+              playerId
+            )
+            .single();
+
+        if (playerError) {
+          return json(
+            {
+              ok: false,
+              error:
+                playerError.message
+            },
+            404
+          );
+        }
+
+        if (
+          typeof player.transfermarkt_url !==
+            'string' ||
+          !player.transfermarkt_url.trim()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Für diesen Spieler ist kein Transfermarkt-Link hinterlegt.'
+            },
+            400
+          );
+        }
+
+        const tmUrl =
+          new URL(
+            player.transfermarkt_url.trim()
+          );
+
+        if (
+          !/(^|\.)transfermarkt\./i.test(
+            tmUrl.hostname
+          )
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Der hinterlegte Link ist kein gültiges Transfermarkt-Profil.'
+            },
+            400
+          );
+        }
+
+        const tmResponse =
+          await fetch(
+            tmUrl.toString(),
+            {
+              headers: {
+                'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153 Safari/537.36',
+                'Accept-Language':
+                  'de-DE,de;q=0.9,en;q=0.8',
+                Accept:
+                  'text/html,application/xhtml+xml'
+              },
+              redirect:
+                'follow'
+            }
+          );
+
+        if (
+          !tmResponse.ok
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                `Transfermarkt konnte nicht geladen werden (${tmResponse.status}).`
+            },
+            502
+          );
+        }
+
+        const html =
+          await tmResponse.text();
+
+        if (
+          html.length < 1000
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Transfermarkt hat keine verwertbare Profilseite geliefert.'
+            },
+            502
+          );
+        }
+
+        const parsed =
+          transfermarktProfileData(
+            html,
+            tmUrl
+          );
+
+        const updateData:
+          Record<
+            string,
+            unknown
+          > = {};
+
+        for (
+          const [
+            field,
+            value
+          ]
+          of Object.entries(
+            parsed
+          )
+        ) {
+          if (
+            value !== null &&
+            value !== '' &&
+            value !== undefined
+          ) {
+            updateData[field] =
+              value;
+          }
+        }
+
+        updateData.transfermarkt_url =
+          tmUrl.toString();
+
+        updateData.transfermarkt_updated_at =
+          new Date()
+            .toISOString();
+
+        updateData.updated_at =
+          new Date()
+            .toISOString();
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from('players')
+            .update(
+              updateData
+            )
+            .eq(
+              'id',
+              playerId
+            )
+            .select('*')
+            .single();
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          player: data,
+          refreshed_fields:
+            Object.keys(
+              updateData
+            ).filter(
+              field =>
+                ![
+                  'updated_at',
+                  'transfermarkt_updated_at',
+                  'transfermarkt_url'
+                ].includes(
+                  field
+                )
+            )
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Transfermarkt refresh failed'
+          },
+          401
+        );
+      }
+    }
+
 
     if (
       request.method === 'PUT' &&
