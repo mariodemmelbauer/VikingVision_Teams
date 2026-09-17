@@ -140,6 +140,8 @@ export default function ScoutingReports({
     useState<Player | null>(null);
   const [deletingPlayer, setDeletingPlayer] =
     useState(false);
+  const [refreshingPlayerId, setRefreshingPlayerId] =
+    useState<number | string | null>(null);
   const [importResult, setImportResult] =
     useState<{
       newCount: number;
@@ -582,6 +584,51 @@ export default function ScoutingReports({
       setError(err instanceof Error ? err.message : 'Excel-Import fehlgeschlagen.');
     } finally {
       setImporting(false);
+    }
+  }
+
+  async function refreshTransfermarktPlayer(
+    player: Player
+  ) {
+    setRefreshingPlayerId(
+      player.id
+    );
+    setError(undefined);
+    setSuccess(undefined);
+
+    try {
+      const data =
+        await authFetch(
+          `/players/${player.id}/refresh-transfermarkt`,
+          {
+            method: 'POST'
+          }
+        );
+
+      const count =
+        Array.isArray(
+          data?.refreshed_fields
+        )
+          ? data.refreshed_fields.length
+          : 0;
+
+      setSuccess(
+        count > 0
+          ? `${player.name ?? 'Spieler'}: Transfermarkt-Daten aktualisiert (${count} Felder).`
+          : `${player.name ?? 'Spieler'}: Transfermarkt geprüft.`
+      );
+
+      await reloadPlayers();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Transfermarkt-Aktualisierung fehlgeschlagen.'
+      );
+    } finally {
+      setRefreshingPlayerId(
+        null
+      );
     }
   }
 
@@ -1096,6 +1143,38 @@ export default function ScoutingReports({
                     style={smallButton}
                   >
                     Profil öffnen
+                  </button>
+                )}
+
+                {player.transfermarkt_url && (
+                  <button
+                    type="button"
+                    onClick={event => {
+                      event.stopPropagation();
+                      refreshTransfermarktPlayer(
+                        player
+                      );
+                    }}
+                    disabled={
+                      String(
+                        refreshingPlayerId
+                      ) ===
+                      String(
+                        player.id
+                      )
+                    }
+                    style={
+                      transfermarktSmallButton
+                    }
+                  >
+                    {String(
+                      refreshingPlayerId
+                    ) ===
+                    String(
+                      player.id
+                    )
+                      ? 'Aktualisiert…'
+                      : 'TM aktualisieren'}
                   </button>
                 )}
 
@@ -1829,6 +1908,12 @@ const smallButton: React.CSSProperties = {
   ...secondaryButton,
   padding: '7px 10px',
   fontSize: '12px'
+};
+const transfermarktSmallButton: React.CSSProperties = {
+  ...smallButton,
+  color: '#0b6b35',
+  borderColor: '#9cc8ad',
+  background: '#f4faf6'
 };
 const errorBox: React.CSSProperties = {
   marginTop: '14px',
