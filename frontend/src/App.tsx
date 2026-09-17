@@ -10,6 +10,7 @@ import Squad from './pages/Squad';
 import AKAVision from './pages/AKAVision';
 import PlayerArchive from './pages/PlayerArchive';
 import P12SelfAssessmentPublic from './pages/academy/P12SelfAssessmentPublic';
+import AppShell from './components/AppShell';
 
 import {
   initTeams,
@@ -301,6 +302,29 @@ export default function App() {
   }
 
 
+  function shell(
+    content: React.ReactNode
+  ) {
+    return (
+      <AppShell
+        currentPage={page}
+        displayName={
+          user.displayName ??
+          'VikingVision User'
+        }
+        inTeams={inTeams}
+        onDashboard={backToDashboard}
+        onScouting={openScoutingReports}
+        onWatchlist={openWatchlist}
+        onSquad={openSquad}
+        onAKAVision={openAKAVision}
+        onArchive={openPlayerArchive}
+      >
+        {content}
+      </AppShell>
+    );
+  }
+
   if (publicP12InviteToken) {
     return (
       <P12SelfAssessmentPublic
@@ -321,7 +345,7 @@ export default function App() {
     page === 'playerProfile' &&
     selectedPlayer
   ) {
-    return (
+    return shell(
       <PlayerProfile
         player={selectedPlayer}
         accessToken={user.accessToken}
@@ -341,7 +365,7 @@ export default function App() {
 
 
   if (page === 'scoutingReports') {
-    return (
+    return shell(
       <ScoutingReports
         accessToken={user.accessToken}
         apiBase={API_BASE}
@@ -357,7 +381,7 @@ export default function App() {
   }
 
   if (page === 'watchlist') {
-    return (
+    return shell(
       <Watchlist
         accessToken={user.accessToken}
         apiBase={API_BASE}
@@ -369,7 +393,7 @@ export default function App() {
   }
 
   if (page === 'squad') {
-    return (
+    return shell(
       <Squad
         players={players}
         accessToken={user.accessToken}
@@ -382,7 +406,7 @@ export default function App() {
   }
 
   if (page === 'playerArchive') {
-    return (
+    return shell(
       <PlayerArchive
         accessToken={user.accessToken}
         apiBase={API_BASE}
@@ -394,7 +418,7 @@ export default function App() {
   }
 
   if (page === 'akavision') {
-    return (
+    return shell(
       <AKAVision
         accessToken={user.accessToken}
         apiBase={API_BASE}
@@ -403,7 +427,7 @@ export default function App() {
     );
   }
 
-  return (
+  return shell(
     <Dashboard
       displayName={
         user.displayName ??
