@@ -30,6 +30,10 @@ export type Player = {
   player_role?: string;
   archived_at?: string;
   transfermarkt_updated_at?: string;
+  league?: string;
+  scouting_role_1?: string;
+  scouting_role_2?: string;
+  scouting_role_3?: string;
 };
 
 type Props = {
@@ -83,7 +87,11 @@ export default function PlayerProfile({
     potential: player.potential ?? '',
     notes: player.notes ?? '',
     transfermarkt_url: player.transfermarkt_url ?? '',
-    video_url: player.video_url ?? ''
+    video_url: player.video_url ?? '',
+    league: player.league ?? '',
+    scouting_role_1: player.scouting_role_1 ?? '',
+    scouting_role_2: player.scouting_role_2 ?? '',
+    scouting_role_3: player.scouting_role_3 ?? ''
   });
 
   function updateField(field: keyof typeof form, value: string) {
@@ -108,7 +116,11 @@ export default function PlayerProfile({
       potential: player.potential ?? '',
       notes: player.notes ?? '',
       transfermarkt_url: player.transfermarkt_url ?? '',
-      video_url: player.video_url ?? ''
+      video_url: player.video_url ?? '',
+      league: player.league ?? '',
+      scouting_role_1: player.scouting_role_1 ?? '',
+      scouting_role_2: player.scouting_role_2 ?? '',
+      scouting_role_3: player.scouting_role_3 ?? ''
     });
   }
 
@@ -153,7 +165,11 @@ export default function PlayerProfile({
           potential: form.potential === '' ? null : form.potential,
           notes: form.notes || null,
           transfermarkt_url: form.transfermarkt_url || null,
-          video_url: form.video_url || null
+          video_url: form.video_url || null,
+          league: form.league || null,
+          scouting_role_1: form.scouting_role_1 || null,
+          scouting_role_2: form.scouting_role_2 || null,
+          scouting_role_3: form.scouting_role_3 || null
         })
       });
 
@@ -263,7 +279,15 @@ export default function PlayerProfile({
         transfermarkt_url:
           data.player.transfermarkt_url ?? '',
         video_url:
-          data.player.video_url ?? ''
+          data.player.video_url ?? '',
+        league:
+          data.player.league ?? '',
+        scouting_role_1:
+          data.player.scouting_role_1 ?? '',
+        scouting_role_2:
+          data.player.scouting_role_2 ?? '',
+        scouting_role_3:
+          data.player.scouting_role_3 ?? ''
       });
 
       const fields =
@@ -664,6 +688,10 @@ export default function PlayerProfile({
           <Field label="Geburtsdatum" type="date" value={String(form.birth_date)} editing={editing} onChange={value => updateField('birth_date', value)} />
           <Field label="Position" value={String(form.primary_position)} editing={editing} onChange={value => updateField('primary_position', value)} />
           <Field label="Nebenposition" value={String(form.secondary_position)} editing={editing} onChange={value => updateField('secondary_position', value)} />
+          <Field label="Liga" value={String(form.league)} editing={editing} onChange={value => updateField('league', value)} />
+          <Field label="Scouting-Rolle 1" value={String(form.scouting_role_1)} editing={editing} onChange={value => updateField('scouting_role_1', value)} />
+          <Field label="Scouting-Rolle 2" value={String(form.scouting_role_2)} editing={editing} onChange={value => updateField('scouting_role_2', value)} />
+          <Field label="Scouting-Rolle 3" value={String(form.scouting_role_3)} editing={editing} onChange={value => updateField('scouting_role_3', value)} />
           <Field label="Fuß" value={String(form.preferred_foot)} editing={editing} onChange={value => updateField('preferred_foot', value)} />
           <Field label="Nationalität" value={String(form.nationality)} editing={editing} onChange={value => updateField('nationality', value)} />
           <Field label="Größe (cm)" type="number" value={String(form.height_cm)} editing={editing} onChange={value => updateField('height_cm', value)} />
