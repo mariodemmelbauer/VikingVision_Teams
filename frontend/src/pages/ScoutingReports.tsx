@@ -176,6 +176,7 @@ export default function ScoutingReports({
   const [search, setSearch] = useState('');
   const [playerFilter, setPlayerFilter] = useState('Alle');
   const [positionFilter, setPositionFilter] = useState('Alle');
+  const [roleFilter, setRoleFilter] = useState('Alle');
 
   const [transfermarktUrl, setTransfermarktUrl] = useState('');
   const [playerForm, setPlayerForm] = useState<PlayerForm>(emptyPlayerForm);
@@ -214,6 +215,40 @@ export default function ScoutingReports({
     [players]
   );
 
+
+  const roles = useMemo(
+    () => [
+      'Alle',
+      ...Array.from(
+        new Set(
+          players
+            .flatMap(player => [
+              player.scouting_role_1,
+              player.scouting_role_2,
+              player.scouting_role_3
+            ])
+            .filter(
+              (value): value is string =>
+                Boolean(value?.trim())
+            )
+            .map(value =>
+              value.trim()
+            )
+        )
+      ).sort(
+        (a, b) =>
+          a.localeCompare(
+            b,
+            'de',
+            {
+              numeric: true
+            }
+          )
+      )
+    ],
+    [players]
+  );
+
   const playerReportInfo = useMemo(
     () =>
       sortedPlayers.map(player => {
@@ -234,6 +269,89 @@ export default function ScoutingReports({
     [sortedPlayers, reports]
   );
 
+  const filteredPlayerReportInfo =
+    useMemo(() => {
+      const query =
+        search
+          .trim()
+          .toLocaleLowerCase(
+            'de'
+          );
+
+      return playerReportInfo.filter(
+        ({
+          player
+        }) => {
+          const playerRoles =
+            [
+              player.scouting_role_1,
+              player.scouting_role_2,
+              player.scouting_role_3
+            ]
+              .filter(Boolean)
+              .map(value =>
+                String(value)
+              );
+
+          const matchesSearch =
+            !query ||
+            [
+              player.name,
+              player.current_club,
+              player.league,
+              player.primary_position,
+              player.scouting_role_1,
+              player.scouting_role_2,
+              player.scouting_role_3,
+              player.potential,
+              player.notes
+            ]
+              .filter(Boolean)
+              .some(value =>
+                String(value)
+                  .toLocaleLowerCase(
+                    'de'
+                  )
+                  .includes(query)
+              );
+
+          const matchesPlayer =
+            playerFilter ===
+              'Alle' ||
+            String(
+              player.id
+            ) ===
+              playerFilter;
+
+          const matchesPosition =
+            positionFilter ===
+              'Alle' ||
+            player.primary_position ===
+              positionFilter;
+
+          const matchesRole =
+            roleFilter ===
+              'Alle' ||
+            playerRoles.includes(
+              roleFilter
+            );
+
+          return (
+            matchesSearch &&
+            matchesPlayer &&
+            matchesPosition &&
+            matchesRole
+          );
+        }
+      );
+    }, [
+      playerReportInfo,
+      search,
+      playerFilter,
+      positionFilter,
+      roleFilter
+    ]);
+
   const filteredReports = useMemo(() => {
     const query = search.trim().toLocaleLowerCase('de');
 
@@ -251,7 +369,13 @@ export default function ScoutingReports({
             report.strengths,
             report.development_areas,
             report.recommendation,
-            report.next_action
+            report.next_action,
+            reportPlayer?.league,
+            reportPlayer?.scouting_role_1,
+            reportPlayer?.scouting_role_2,
+            reportPlayer?.scouting_role_3,
+            reportPlayer?.potential,
+            reportPlayer?.notes
           ]
             .filter(Boolean)
             .some(value =>
@@ -273,7 +397,29 @@ export default function ScoutingReports({
           report.observed_position === positionFilter ||
           reportPlayer?.primary_position === positionFilter;
 
-        return matchesSearch && matchesPlayer && matchesPosition;
+        const playerRoles =
+          [
+            reportPlayer?.scouting_role_1,
+            reportPlayer?.scouting_role_2,
+            reportPlayer?.scouting_role_3
+          ]
+            .filter(Boolean)
+            .map(value =>
+              String(value)
+            );
+
+        const matchesRole =
+          roleFilter === 'Alle' ||
+          playerRoles.includes(
+            roleFilter
+          );
+
+        return (
+          matchesSearch &&
+          matchesPlayer &&
+          matchesPosition &&
+          matchesRole
+        );
       })
       .sort((a, b) =>
         String(b.observation_date ?? '').localeCompare(
@@ -1280,7 +1426,7 @@ export default function ScoutingReports({
             <input
               value={search}
               onChange={event => setSearch(event.target.value)}
-              placeholder="Spieler, Scout, Gegner, Empfehlung …"
+              placeholder="Spieler, Rolle, Liga, Scout, Gegner, Empfehlung …"
               style={inputStyle}
             />
           </Field>
@@ -1314,12 +1460,35 @@ export default function ScoutingReports({
             </select>
           </Field>
 
+
+          <Field label="Rolle">
+            <select
+              value={roleFilter}
+              onChange={event =>
+                setRoleFilter(
+                  event.target.value
+                )
+              }
+              style={inputStyle}
+            >
+              {roles.map(role => (
+                <option
+                  key={role}
+                  value={role}
+                >
+                  {role}
+                </option>
+              ))}
+            </select>
+          </Field>
+
           <button
             type="button"
             onClick={() => {
               setSearch('');
               setPlayerFilter('Alle');
               setPositionFilter('Alle');
+              setRoleFilter('Alle');
             }}
             style={secondaryButton}
           >
@@ -1513,7 +1682,7 @@ export default function ScoutingReports({
         </div>
 
         <div className="vv-scouting-player-grid" style={playerGrid}>
-          {playerReportInfo.map(({ player, count, latest }) => (
+          {filteredPlayerReportInfo.map(({ player, count, latest }) => (
             <button
               key={player.id}
               type="button"
@@ -3025,7 +3194,7 @@ const twoColumnGrid: React.CSSProperties = {
 };
 const filterGrid: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'minmax(220px, 2fr) repeat(2, minmax(160px, 1fr)) auto',
+  gridTemplateColumns: 'minmax(220px, 2fr) repeat(3, minmax(150px, 1fr)) auto',
   gap: '10px',
   alignItems: 'end',
   marginTop: '14px'
