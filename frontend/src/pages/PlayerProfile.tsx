@@ -36,6 +36,7 @@ type Props = {
   accessToken?: string;
   apiBase: string;
   onBack: () => void;
+  backLabel?: string;
   onPlayerUpdated: (player: Player) => void;
   onPlayerArchived?: () => Promise<void> | void;
 };
@@ -45,6 +46,7 @@ export default function PlayerProfile({
   accessToken,
   apiBase,
   onBack,
+  backLabel = 'Dashboard',
   onPlayerUpdated,
   onPlayerArchived
 }: Props) {
@@ -227,7 +229,7 @@ export default function PlayerProfile({
         title={player.name ?? 'Spielerprofil'}
         description="VikingVision Spielerprofil"
         onBack={onBack}
-        backLabel="Dashboard"
+        backLabel={backLabel}
         meta={
           <>
             <span>
