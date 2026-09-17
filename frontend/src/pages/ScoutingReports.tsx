@@ -152,6 +152,16 @@ export default function ScoutingReports({
     useState(false);
   const [refreshingPlayerId, setRefreshingPlayerId] =
     useState<number | string | null>(null);
+  const [bulkTransfermarktRunning, setBulkTransfermarktRunning] =
+    useState(false);
+  const [bulkTransfermarktProgress, setBulkTransfermarktProgress] =
+    useState<{
+      done: number;
+      total: number;
+      updated: number;
+      failed: number;
+      skipped: number;
+    } | null>(null);
   const [importResult, setImportResult] =
     useState<{
       newCount: number;
@@ -719,9 +729,7 @@ export default function ScoutingReports({
           : 0;
 
       setSuccess(
-        count > 0
-          ? `${player.name ?? 'Spieler'}: Transfermarkt-Daten aktualisiert (${count} Felder).`
-          : `${player.name ?? 'Spieler'}: Transfermarkt geprüft.`
+        `${player.name ?? 'Spieler'}: Transfermarkt-Zuordnung bestätigt${data?.match_basis ? ` (${data.match_basis})` : ''}. ${count} Feld(er) aktualisiert.`
       );
 
       await reloadPlayers();
@@ -737,6 +745,140 @@ export default function ScoutingReports({
       );
     }
   }
+
+  async function refreshAllTransfermarktPlayers() {
+    if (
+      bulkTransfermarktRunning
+    ) {
+      return;
+    }
+
+    const candidates =
+      sortedPlayers.filter(
+        player =>
+          Boolean(
+            player.name
+          ) &&
+          Boolean(
+            player.birth_date
+          )
+      );
+
+    const skipped =
+      sortedPlayers.length -
+      candidates.length;
+
+    if (
+      candidates.length === 0
+    ) {
+      setError(
+        'Kein Scouting-Spieler mit Name und Geburtsdatum für die Transfermarkt-Prüfung vorhanden.'
+      );
+      return;
+    }
+
+    setBulkTransfermarktRunning(
+      true
+    );
+    setError(undefined);
+    setSuccess(undefined);
+
+    let done = 0;
+    let updated = 0;
+    let failed = 0;
+
+    setBulkTransfermarktProgress({
+      done,
+      total:
+        candidates.length,
+      updated,
+      failed,
+      skipped
+    });
+
+    const concurrency = 3;
+
+    for (
+      let offset = 0;
+      offset <
+      candidates.length;
+      offset += concurrency
+    ) {
+      const batch =
+        candidates.slice(
+          offset,
+          offset + concurrency
+        );
+
+      const results =
+        await Promise.allSettled(
+          batch.map(
+            player =>
+              authFetch(
+                `/players/${player.id}/refresh-transfermarkt`,
+                {
+                  method:
+                    'POST'
+                }
+              )
+          )
+        );
+
+      for (
+        const result
+        of results
+      ) {
+        done += 1;
+
+        if (
+          result.status ===
+            'fulfilled'
+        ) {
+          updated += 1;
+        } else {
+          failed += 1;
+        }
+      }
+
+      setBulkTransfermarktProgress({
+        done,
+        total:
+          candidates.length,
+        updated,
+        failed,
+        skipped
+      });
+
+      if (
+        offset +
+          concurrency <
+        candidates.length
+      ) {
+        await new Promise(
+          resolve =>
+            setTimeout(
+              resolve,
+              350
+            )
+        );
+      }
+    }
+
+    try {
+      await reloadPlayers();
+    } catch {
+      // Progress result remains visible even if reloading fails.
+    }
+
+    setSuccess(
+      `Transfermarkt-Sammelprüfung abgeschlossen: ${updated} aktualisiert, ${failed} ohne sicheren Treffer/Fehler, ${skipped} ohne Name oder Geburtsdatum übersprungen.`
+    );
+
+    setBulkTransfermarktRunning(
+      false
+    );
+  }
+
 
   async function archiveScoutingPlayer(
     player: Player
@@ -875,6 +1017,58 @@ export default function ScoutingReports({
       )}
 
       {success && <section style={successBox}>{success}</section>}
+
+      {bulkTransfermarktProgress && (
+        <section
+          style={{
+            ...panel,
+            marginTop: '12px'
+          }}
+        >
+          <strong>
+            Transfermarkt-Sammelprüfung
+          </strong>
+
+          <div
+            style={{
+              ...subtle,
+              marginTop: '8px'
+            }}
+          >
+            {bulkTransfermarktProgress.done} / {bulkTransfermarktProgress.total} geprüft ·
+            {' '}{bulkTransfermarktProgress.updated} aktualisiert ·
+            {' '}{bulkTransfermarktProgress.failed} ohne sicheren Treffer/Fehler ·
+            {' '}{bulkTransfermarktProgress.skipped} übersprungen
+          </div>
+
+          <div
+            style={{
+              marginTop: '10px',
+              height: '8px',
+              borderRadius: '999px',
+              background: '#e7ece9',
+              overflow: 'hidden'
+            }}
+          >
+            <div
+              style={{
+                width:
+                  `${bulkTransfermarktProgress.total > 0
+                    ? Math.round(
+                        (
+                          bulkTransfermarktProgress.done /
+                          bulkTransfermarktProgress.total
+                        ) *
+                        100
+                      )
+                    : 0}%`,
+                height: '100%',
+                background: '#0b7a3b'
+              }}
+            />
+          </div>
+        </section>
+      )}
 
       {importResult && (
         <section
@@ -1058,6 +1252,23 @@ export default function ScoutingReports({
               Excel-Import
             </button>
 
+            <button
+              type="button"
+              onClick={
+                refreshAllTransfermarktPlayers
+              }
+              disabled={
+                bulkTransfermarktRunning
+              }
+              style={
+                transfermarktBulkButton
+              }
+            >
+              {bulkTransfermarktRunning
+                ? 'TM-Sammelprüfung läuft…'
+                : 'Alle TM aktualisieren'}
+            </button>
+
             <button type="button" onClick={() => startNewReport()} style={primaryButton}>
               + Neuer Bericht
             </button>
@@ -1147,8 +1358,17 @@ export default function ScoutingReports({
         <section style={{ ...panel, marginTop: '14px' }}>
           <h2 style={{ marginTop: 0 }}>Spieler aus Excel importieren</h2>
           <p style={subtle}>
-            Unterstützt .xlsx und .csv. Die erste Zeile muss Spaltenüberschriften enthalten. Pflichtfeld: Name.
+            Unterstützt .xlsx und .csv. VikingVision sucht die Kopfzeile automatisch in den ersten 10 Zeilen und erkennt auch Excel-Dateien, deren erstes Arbeitsblatt nicht „sheet1“ ist.
           </p>
+          <div
+            style={{
+              ...subtle,
+              color: '#0b6b35',
+              fontWeight: 700
+            }}
+          >
+            Excel-Importer v26.6
+          </div>
           <p style={subtle}>
             Für eure Scouting-Liste wird die vorhandene Struktur direkt erkannt:
             NAME, GEBURTSDATUM, LIGA, VEREIN, NATIONALITÄT, GRÖSSE, FUß,
@@ -1391,37 +1611,46 @@ export default function ScoutingReports({
                   </button>
                 )}
 
-                {player.transfermarkt_url && (
-                  <button
-                    type="button"
-                    onClick={event => {
-                      event.stopPropagation();
-                      refreshTransfermarktPlayer(
-                        player
-                      );
-                    }}
-                    disabled={
-                      String(
-                        refreshingPlayerId
-                      ) ===
-                      String(
-                        player.id
-                      )
-                    }
-                    style={
-                      transfermarktSmallButton
-                    }
-                  >
-                    {String(
+                <button
+                  type="button"
+                  onClick={event => {
+                    event.stopPropagation();
+                    refreshTransfermarktPlayer(
+                      player
+                    );
+                  }}
+                  disabled={
+                    String(
                       refreshingPlayerId
                     ) ===
                     String(
                       player.id
-                    )
-                      ? 'Aktualisiert…'
-                      : 'TM aktualisieren'}
-                  </button>
-                )}
+                    ) ||
+                    !player.name ||
+                    !player.birth_date
+                  }
+                  title={
+                    !player.birth_date
+                      ? 'Für die sichere Zuordnung fehlt das Geburtsdatum.'
+                      : player.transfermarkt_url
+                        ? 'Hinterlegtes Transfermarkt-Profil prüfen und aktualisieren'
+                        : 'Transfermarkt über Name, Geburtsdatum und Nationalität suchen'
+                  }
+                  style={
+                    transfermarktSmallButton
+                  }
+                >
+                  {String(
+                    refreshingPlayerId
+                  ) ===
+                  String(
+                    player.id
+                  )
+                    ? 'Aktualisiert…'
+                    : player.transfermarkt_url
+                      ? 'TM aktualisieren'
+                      : 'TM suchen'}
+                </button>
 
                 <button
                   type="button"
@@ -1834,55 +2063,338 @@ function TextBlock({ label, value }: { label: string; value: string }) {
 
 // Lightweight .xlsx reader for the first worksheet.
 // It avoids an extra npm dependency and also accepts CSV files.
-async function readSpreadsheet(file: File): Promise<Record<string, string>[]> {
-  if (file.name.toLowerCase().endsWith('.csv')) {
-    return csvToRows(await file.text());
+async function readSpreadsheet(
+  file: File
+): Promise<Record<string, string>[]> {
+  if (
+    file.name
+      .toLowerCase()
+      .endsWith('.csv')
+  ) {
+    return csvToRows(
+      await file.text()
+    );
   }
 
-  const buffer = await file.arrayBuffer();
-  const files = await unzipXlsx(buffer);
+  const buffer =
+    await file.arrayBuffer();
 
-  const sharedStrings = parseSharedStrings(
-    files.get('xl/sharedStrings.xml') ?? ''
-  );
+  const files =
+    await unzipXlsx(
+      buffer
+    );
+
+  const sharedStrings =
+    parseSharedStrings(
+      files.get(
+        'xl/sharedStrings.xml'
+      ) ?? ''
+    );
+
+  const sheetPath =
+    findFirstWorksheetPath(
+      files
+    );
+
+  if (!sheetPath) {
+    throw new Error(
+      'In der XLSX-Datei wurde kein Arbeitsblatt gefunden.'
+    );
+  }
 
   const sheetXml =
-    files.get('xl/worksheets/sheet1.xml');
+    files.get(
+      sheetPath
+    );
 
   if (!sheetXml) {
-    throw new Error('Die erste Excel-Tabelle konnte nicht gelesen werden.');
+    throw new Error(
+      `Das Excel-Arbeitsblatt "${sheetPath}" konnte nicht gelesen werden.`
+    );
   }
 
-  const doc = new DOMParser().parseFromString(sheetXml, 'application/xml');
-  const xmlRows = Array.from(doc.querySelectorAll('sheetData > row'));
+  const doc =
+    new DOMParser()
+      .parseFromString(
+        sheetXml,
+        'application/xml'
+      );
 
-  if (xmlRows.length === 0) return [];
+  const parserError =
+    doc.querySelector(
+      'parsererror'
+    );
 
-  const matrix = xmlRows.map(row => {
-    const values: string[] = [];
+  if (parserError) {
+    throw new Error(
+      'Das Excel-Arbeitsblatt enthält ungültiges XML.'
+    );
+  }
 
-    for (const cell of Array.from(row.querySelectorAll('c'))) {
-      const ref = cell.getAttribute('r') ?? 'A1';
-      const columnIndex = excelColumnIndex(ref.replace(/\d+/g, ''));
-      const type = cell.getAttribute('t');
+  const xmlRows =
+    Array.from(
+      doc.getElementsByTagName(
+        'row'
+      )
+    );
 
-      let value = '';
-      if (type === 'inlineStr') {
-        value = cell.querySelector('is > t')?.textContent ?? '';
-      } else {
-        const raw = cell.querySelector('v')?.textContent ?? '';
-        value = type === 's'
-          ? sharedStrings[Number(raw)] ?? ''
-          : raw;
+  if (
+    xmlRows.length === 0
+  ) {
+    throw new Error(
+      'Das Excel-Arbeitsblatt enthält keine Datenzeilen.'
+    );
+  }
+
+  const matrix =
+    xmlRows.map(
+      row => {
+        const values:
+          string[] = [];
+
+        const cells =
+          Array.from(
+            row.getElementsByTagName(
+              'c'
+            )
+          );
+
+        for (
+          const cell
+          of cells
+        ) {
+          const ref =
+            cell.getAttribute(
+              'r'
+            ) ?? 'A1';
+
+          const columnIndex =
+            excelColumnIndex(
+              ref.replace(
+                /\d+/g,
+                ''
+              )
+            );
+
+          const type =
+            cell.getAttribute(
+              't'
+            );
+
+          let value = '';
+
+          if (
+            type ===
+              'inlineStr'
+          ) {
+            value =
+              Array.from(
+                cell
+                  .getElementsByTagName(
+                    't'
+                  )
+              )
+                .map(
+                  node =>
+                    node.textContent ??
+                    ''
+                )
+                .join('');
+          } else {
+            const valueNodes =
+              cell
+                .getElementsByTagName(
+                  'v'
+                );
+
+            const raw =
+              valueNodes[0]
+                ?.textContent ??
+              '';
+
+            if (
+              type === 's'
+            ) {
+              const sharedIndex =
+                Number(raw);
+
+              value =
+                Number.isFinite(
+                  sharedIndex
+                )
+                  ? sharedStrings[
+                      sharedIndex
+                    ] ?? ''
+                  : '';
+            } else if (
+              type === 'str'
+            ) {
+              value =
+                raw;
+            } else {
+              value =
+                raw;
+            }
+          }
+
+          values[
+            columnIndex
+          ] =
+            String(
+              value
+            ).trim();
+        }
+
+        return values;
       }
+    );
 
-      values[columnIndex] = value;
+  return matrixToObjects(
+    matrix
+  );
+}
+
+function findFirstWorksheetPath(
+  files: Map<
+    string,
+    string
+  >
+) {
+  const workbookXml =
+    files.get(
+      'xl/workbook.xml'
+    ) ?? '';
+
+  const relsXml =
+    files.get(
+      'xl/_rels/workbook.xml.rels'
+    ) ?? '';
+
+  if (
+    workbookXml &&
+    relsXml
+  ) {
+    try {
+      const workbookDoc =
+        new DOMParser()
+          .parseFromString(
+            workbookXml,
+            'application/xml'
+          );
+
+      const relsDoc =
+        new DOMParser()
+          .parseFromString(
+            relsXml,
+            'application/xml'
+          );
+
+      const firstSheet =
+        Array.from(
+          workbookDoc
+            .getElementsByTagName(
+              'sheet'
+            )
+        )
+          .find(
+            sheet =>
+              sheet.getAttribute(
+                'state'
+              ) !== 'hidden'
+          ) ??
+        workbookDoc
+          .getElementsByTagName(
+            'sheet'
+          )[0];
+
+      const relationshipId =
+        firstSheet?.getAttribute(
+          'r:id'
+        ) ??
+        firstSheet?.getAttributeNS(
+          'http://schemas.openxmlformats.org/officeDocument/2006/relationships',
+          'id'
+        );
+
+      if (
+        relationshipId
+      ) {
+        const relationship =
+          Array.from(
+            relsDoc
+              .getElementsByTagName(
+                'Relationship'
+              )
+          ).find(
+            item =>
+              item.getAttribute(
+                'Id'
+              ) ===
+              relationshipId
+          );
+
+        const target =
+          relationship
+            ?.getAttribute(
+              'Target'
+            );
+
+        if (target) {
+          const normalized =
+            target.startsWith(
+              '/'
+            )
+              ? target
+                  .replace(
+                    /^\/+/,
+                    ''
+                  )
+              : target.startsWith(
+                  'xl/'
+                )
+                ? target
+                : `xl/${target}`;
+
+          if (
+            files.has(
+              normalized
+            )
+          ) {
+            return normalized;
+          }
+        }
+      }
+    } catch {
+      // Fallback below.
     }
+  }
 
-    return values;
-  });
+  if (
+    files.has(
+      'xl/worksheets/sheet1.xml'
+    )
+  ) {
+    return 'xl/worksheets/sheet1.xml';
+  }
 
-  return matrixToObjects(matrix);
+  return Array.from(
+    files.keys()
+  )
+    .filter(
+      path =>
+        /^xl\/worksheets\/sheet\d+\.xml$/i
+          .test(path)
+    )
+    .sort(
+      (a, b) =>
+        a.localeCompare(
+          b,
+          'de',
+          {
+            numeric: true
+          }
+        )
+    )[0] ?? null;
 }
 
 function csvToRows(text: string) {
@@ -1927,16 +2439,143 @@ function parseCsvLine(line: string, delimiter: string) {
   return result;
 }
 
-function matrixToObjects(matrix: string[][]) {
-  const headers = (matrix[0] ?? []).map(value => value.trim());
+function matrixToObjects(
+  matrix: string[][]
+) {
+  const cleaned =
+    matrix.map(
+      row =>
+        row.map(
+          value =>
+            String(
+              value ?? ''
+            )
+              .replace(
+                /^\uFEFF/,
+                ''
+              )
+              .trim()
+        )
+    );
 
-  return matrix.slice(1).map(row => {
-    const result: Record<string, string> = {};
-    headers.forEach((header, index) => {
-      if (header) result[header] = String(row[index] ?? '').trim();
-    });
-    return result;
-  });
+  const headerIndex =
+    cleaned
+      .slice(
+        0,
+        10
+      )
+      .findIndex(
+        row =>
+          row.some(
+            value => {
+              const normalized =
+                value
+                  .toLocaleLowerCase(
+                    'de'
+                  )
+                  .replace(
+                    /[ä]/g,
+                    'ae'
+                  )
+                  .replace(
+                    /[ö]/g,
+                    'oe'
+                  )
+                  .replace(
+                    /[ü]/g,
+                    'ue'
+                  )
+                  .replace(
+                    /[ß]/g,
+                    'ss'
+                  )
+                  .replace(
+                    /[\s_\-/.]/g,
+                    ''
+                  );
+
+              return [
+                'name',
+                'spieler'
+              ].includes(
+                normalized
+              );
+            }
+          )
+      );
+
+  if (
+    headerIndex < 0
+  ) {
+    const preview =
+      cleaned
+        .slice(
+          0,
+          3
+        )
+        .map(
+          row =>
+            row
+              .filter(Boolean)
+              .join(' | ')
+        )
+        .filter(Boolean)
+        .join(' / ');
+
+    throw new Error(
+      preview
+        ? `Keine Kopfzeile mit NAME/Spieler gefunden. Gelesen wurde: ${preview}`
+        : 'Keine Kopfzeile mit NAME/Spieler gefunden.'
+    );
+  }
+
+  const headers =
+    cleaned[
+      headerIndex
+    ] ?? [];
+
+  return cleaned
+    .slice(
+      headerIndex + 1
+    )
+    .filter(
+      row =>
+        row.some(
+          value =>
+            Boolean(
+              value
+            )
+        )
+    )
+    .map(
+      row => {
+        const result:
+          Record<
+            string,
+            string
+          > = {};
+
+        headers.forEach(
+          (
+            header,
+            index
+          ) => {
+            if (header) {
+              result[
+                header
+              ] =
+                String(
+                  row[
+                    index
+                  ] ?? ''
+                ).trim();
+            }
+          }
+        );
+
+        return result;
+      }
+    );
 }
 
 function parseSharedStrings(xml: string) {
@@ -1991,8 +2630,15 @@ async function unzipXlsx(buffer: ArrayBuffer) {
     );
 
     if (
-      fileName === 'xl/sharedStrings.xml' ||
-      fileName === 'xl/worksheets/sheet1.xml'
+      fileName ===
+        'xl/sharedStrings.xml' ||
+      fileName ===
+        'xl/workbook.xml' ||
+      fileName ===
+        'xl/_rels/workbook.xml.rels' ||
+      /^xl\/worksheets\/sheet\d+\.xml$/i.test(
+        fileName
+      )
     ) {
       const localNameLength = view.getUint16(localOffset + 26, true);
       const localExtraLength = view.getUint16(localOffset + 28, true);
@@ -2314,6 +2960,12 @@ const smallButton: React.CSSProperties = {
 };
 const transfermarktSmallButton: React.CSSProperties = {
   ...smallButton,
+  color: '#0b6b35',
+  borderColor: '#9cc8ad',
+  background: '#f4faf6'
+};
+const transfermarktBulkButton: React.CSSProperties = {
+  ...secondaryButton,
   color: '#0b6b35',
   borderColor: '#9cc8ad',
   background: '#f4faf6'
