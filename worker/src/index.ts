@@ -752,6 +752,97 @@ function transfermarktProfileData(
 }
 
 
+function transfermarktSquadJerseyMap(
+  html: string,
+  baseUrl: URL
+) {
+  const result =
+    new Map<string, string>();
+
+  const rows =
+    html.match(
+      /<tr[\s\S]*?<\/tr>/gi
+    ) ?? [];
+
+  for (
+    const row
+    of rows
+  ) {
+    const hrefMatch =
+      /href=["']([^"']*\/profil\/spieler\/\d+[^"']*)["']/i
+        .exec(row);
+
+    if (
+      !hrefMatch
+    ) {
+      continue;
+    }
+
+    let playerId:
+      string |
+      null = null;
+
+    try {
+      const profileUrl =
+        new URL(
+          decodeHtml(
+            hrefMatch[1]
+          ),
+          baseUrl
+        );
+
+      playerId =
+        transfermarktPlayerId(
+          profileUrl.toString()
+        );
+    } catch {
+      continue;
+    }
+
+    if (
+      !playerId
+    ) {
+      continue;
+    }
+
+    const numberCandidates = [
+      /class=["'][^"']*(?:rn_nummer|rueckennummer|shirt-number|nummer)[^"']*["'][^>]*>\s*(\d{1,2})\s*</i,
+      /<div[^>]*class=["'][^"']*rn_nummer[^"']*["'][^>]*>\s*(\d{1,2})\s*</i,
+      /<td[^>]*class=["'][^"']*zentriert[^"']*["'][^>]*>\s*(\d{1,2})\s*</i
+    ];
+
+    let jerseyNumber = '';
+
+    for (
+      const pattern
+      of numberCandidates
+    ) {
+      const match =
+        pattern.exec(row);
+
+      if (
+        match?.[1]
+      ) {
+        jerseyNumber =
+          match[1];
+        break;
+      }
+    }
+
+    if (
+      jerseyNumber
+    ) {
+      result.set(
+        playerId,
+        jerseyNumber
+      );
+    }
+  }
+
+  return result;
+}
+
+
 function transfermarktSquadProfileUrls(
   html: string,
   baseUrl: URL
@@ -1888,7 +1979,7 @@ export default {
                 ascending: true
               }
             )
-            .limit(2000);
+            .limit(500);
 
         if (error) {
           return json(
@@ -4839,6 +4930,12 @@ export default {
             squadUrl
           );
 
+        const jerseyNumbers =
+          transfermarktSquadJerseyMap(
+            squadHtml,
+            squadUrl
+          );
+
         if (profileUrls.length === 0) {
           return json(
             {
@@ -4991,6 +5088,15 @@ export default {
                   result.value.url.toString(),
                 current_club:
                   'SV Ried',
+                jersey_number:
+                  tmId
+                    ? jerseyNumbers.get(
+                        tmId
+                      ) ??
+                      existing?.jersey_number ??
+                      null
+                    : existing?.jersey_number ??
+                      null,
                 is_own_squad:
                   true,
                 archived_at:
@@ -5098,6 +5204,8 @@ export default {
             updated.length,
           failed_count:
             failed.length,
+          jersey_number_count:
+            jerseyNumbers.size,
           created,
           updated,
           failed:
