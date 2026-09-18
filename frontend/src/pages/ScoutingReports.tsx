@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { Player } from './PlayerProfile';
 import PageHeader from '../components/PageHeader';
+import PlayerImage from '../components/PlayerImage';
 
 export type ScoutingReport = {
   id: number | string;
@@ -1142,6 +1143,15 @@ export default function ScoutingReports({
   }
 
 
+  function openStatLibuda() {
+    window.open(
+      'https://svried.statslibuda.de/',
+      '_blank',
+      'noopener,noreferrer'
+    );
+  }
+
+
   return (
     <main className="page">
       <PageHeader
@@ -1417,6 +1427,15 @@ export default function ScoutingReports({
                 : 'Alle TM aktualisieren'}
             </button>
 
+            <button
+              type="button"
+              onClick={openStatLibuda}
+              style={platformButton}
+              title="StatLibuda in einem neuen Fenster oder Browser-Tab öffnen"
+            >
+              StatLibuda ↗
+            </button>
+
             <button type="button" onClick={() => startNewReport()} style={primaryButton}>
               + Neuer Bericht
             </button>
@@ -1685,118 +1704,159 @@ export default function ScoutingReports({
 
         <div className="vv-scouting-player-grid" style={playerGrid}>
           {filteredPlayerReportInfo.map(({ player, count, latest }) => (
-            <button
+            <article
               key={player.id}
-              type="button"
-              onClick={() => setPlayerFilter(String(player.id))}
               style={{
                 ...playerCard,
                 borderColor:
-                  playerFilter === String(player.id) ? '#0b7a3b' : '#ececec'
+                  playerFilter === String(player.id)
+                    ? '#0b7a3b'
+                    : '#e7e9e7'
               }}
+              onClick={() =>
+                setPlayerFilter(
+                  String(player.id)
+                )
+              }
             >
-              <div style={toolbar}>
-                <div>
-                  <strong>{player.name}</strong>
-                  <div style={subtle}>
+              <div style={playerCardTop}>
+                <div style={playerThumb}>
+                  <PlayerImage
+                    playerId={player.id}
+                    imagePath={player.image_path}
+                    accessToken={accessToken}
+                    apiBase={apiBase}
+                    alt={player.name ?? 'Spieler'}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover'
+                    }}
+                  />
+                </div>
+
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={playerNameRow}>
+                    <strong style={playerName}>
+                      {player.name}
+                    </strong>
+
+                    <span
+                      style={reportCountPill}
+                      title={`${count} Scoutingbericht(e)`}
+                    >
+                      {count}
+                    </span>
+                  </div>
+
+                  <div style={playerClubLine}>
                     {[
-                      player.primary_position,
                       player.current_club,
                       player.league
                     ]
                       .filter(Boolean)
-                      .join(' · ') || 'Keine Stammdaten'}
+                      .join(' · ') || 'Verein / Liga offen'}
                   </div>
 
-                  {(player.scouting_role_1 ||
-                    player.scouting_role_2 ||
-                    player.scouting_role_3) && (
-                    <div
-                      style={{
-                        ...subtle,
-                        color: '#0b6b35',
-                        fontWeight: 700
-                      }}
-                    >
-                      {[
-                        player.scouting_role_1,
-                        player.scouting_role_2,
-                        player.scouting_role_3
-                      ]
-                        .filter(Boolean)
-                        .join(' · ')}
-                    </div>
-                  )}
-
-                  {player.potential != null &&
-                    String(player.potential).trim() && (
-                      <div style={subtle}>
-                        Potenzial: {String(player.potential)}
-                      </div>
-                    )}
-
-                  {player.notes && (
-                    <div
-                      style={{
-                        ...subtle,
-                        whiteSpace: 'pre-wrap'
-                      }}
-                    >
-                      {player.notes}
-                    </div>
-                  )}
+                  <div style={playerMetaLine}>
+                    {[
+                      player.primary_position,
+                      player.nationality,
+                      player.preferred_foot
+                        ? `${player.preferred_foot}fuß`
+                        : null,
+                      player.height_cm
+                        ? `${player.height_cm} cm`
+                        : null
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || 'Stammdaten ergänzen'}
+                  </div>
                 </div>
-                <span style={pill}>{count}</span>
               </div>
 
-              <div style={{ ...subtle, marginTop: '10px' }}>
-                {latest?.observation_date
-                  ? `Letzte Beobachtung: ${latest.observation_date}`
-                  : 'Noch kein Bericht'}
+              {(player.scouting_role_1 ||
+                player.scouting_role_2 ||
+                player.scouting_role_3) && (
+                <div style={roleWrap}>
+                  {[
+                    player.scouting_role_1,
+                    player.scouting_role_2,
+                    player.scouting_role_3
+                  ]
+                    .filter(Boolean)
+                    .map(role => (
+                      <span
+                        key={String(role)}
+                        style={roleChip}
+                      >
+                        {String(role)}
+                      </span>
+                    ))}
+                </div>
+              )}
+
+              <div style={cardStatusRow}>
+                <span>
+                  {latest?.observation_date
+                    ? `Letzte Beobachtung ${latest.observation_date}`
+                    : 'Noch kein Bericht'}
+                </span>
+
+                {player.potential != null &&
+                  String(player.potential).trim() && (
+                    <span style={potentialChip}>
+                      Potenzial {String(player.potential)}
+                    </span>
+                  )}
               </div>
 
-              <div style={buttonRow}>
-                <button
-                  type="button"
-                  onClick={event => {
-                    event.stopPropagation();
-                    startNewReport(
-                      String(player.id)
-                    );
-                  }}
-                  style={smallButton}
-                >
-                  Bericht anlegen
-                </button>
+              {player.notes && (
+                <div style={notePreview}>
+                  {player.notes}
+                </div>
+              )}
 
+              <div
+                style={primaryActionRow}
+                onClick={event =>
+                  event.stopPropagation()
+                }
+              >
                 {onOpenPlayer && (
                   <button
                     type="button"
-                    onClick={event => {
-                      event.stopPropagation();
-                      onOpenPlayer(player);
-                    }}
+                    onClick={() =>
+                      onOpenPlayer(player)
+                    }
                     style={smallButton}
                   >
-                    Profil öffnen
+                    Profil
                   </button>
                 )}
 
                 <button
                   type="button"
-                  onClick={event => {
-                    event.stopPropagation();
+                  onClick={() =>
+                    startNewReport(
+                      String(player.id)
+                    )
+                  }
+                  style={smallButton}
+                >
+                  + Bericht
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
                     refreshTransfermarktPlayer(
                       player
-                    );
-                  }}
+                    )
+                  }
                   disabled={
-                    String(
-                      refreshingPlayerId
-                    ) ===
-                    String(
-                      player.id
-                    ) ||
+                    String(refreshingPlayerId) ===
+                      String(player.id) ||
                     !player.name ||
                     !player.birth_date
                   }
@@ -1804,55 +1864,22 @@ export default function ScoutingReports({
                     !player.birth_date
                       ? 'Für die sichere Zuordnung fehlt das Geburtsdatum.'
                       : player.transfermarkt_url
-                        ? 'Hinterlegtes Transfermarkt-Profil prüfen und aktualisieren'
-                        : 'Transfermarkt über Name, Geburtsdatum und Nationalität suchen'
+                        ? 'Transfermarkt-Profil aktualisieren'
+                        : 'Transfermarkt-Profil suchen'
                   }
-                  style={
-                    transfermarktSmallButton
-                  }
+                  style={transfermarktSmallButton}
                 >
-                  {String(
-                    refreshingPlayerId
-                  ) ===
-                  String(
-                    player.id
-                  )
-                    ? 'Aktualisiert…'
+                  {String(refreshingPlayerId) ===
+                  String(player.id)
+                    ? 'TM …'
                     : player.transfermarkt_url
-                      ? 'TM aktualisieren'
+                      ? 'TM ✓'
                       : 'TM suchen'}
                 </button>
 
                 <button
                   type="button"
-                  onClick={event => {
-                    event.stopPropagation();
-                    setPendingArchivePlayer(
-                      player
-                    );
-                  }}
-                  style={archiveButton}
-                >
-                  Archivieren
-                </button>
-
-                <button
-                  type="button"
-                  onClick={event => {
-                    event.stopPropagation();
-                    setPendingDeletePlayer(
-                      player
-                    );
-                  }}
-                  style={deleteButton}
-                >
-                  Löschen
-                </button>
-
-                <button
-                  type="button"
-                  onClick={event => {
-                    event.stopPropagation();
+                  onClick={() => {
                     setPendingSquadStatus(
                       'Unter Vertrag'
                     );
@@ -1862,10 +1889,42 @@ export default function ScoutingReports({
                   }}
                   style={squadButton}
                 >
-                  In Kader übernehmen
+                  + Kader
                 </button>
+
+                <details style={moreMenu}>
+                  <summary style={moreSummary}>
+                    Mehr
+                  </summary>
+
+                  <div style={moreMenuContent}>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPendingArchivePlayer(
+                          player
+                        )
+                      }
+                      style={archiveButton}
+                    >
+                      Archivieren
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setPendingDeletePlayer(
+                          player
+                        )
+                      }
+                      style={deleteButton}
+                    >
+                      Löschen
+                    </button>
+                  </div>
+                </details>
               </div>
-            </button>
+            </article>
           ))}
         </div>
       </section>
@@ -3091,6 +3150,12 @@ const secondaryButton: React.CSSProperties = {
   cursor: 'pointer',
   fontWeight: 700
 };
+const platformButton: React.CSSProperties = {
+  ...secondaryButton,
+  borderColor: '#9cc8ad',
+  background: '#f4faf6',
+  color: '#0b6b35'
+};
 const archiveButton: React.CSSProperties = {
   border: '1px solid #e2c98d',
   background: '#fffaf0',
@@ -3209,16 +3274,149 @@ const kpiGrid: React.CSSProperties = {
 };
 const playerGrid: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(310px, 1fr))',
   gap: '10px',
   marginTop: '10px'
 };
 const playerCard: React.CSSProperties = {
-  ...panel,
-  textAlign: 'left',
+  background: '#fff',
+  border: '1px solid #e7e9e7',
+  borderRadius: '14px',
+  padding: '14px',
+  boxShadow: '0 3px 12px rgba(0,0,0,.035)',
   cursor: 'pointer',
-  color: 'inherit',
-  font: 'inherit'
+  minWidth: 0
+};
+
+const playerCardTop: React.CSSProperties = {
+  display: 'flex',
+  gap: '12px',
+  alignItems: 'flex-start'
+};
+
+const playerThumb: React.CSSProperties = {
+  width: '58px',
+  height: '72px',
+  flex: '0 0 auto',
+  overflow: 'hidden',
+  borderRadius: '10px',
+  background: '#f0f2f0',
+  border: '1px solid #e6e8e6'
+};
+
+const playerNameRow: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: '8px'
+};
+
+const playerName: React.CSSProperties = {
+  fontSize: '16px',
+  lineHeight: 1.2
+};
+
+const playerClubLine: React.CSSProperties = {
+  marginTop: '5px',
+  color: '#5f665f',
+  fontSize: '12px',
+  lineHeight: 1.35
+};
+
+const playerMetaLine: React.CSSProperties = {
+  marginTop: '4px',
+  color: '#898f89',
+  fontSize: '11px',
+  lineHeight: 1.35
+};
+
+const reportCountPill: React.CSSProperties = {
+  display: 'inline-flex',
+  minWidth: '24px',
+  height: '24px',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '999px',
+  background: '#edf6f0',
+  color: '#0b6b35',
+  fontWeight: 900,
+  fontSize: '11px'
+};
+
+const roleWrap: React.CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap',
+  marginTop: '12px'
+};
+
+const roleChip: React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#edf7f1',
+  color: '#0b6b35',
+  fontSize: '11px',
+  fontWeight: 800,
+  lineHeight: 1.1
+};
+
+const potentialChip: React.CSSProperties = {
+  color: '#0b6b35',
+  fontWeight: 800
+};
+
+const cardStatusRow: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '8px',
+  flexWrap: 'wrap',
+  marginTop: '12px',
+  paddingTop: '10px',
+  borderTop: '1px solid #f0f1f0',
+  color: '#8a8f8a',
+  fontSize: '11px'
+};
+
+const notePreview: React.CSSProperties = {
+  marginTop: '9px',
+  color: '#6f746f',
+  fontSize: '11px',
+  lineHeight: 1.4,
+  overflow: 'hidden',
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical'
+};
+
+const primaryActionRow: React.CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  marginTop: '12px'
+};
+
+const moreMenu: React.CSSProperties = {
+  position: 'relative'
+};
+
+const moreSummary: React.CSSProperties = {
+  listStyle: 'none',
+  border: '1px solid #d0d0d0',
+  background: '#fff',
+  color: '#333',
+  padding: '7px 10px',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  fontWeight: 700,
+  fontSize: '12px'
+};
+
+const moreMenuContent: React.CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap',
+  marginTop: '7px'
 };
 const pill: React.CSSProperties = {
   background: '#eef5f1',
