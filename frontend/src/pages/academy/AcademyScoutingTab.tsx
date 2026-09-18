@@ -92,6 +92,9 @@ export default function AcademyScoutingTab({
   const [positionFilter, setPositionFilter] =
     useState('Alle');
 
+  const [sortMode, setSortMode] =
+    useState('Neueste');
+
   const [form, setForm] =
     useState({
       player_id: '',
@@ -488,60 +491,141 @@ export default function AcademyScoutingTab({
       [sortedPlayers, sortedReports]
     );
 
+  const playersWithReports =
+    playerReportInfo.filter(
+      item => item.reportCount > 0
+    ).length;
+
+  const playersWithoutReports =
+    Math.max(
+      players.length -
+      playersWithReports,
+      0
+    );
+
+  const recommendedReports =
+    reports.filter(
+      report =>
+        Boolean(
+          report.recommendation?.trim()
+        )
+    ).length;
+
+  const nextActionReports =
+    reports.filter(
+      report =>
+        Boolean(
+          report.next_action?.trim()
+        )
+    ).length;
+
   const filteredReports =
     useMemo(
       () => {
         const query =
           search
             .trim()
-            .toLocaleLowerCase('de');
+            .toLocaleLowerCase(
+              'de'
+            );
 
-        return sortedReports.filter(
-          report => {
-            const matchesSearch =
-              !query ||
-              [
-                report.player_name,
-                report.scout_name,
-                report.competition,
-                report.match_name,
-                report.opponent,
-                report.observed_position,
-                report.strengths,
-                report.development_areas,
-                report.recommendation,
-                report.next_action
-              ]
-                .filter(Boolean)
-                .some(value =>
-                  String(value)
-                    .toLocaleLowerCase(
-                      'de'
-                    )
-                    .includes(query)
+        const result =
+          sortedReports.filter(
+            report => {
+              const reportPlayer =
+                players.find(
+                  player =>
+                    String(player.id) ===
+                    String(report.player_id)
                 );
 
-            const matchesPlayer =
-              playerFilter === 'Alle' ||
+              const matchesSearch =
+                !query ||
+                [
+                  report.player_name,
+                  report.scout_name,
+                  report.competition,
+                  report.match_name,
+                  report.opponent,
+                  report.observed_position,
+                  report.strengths,
+                  report.development_areas,
+                  report.overall_impression,
+                  report.recommendation,
+                  report.next_action,
+                  reportPlayer?.name,
+                  reportPlayer?.current_club,
+                  reportPlayer?.primary_position
+                ]
+                  .filter(Boolean)
+                  .some(value =>
+                    String(value)
+                      .toLocaleLowerCase('de')
+                      .includes(query)
+                  );
+
+              const matchesPlayer =
+                playerFilter === 'Alle' ||
+                String(report.player_id) ===
+                  playerFilter;
+
+              const matchesPosition =
+                positionFilter === 'Alle' ||
+                report.observed_position ===
+                  positionFilter ||
+                reportPlayer?.primary_position ===
+                  positionFilter;
+
+              return (
+                matchesSearch &&
+                matchesPlayer &&
+                matchesPosition
+              );
+            }
+          );
+
+        return result.sort(
+          (a, b) => {
+            if (
+              sortMode ===
+              'Potenzial'
+            ) {
+              return (
+                Number(
+                  b.potential_rating ??
+                  -1
+                ) -
+                Number(
+                  a.potential_rating ??
+                  -1
+                )
+              );
+            }
+
+            if (
+              sortMode ===
+              'Name'
+            ) {
+              return String(
+                a.player_name ??
+                ''
+              ).localeCompare(
+                String(
+                  b.player_name ??
+                  ''
+                ),
+                'de'
+              );
+            }
+
+            return String(
+              b.observation_date ??
+              ''
+            ).localeCompare(
               String(
-                report.player_id
-              ) === playerFilter;
-
-            const matchesPosition =
-              positionFilter === 'Alle' ||
-              report.observed_position ===
-                positionFilter ||
-              players.find(
-                player =>
-                  player.id ===
-                  report.player_id
-              )?.primary_position ===
-                positionFilter;
-
-            return (
-              matchesSearch &&
-              matchesPlayer &&
-              matchesPosition
+                a.observation_date ??
+                ''
+              )
             );
           }
         );
@@ -551,7 +635,8 @@ export default function AcademyScoutingTab({
         search,
         playerFilter,
         positionFilter,
-        players
+        players,
+        sortMode
       ]
     );
 
@@ -559,39 +644,41 @@ export default function AcademyScoutingTab({
     setSearch('');
     setPlayerFilter('Alle');
     setPositionFilter('Alle');
+    setSortMode('Neueste');
   }
 
   return (
     <section style={{ marginTop: '18px' }}>
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(3, minmax(0, 1fr))',
-          gap: '10px'
-        }}
-        className="academy-scouting-kpis"
-      >
-        <ScoutingKpi
-          label="Scouting-Spieler"
+      <section style={scoutingOverviewGrid}>
+        <ScoutingOverviewCard
+          label="Spieler"
           value={players.length}
+          hint="im Academy-Scouting"
+          accent
         />
 
-        <ScoutingKpi
-          label="Berichte"
-          value={reports.length}
+        <ScoutingOverviewCard
+          label="Mit Bericht"
+          value={playersWithReports}
+          hint="bereits beobachtet"
         />
 
-        <ScoutingKpi
-          label="Spieler beobachtet"
-          value={
-            new Set(
-              reports.map(
-                report =>
-                  report.player_id
-              )
-            ).size
-          }
+        <ScoutingOverviewCard
+          label="Ohne Bericht"
+          value={playersWithoutReports}
+          hint="noch offen"
+        />
+
+        <ScoutingOverviewCard
+          label="Empfehlung"
+          value={recommendedReports}
+          hint="Berichte"
+        />
+
+        <ScoutingOverviewCard
+          label="Nächste Aktion"
+          value={nextActionReports}
+          hint="definiert"
         />
       </section>
 
@@ -669,7 +756,7 @@ export default function AcademyScoutingTab({
           style={{
             display: 'grid',
             gridTemplateColumns:
-              'minmax(220px, 2fr) repeat(2, minmax(160px, 1fr)) auto',
+              'minmax(220px, 2fr) repeat(3, minmax(150px, 1fr)) auto',
             gap: '10px',
             alignItems: 'end',
             marginTop: '14px'
@@ -735,6 +822,28 @@ export default function AcademyScoutingTab({
                   </option>
                 )
               )}
+            </select>
+          </Field>
+
+          <Field label="Sortierung">
+            <select
+              value={sortMode}
+              onChange={event =>
+                setSortMode(
+                  event.target.value
+                )
+              }
+              style={inputStyle}
+            >
+              <option value="Neueste">
+                Neueste
+              </option>
+              <option value="Potenzial">
+                Potenzial
+              </option>
+              <option value="Name">
+                Name
+              </option>
             </select>
           </Field>
 
@@ -806,7 +915,12 @@ export default function AcademyScoutingTab({
                     playerFilter ===
                     String(player.id)
                       ? '#0b7a3b'
-                      : '#ececec'
+                      : '#ececec',
+                  boxShadow:
+                    playerFilter ===
+                    String(player.id)
+                      ? '0 0 0 1px #0b7a3b'
+                      : '0 3px 10px rgba(0,0,0,.025)'
                 }}
               >
                 <div
@@ -1455,7 +1569,9 @@ export default function AcademyScoutingTab({
                 display: 'flex',
                 justifyContent:
                   'space-between',
-                gap: '12px'
+                gap: '12px',
+                alignItems:
+                  'flex-start'
               }}
             >
               <div>
@@ -1484,12 +1600,48 @@ export default function AcademyScoutingTab({
                 </div>
               </div>
 
-              {report.potential_rating != null && (
-                <span style={roleBadge}>
-                  Potenzial{' '}
-                  {report.potential_rating}/5
+              <div
+                style={{
+                  display: 'flex',
+                  gap: '6px',
+                  flexWrap: 'wrap',
+                  justifyContent: 'flex-end'
+                }}
+              >
+                <span style={academyAverageBadge}>
+                  Ø{' '}
+                  {(() => {
+                    const values = [
+                      report.technical_rating,
+                      report.tactical_rating,
+                      report.athletic_rating,
+                      report.mentality_rating,
+                      report.potential_rating
+                    ].filter(
+                      (value): value is number =>
+                        typeof value === 'number'
+                    );
+
+                    return values.length > 0
+                      ? (
+                          values.reduce(
+                            (sum, value) =>
+                              sum + value,
+                            0
+                          ) /
+                          values.length
+                        ).toFixed(1)
+                      : '–';
+                  })()}
                 </span>
-              )}
+
+                {report.potential_rating != null && (
+                  <span style={roleBadge}>
+                    Potenzial{' '}
+                    {report.potential_rating}/5
+                  </span>
+                )}
+              </div>
             </div>
 
             <InfoLine
@@ -1565,6 +1717,15 @@ export default function AcademyScoutingTab({
               />
             )}
 
+            {report.overall_impression && (
+              <TextBlock
+                label="Gesamteindruck"
+                value={
+                  report.overall_impression
+                }
+              />
+            )}
+
             {report.recommendation && (
               <TextBlock
                 label="Empfehlung"
@@ -1591,6 +1752,64 @@ export default function AcademyScoutingTab({
     </section>
   );
 }
+
+
+function ScoutingOverviewCard({
+  label,
+  value,
+  hint,
+  accent = false
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        ...scoutingOverviewCard,
+        ...(accent
+          ? scoutingOverviewCardAccent
+          : {})
+      }}
+    >
+      <span
+        style={{
+          ...scoutingOverviewLabel,
+          ...(accent
+            ? scoutingOverviewLabelAccent
+            : {})
+        }}
+      >
+        {label}
+      </span>
+
+      <strong
+        style={{
+          ...scoutingOverviewValue,
+          ...(accent
+            ? scoutingOverviewValueAccent
+            : {})
+        }}
+      >
+        {value}
+      </strong>
+
+      <span
+        style={{
+          ...scoutingOverviewHint,
+          ...(accent
+            ? scoutingOverviewHintAccent
+            : {})
+        }}
+      >
+        {hint}
+      </span>
+    </div>
+  );
+}
+
 
 function ScoutingKpi({
   label,
@@ -1788,6 +2007,70 @@ function formatDate(value: string) {
 
   return date.toLocaleDateString('de-DE');
 }
+
+const scoutingOverviewGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(5, minmax(0, 1fr))',
+  gap: '10px'
+};
+
+const scoutingOverviewCard: React.CSSProperties = {
+  border: '1px solid #e4e7e4',
+  borderRadius: '12px',
+  background: '#fff',
+  padding: '12px 14px'
+};
+
+const scoutingOverviewCardAccent: React.CSSProperties = {
+  background: '#0b7a3b',
+  borderColor: '#0b7a3b'
+};
+
+const scoutingOverviewLabel: React.CSSProperties = {
+  display: 'block',
+  color: '#7c827c',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em'
+};
+
+const scoutingOverviewLabelAccent: React.CSSProperties = {
+  color: 'rgba(255,255,255,.76)'
+};
+
+const scoutingOverviewValue: React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#161616',
+  fontSize: '22px',
+  lineHeight: 1
+};
+
+const scoutingOverviewValueAccent: React.CSSProperties = {
+  color: '#fff'
+};
+
+const scoutingOverviewHint: React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#999',
+  fontSize: '10px'
+};
+
+const scoutingOverviewHintAccent: React.CSSProperties = {
+  color: 'rgba(255,255,255,.7)'
+};
+
+const academyAverageBadge: React.CSSProperties = {
+  borderRadius: '999px',
+  padding: '5px 9px',
+  background: '#0b7a3b',
+  color: '#fff',
+  fontSize: '11px',
+  fontWeight: 900
+};
 
 const panel: React.CSSProperties = {
   background: '#fff',
