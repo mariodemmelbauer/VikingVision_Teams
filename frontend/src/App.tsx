@@ -173,8 +173,125 @@ export default function App() {
     start();
   }, [publicP12InviteToken]);
 
+  useEffect(() => {
+    if (publicP12InviteToken) {
+      return;
+    }
+
+    let cancelled = false;
+
+    async function refreshTeamsSession() {
+      try {
+        const result =
+          await initTeams();
+
+        if (
+          cancelled ||
+          !result.user.accessToken
+        ) {
+          return;
+        }
+
+        setInTeams(
+          result.inTeams
+        );
+
+        setUser(
+          current => ({
+            ...current,
+            ...result.user,
+            accessToken:
+              result.user.accessToken
+          })
+        );
+
+        setApiOk(true);
+        setSupabaseError(
+          undefined
+        );
+      } catch (error) {
+        console.error(
+          'Teams token refresh failed:',
+          error
+        );
+      }
+    }
+
+    // Refresh well before the usual Entra access-token expiry.
+    const interval =
+      window.setInterval(
+        refreshTeamsSession,
+        25 * 60 * 1000
+      );
+
+    const handleFocus = () => {
+      refreshTeamsSession();
+    };
+
+    const handleVisibility =
+      () => {
+        if (
+          document.visibilityState ===
+            'visible'
+        ) {
+          refreshTeamsSession();
+        }
+      };
+
+    window.addEventListener(
+      'focus',
+      handleFocus
+    );
+
+    document.addEventListener(
+      'visibilitychange',
+      handleVisibility
+    );
+
+    return () => {
+      cancelled = true;
+
+      window.clearInterval(
+        interval
+      );
+
+      window.removeEventListener(
+        'focus',
+        handleFocus
+      );
+
+      document.removeEventListener(
+        'visibilitychange',
+        handleVisibility
+      );
+    };
+  }, [
+    publicP12InviteToken
+  ]);
+
+
   async function loadPlayers() {
-    const token = user.accessToken;
+    let token =
+      user.accessToken;
+
+    if (!token) {
+      const refreshed =
+        await initTeams();
+
+      token =
+        refreshed.user.accessToken;
+
+      if (token) {
+        setUser(
+          current => ({
+            ...current,
+            ...refreshed.user,
+            accessToken:
+              token
+          })
+        );
+      }
+    }
 
     if (!token) {
       throw new Error(
@@ -182,20 +299,73 @@ export default function App() {
       );
     }
 
-    const response =
-      await fetch(
+    async function requestPlayers(
+      accessToken: string
+    ) {
+      return await fetch(
         `${API_BASE}/players`,
         {
           method: 'GET',
           headers: {
             Authorization:
-              `Bearer ${token}`
+              `Bearer ${accessToken}`
           }
         }
       );
+    }
 
-    const data =
+    let response =
+      await requestPlayers(
+        token
+      );
+
+    let data =
       await response.json();
+
+    const tokenExpired =
+      !response.ok &&
+      typeof data?.error ===
+        'string' &&
+      (
+        data.error.includes(
+          '"exp" claim timestamp check failed'
+        ) ||
+        data.error
+          .toLocaleLowerCase()
+          .includes(
+            'token expired'
+          )
+      );
+
+    if (tokenExpired) {
+      const refreshed =
+        await initTeams();
+
+      const freshToken =
+        refreshed.user.accessToken;
+
+      if (freshToken) {
+        token =
+          freshToken;
+
+        setUser(
+          current => ({
+            ...current,
+            ...refreshed.user,
+            accessToken:
+              freshToken
+          })
+        );
+
+        response =
+          await requestPlayers(
+            freshToken
+          );
+
+        data =
+          await response.json();
+      }
+    }
 
     if (!response.ok) {
       throw new Error(
