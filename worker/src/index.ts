@@ -752,6 +752,58 @@ function transfermarktProfileData(
 }
 
 
+function transfermarktSquadProfileUrls(
+  html: string,
+  baseUrl: URL
+) {
+  const urls: string[] = [];
+  const seen = new Set<string>();
+  const pattern =
+    /href=["']([^"']*\/profil\/spieler\/\d+[^"']*)["']/gi;
+
+  let match: RegExpExecArray | null;
+
+  while ((match = pattern.exec(html))) {
+    try {
+      const candidate =
+        new URL(
+          decodeHtml(match[1]),
+          baseUrl
+        );
+
+      if (
+        !/(^|\.)transfermarkt\./i.test(
+          candidate.hostname
+        )
+      ) {
+        continue;
+      }
+
+      const playerId =
+        transfermarktPlayerId(
+          candidate.toString()
+        );
+
+      if (
+        !playerId ||
+        seen.has(playerId)
+      ) {
+        continue;
+      }
+
+      seen.add(playerId);
+      urls.push(
+        candidate.toString()
+      );
+    } catch {
+      // Ignore malformed links.
+    }
+  }
+
+  return urls;
+}
+
+
 function transfermarktCandidateUrls(
   html: string,
   baseUrl: URL
@@ -4734,6 +4786,339 @@ export default {
         );
       }
     }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/squad/sync-transfermarkt'
+    ) {
+      try {
+        await authenticate(request);
+
+        const supabase =
+          createSupabase(env);
+
+        const squadUrl =
+          new URL(
+            'https://www.transfermarkt.at/sv-ried/kader/verein/266/saison_id/2026/plus/1'
+          );
+
+        const squadResponse =
+          await fetch(
+            squadUrl.toString(),
+            {
+              headers: {
+                'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153 Safari/537.36',
+                'Accept-Language':
+                  'de-AT,de;q=0.9,en;q=0.8',
+                Accept:
+                  'text/html,application/xhtml+xml'
+              },
+              redirect: 'follow'
+            }
+          );
+
+        if (!squadResponse.ok) {
+          return json(
+            {
+              ok: false,
+              error:
+                `Transfermarkt-Kader konnte nicht geladen werden (${squadResponse.status}).`
+            },
+            502
+          );
+        }
+
+        const squadHtml =
+          await squadResponse.text();
+
+        const profileUrls =
+          transfermarktSquadProfileUrls(
+            squadHtml,
+            squadUrl
+          );
+
+        if (profileUrls.length === 0) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Auf der Transfermarkt-Kaderseite wurden keine Spielerprofile gefunden.'
+            },
+            502
+          );
+        }
+
+        const {
+          data: existingPlayers,
+          error: existingPlayersError
+        } =
+          await supabase
+            .from('players')
+            .select('*');
+
+        if (existingPlayersError) {
+          return json(
+            {
+              ok: false,
+              error:
+                existingPlayersError.message
+            },
+            500
+          );
+        }
+
+        const knownPlayers =
+          (existingPlayers ?? []) as Array<
+            Record<string, unknown>
+          >;
+
+        const now =
+          new Date().toISOString();
+
+        const created:
+          Array<Record<string, unknown>> = [];
+        const updated:
+          Array<Record<string, unknown>> = [];
+        const failed:
+          Array<{
+            url: string;
+            error: string;
+          }> = [];
+
+        const concurrency = 4;
+
+        for (
+          let offset = 0;
+          offset < profileUrls.length;
+          offset += concurrency
+        ) {
+          const batch =
+            profileUrls.slice(
+              offset,
+              offset + concurrency
+            );
+
+          const profiles =
+            await Promise.allSettled(
+              batch.map(
+                profileUrl =>
+                  fetchTransfermarktProfile(
+                    profileUrl
+                  )
+              )
+            );
+
+          for (
+            let index = 0;
+            index < profiles.length;
+            index += 1
+          ) {
+            const result =
+              profiles[index];
+            const sourceUrl =
+              batch[index];
+
+            if (result.status === 'rejected') {
+              failed.push({
+                url: sourceUrl,
+                error:
+                  result.reason instanceof Error
+                    ? result.reason.message
+                    : 'Profil konnte nicht geladen werden.'
+              });
+              continue;
+            }
+
+            const parsed =
+              result.value.data;
+
+            if (
+              !parsed.name ||
+              !parsed.birth_date
+            ) {
+              failed.push({
+                url: sourceUrl,
+                error:
+                  'Name oder Geburtsdatum konnten nicht ausgelesen werden.'
+              });
+              continue;
+            }
+
+            const tmId =
+              transfermarktPlayerId(
+                sourceUrl
+              );
+
+            let existing =
+              tmId
+                ? knownPlayers.find(
+                    player =>
+                      transfermarktPlayerId(
+                        player.transfermarkt_url
+                      ) === tmId
+                  )
+                : undefined;
+
+            if (!existing) {
+              const normalizedName =
+                normalizePlayerName(
+                  parsed.name
+                );
+
+              const birthDate =
+                normalizeNullableDate(
+                  parsed.birth_date
+                );
+
+              existing =
+                knownPlayers.find(
+                  player =>
+                    normalizePlayerName(
+                      player.name
+                    ) === normalizedName &&
+                    normalizeNullableDate(
+                      player.birth_date
+                    ) === birthDate
+                );
+            }
+
+            const payload:
+              Record<string, unknown> = {
+                ...parsed,
+                transfermarkt_url:
+                  result.value.url.toString(),
+                current_club:
+                  'SV Ried',
+                is_own_squad:
+                  true,
+                archived_at:
+                  null,
+                last_squad_sync_at:
+                  now,
+                squad_sync_status:
+                  'synced',
+                transfermarkt_updated_at:
+                  now,
+                updated_at:
+                  now
+              };
+
+            if (existing) {
+              payload.squad_status =
+                existing.squad_status ??
+                'Unter Vertrag';
+
+              const {
+                data,
+                error
+              } =
+                await supabase
+                  .from('players')
+                  .update(payload)
+                  .eq(
+                    'id',
+                    existing.id
+                  )
+                  .select('*')
+                  .single();
+
+              if (error) {
+                failed.push({
+                  url: sourceUrl,
+                  error: error.message
+                });
+                continue;
+              }
+
+              updated.push(
+                data as Record<string, unknown>
+              );
+
+              Object.assign(
+                existing,
+                data
+              );
+            } else {
+              payload.squad_status =
+                'Unter Vertrag';
+              payload.created_at =
+                now;
+
+              const {
+                data,
+                error
+              } =
+                await supabase
+                  .from('players')
+                  .insert(payload)
+                  .select('*')
+                  .single();
+
+              if (error) {
+                failed.push({
+                  url: sourceUrl,
+                  error: error.message
+                });
+                continue;
+              }
+
+              const newPlayer =
+                data as Record<string, unknown>;
+
+              created.push(newPlayer);
+              knownPlayers.push(newPlayer);
+            }
+          }
+
+          if (
+            offset + concurrency <
+            profileUrls.length
+          ) {
+            await new Promise(
+              resolve =>
+                setTimeout(
+                  resolve,
+                  250
+                )
+            );
+          }
+        }
+
+        return json({
+          ok: true,
+          source:
+            squadUrl.toString(),
+          source_count:
+            profileUrls.length,
+          created_count:
+            created.length,
+          updated_count:
+            updated.length,
+          failed_count:
+            failed.length,
+          created,
+          updated,
+          failed:
+            failed.slice(0, 20),
+          note:
+            'Nicht gelistete Spieler werden nicht automatisch aus Unser Kader entfernt.'
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Squad sync failed'
+          },
+          401
+        );
+      }
+    }
+
 
     if (
       request.method === 'GET' &&
