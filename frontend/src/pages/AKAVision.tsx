@@ -1584,6 +1584,11 @@ function SportScienceTab({
 }: {
   tests: SportScienceTest[];
 }) {
+  const [search, setSearch] =
+    useState('');
+  const [sortMode, setSortMode] =
+    useState('Name');
+
   const byPlayer =
     new Map<string, SportScienceTest[]>();
 
@@ -1599,7 +1604,7 @@ function SportScienceTab({
     byPlayer.get(key)?.push(test);
   }
 
-  const playerGroups =
+  const allPlayerGroups =
     Array.from(byPlayer.entries())
       .map(([name, rows]) => ({
         name,
@@ -1609,39 +1614,190 @@ function SportScienceTab({
               a.test_date
             )
         )
-      }))
+      }));
+
+  const playerGroups =
+    allPlayerGroups
+      .filter(group =>
+        group.name
+          .toLocaleLowerCase('de')
+          .includes(
+            search
+              .trim()
+              .toLocaleLowerCase('de')
+          )
+      )
       .sort(
-        (a, b) =>
-          a.name.localeCompare(
+        (a, b) => {
+          if (
+            sortMode ===
+            'Neuester Test'
+          ) {
+            return (
+              b.rows[0]?.test_date ??
+              ''
+            ).localeCompare(
+              a.rows[0]?.test_date ??
+              ''
+            );
+          }
+
+          if (
+            sortMode ===
+            'Readiness'
+          ) {
+            return String(
+              a.rows[0]?.readiness ??
+              ''
+            ).localeCompare(
+              String(
+                b.rows[0]?.readiness ??
+                ''
+              ),
+              'de'
+            );
+          }
+
+          return a.name.localeCompare(
             b.name,
             'de'
-          )
+          );
+        }
       );
+
+  const playersWithTests =
+    allPlayerGroups.length;
+
+  const latestDates =
+    allPlayerGroups
+      .map(
+        group =>
+          group.rows[0]?.test_date
+      )
+      .filter(
+        (value): value is string =>
+          Boolean(value)
+      );
+
+  const newestTestDate =
+    latestDates.length > 0
+      ? [...latestDates].sort(
+          (a, b) =>
+            b.localeCompare(a)
+        )[0]
+      : undefined;
+
+  const readinessCount =
+    allPlayerGroups.filter(
+      group =>
+        Boolean(
+          group.rows[0]?.readiness
+        )
+    ).length;
+
+  const trendCount =
+    allPlayerGroups.filter(
+      group =>
+        group.rows.length > 1
+    ).length;
 
   return (
     <section style={{ marginTop: '18px' }}>
-      <div
-        style={{
-          marginBottom: '12px',
-          fontWeight: 700
-        }}
-      >
-        {tests.length} Testdatensätze
-      </div>
+      <section style={sportOverviewGrid}>
+        <SportOverviewCard
+          label="Testdatensätze"
+          value={tests.length}
+          hint="gesamt"
+          accent
+        />
+
+        <SportOverviewCard
+          label="Spieler"
+          value={playersWithTests}
+          hint="mit Daten"
+        />
+
+        <SportOverviewCard
+          label="Verlauf"
+          value={trendCount}
+          hint="mit ≥ 2 Tests"
+        />
+
+        <SportOverviewCard
+          label="Readiness"
+          value={readinessCount}
+          hint="aktuell erfasst"
+        />
+      </section>
+
+      <section style={sportToolbar}>
+        <label>
+          <div style={filterLabel}>
+            Spieler suchen
+          </div>
+
+          <input
+            value={search}
+            onChange={event =>
+              setSearch(
+                event.target.value
+              )
+            }
+            placeholder="Name …"
+            style={filterControl}
+          />
+        </label>
+
+        <label>
+          <div style={filterLabel}>
+            Sortierung
+          </div>
+
+          <select
+            value={sortMode}
+            onChange={event =>
+              setSortMode(
+                event.target.value
+              )
+            }
+            style={filterControl}
+          >
+            <option value="Name">
+              Name
+            </option>
+            <option value="Neuester Test">
+              Neuester Test
+            </option>
+            <option value="Readiness">
+              Readiness
+            </option>
+          </select>
+        </label>
+
+        <div style={sportToolbarInfo}>
+          <span>
+            {playerGroups.length} Spieler
+          </span>
+
+          {newestTestDate && (
+            <span>
+              Letzter Test im Team:{' '}
+              <strong>
+                {formatDate(
+                  newestTestDate
+                )}
+              </strong>
+            </span>
+          )}
+        </div>
+      </section>
 
       {playerGroups.length === 0 ? (
         <section style={panel}>
-          Noch keine Sport-Science-Daten vorhanden.
+          Keine Sport-Science-Daten für die aktuelle Auswahl vorhanden.
         </section>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fill, minmax(340px, 1fr))',
-            gap: '14px'
-          }}
-        >
+        <div style={sportPlayerGrid}>
           {playerGroups.map(group => {
             const latest = group.rows[0];
             const previous = group.rows[1];
@@ -1649,54 +1805,33 @@ function SportScienceTab({
             return (
               <article
                 key={group.name}
-                style={panel}
+                style={sportPlayerCard}
               >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: '12px'
-                  }}
-                >
+                <div style={sportPlayerHeader}>
                   <div>
-                    <strong
-                      style={{
-                        fontSize: '18px'
-                      }}
-                    >
+                    <div style={sportPlayerName}>
                       {group.name}
-                    </strong>
+                    </div>
 
-                    <div
-                      style={{
-                        marginTop: '4px',
-                        color: '#777',
-                        fontSize: '12px'
-                      }}
-                    >
+                    <div style={sportPlayerMeta}>
                       Letzter Test:{' '}
                       {formatDate(
                         latest.test_date
                       )}
+                      {group.rows.length > 1
+                        ? ` · ${group.rows.length} Tests`
+                        : ''}
                     </div>
                   </div>
 
                   {latest.readiness && (
-                    <span style={roleBadge}>
+                    <span style={readinessBadge}>
                       {latest.readiness}
                     </span>
                   )}
                 </div>
 
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns:
-                      'repeat(2, 1fr)',
-                    gap: '8px',
-                    marginTop: '14px'
-                  }}
-                >
+                <div style={sportMetricGrid}>
                   <MetricBox
                     label="Gewicht"
                     value={latest.body_weight_kg}
@@ -1745,10 +1880,24 @@ function SportScienceTab({
                 </div>
 
                 {latest.notes && (
-                  <TextBlock
-                    label="Notiz"
-                    value={latest.notes}
-                  />
+                  <div style={sportNoteBox}>
+                    <div style={sportNoteLabel}>
+                      Notiz
+                    </div>
+
+                    <div style={sportNoteText}>
+                      {latest.notes}
+                    </div>
+                  </div>
+                )}
+
+                {previous && (
+                  <div style={sportTrendHint}>
+                    Vergleich mit Test vom{' '}
+                    {formatDate(
+                      previous.test_date
+                    )}
+                  </div>
                 )}
               </article>
             );
@@ -1758,6 +1907,63 @@ function SportScienceTab({
     </section>
   );
 }
+
+function SportOverviewCard({
+  label,
+  value,
+  hint,
+  accent = false
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        ...sportOverviewCard,
+        ...(accent
+          ? sportOverviewCardAccent
+          : {})
+      }}
+    >
+      <span
+        style={{
+          ...sportOverviewLabel,
+          ...(accent
+            ? sportOverviewLabelAccent
+            : {})
+        }}
+      >
+        {label}
+      </span>
+
+      <strong
+        style={{
+          ...sportOverviewValue,
+          ...(accent
+            ? sportOverviewValueAccent
+            : {})
+        }}
+      >
+        {value}
+      </strong>
+
+      <span
+        style={{
+          ...sportOverviewHint,
+          ...(accent
+            ? sportOverviewHintAccent
+            : {})
+        }}
+      >
+        {hint}
+      </span>
+    </div>
+  );
+}
+
 
 function MetricBox({
   label,
@@ -2807,6 +3013,191 @@ const morePlayersHint:
   React.CSSProperties = {
   marginTop: '10px',
   color: '#888',
+  fontSize: '10px'
+};
+
+const sportOverviewGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(4, minmax(0, 1fr))',
+  gap: '10px'
+};
+
+const sportOverviewCard:
+  React.CSSProperties = {
+  border:
+    '1px solid #e3e7e3',
+  borderRadius: '12px',
+  background: '#fff',
+  padding: '12px 14px'
+};
+
+const sportOverviewCardAccent:
+  React.CSSProperties = {
+  background: '#0b7a3b',
+  borderColor: '#0b7a3b'
+};
+
+const sportOverviewLabel:
+  React.CSSProperties = {
+  display: 'block',
+  color: '#7a807a',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em'
+};
+
+const sportOverviewLabelAccent:
+  React.CSSProperties = {
+  color:
+    'rgba(255,255,255,.76)'
+};
+
+const sportOverviewValue:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#151515',
+  fontSize: '22px',
+  lineHeight: 1
+};
+
+const sportOverviewValueAccent:
+  React.CSSProperties = {
+  color: '#fff'
+};
+
+const sportOverviewHint:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#999',
+  fontSize: '10px'
+};
+
+const sportOverviewHintAccent:
+  React.CSSProperties = {
+  color:
+    'rgba(255,255,255,.7)'
+};
+
+const sportToolbar:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'minmax(220px, 2fr) minmax(180px, 1fr) auto',
+  gap: '10px',
+  alignItems: 'end',
+  marginTop: '14px',
+  marginBottom: '14px',
+  padding: '14px',
+  border:
+    '1px solid #ececec',
+  borderRadius: '12px',
+  background: '#fff'
+};
+
+const sportToolbarInfo:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '12px',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  justifyContent: 'flex-end',
+  color: '#777',
+  fontSize: '11px',
+  paddingBottom: '10px'
+};
+
+const sportPlayerGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(auto-fill, minmax(360px, 1fr))',
+  gap: '14px'
+};
+
+const sportPlayerCard:
+  React.CSSProperties = {
+  background: '#fff',
+  border:
+    '1px solid #e7e9e7',
+  borderRadius: '15px',
+  padding: '16px',
+  boxShadow:
+    '0 3px 12px rgba(0,0,0,.03)'
+};
+
+const sportPlayerHeader:
+  React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '12px',
+  alignItems: 'flex-start'
+};
+
+const sportPlayerName:
+  React.CSSProperties = {
+  fontSize: '18px',
+  fontWeight: 900
+};
+
+const sportPlayerMeta:
+  React.CSSProperties = {
+  marginTop: '4px',
+  color: '#777',
+  fontSize: '11px'
+};
+
+const readinessBadge:
+  React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#edf7f1',
+  color: '#0b6b35',
+  fontSize: '10px',
+  fontWeight: 900
+};
+
+const sportMetricGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(3, minmax(0, 1fr))',
+  gap: '8px',
+  marginTop: '14px'
+};
+
+const sportNoteBox:
+  React.CSSProperties = {
+  marginTop: '12px',
+  padding: '10px',
+  borderRadius: '10px',
+  background: '#f7f8f7'
+};
+
+const sportNoteLabel:
+  React.CSSProperties = {
+  color: '#777',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase'
+};
+
+const sportNoteText:
+  React.CSSProperties = {
+  marginTop: '4px',
+  fontSize: '11px',
+  lineHeight: 1.45,
+  whiteSpace: 'pre-wrap'
+};
+
+const sportTrendHint:
+  React.CSSProperties = {
+  marginTop: '10px',
+  color: '#8b8f8b',
   fontSize: '10px'
 };
 
