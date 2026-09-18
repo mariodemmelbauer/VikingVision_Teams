@@ -352,8 +352,10 @@ function transfermarktNationality(
     transfermarktInfoValue(
       html,
       [
+        'Staatsbürgerschaft:',
         'Nationalität:',
-        'Citizenship:'
+        'Citizenship:',
+        'Nationality:'
       ]
     );
 
@@ -368,7 +370,7 @@ function transfermarktNationality(
 
   const labelIndex =
     html.search(
-      /Nationalität:|Citizenship:/i
+      /Staatsbürgerschaft:|Nationalität:|Citizenship:|Nationality:/i
     );
 
   if (
@@ -393,7 +395,13 @@ function transfermarktNationality(
     }
   }
 
-  return '';
+  const textFallback =
+    transfermarktTextFallback(
+      html,
+      /(?:Staatsbürgerschaft|Nationalität|Citizenship|Nationality)\s*:\s*([^|]{2,80}?)(?=\s+(?:Größe|Height|Position|Berater|Spielerberater|Ehem\.|Länderspiele|$))/i
+    );
+
+  return textFallback;
 }
 
 function transfermarktHeightCm(
@@ -588,6 +596,29 @@ function transfermarktFullName(
 }
 
 
+function transfermarktTextFallback(
+  html: string,
+  labelPattern: RegExp
+) {
+  const text =
+    stripHtml(
+      html
+    );
+
+  const match =
+    labelPattern.exec(
+      text
+    );
+
+  return match?.[1]
+    ?.replace(
+      /\s+/g,
+      ' '
+    )
+    .trim() ??
+    '';
+}
+
 function transfermarktProfileData(
   html: string,
   url: URL
@@ -602,18 +633,28 @@ function transfermarktProfileData(
     transfermarktInfoValue(
       html,
       [
+        'Geb./Alter:',
         'Geburtsdatum/Alter:',
-        'Date of birth/Age:'
+        'Geburtsdatum:',
+        'Date of birth/Age:',
+        'Date of birth:'
       ]
+    ) ||
+    transfermarktTextFallback(
+      html,
+      /(?:Geb\.\/Alter|Geburtsdatum(?:\/Alter)?|Date of birth(?:\/Age)?)\s*:\s*(\d{1,2}[.\/]\d{1,2}[.\/]\d{4})/i
     );
 
   const position =
     transfermarktInfoValue(
       html,
       [
-        'Position:',
         'Position:'
       ]
+    ) ||
+    transfermarktTextFallback(
+      html,
+      /Position\s*:\s*([^|]{2,80}?)(?=\s+(?:Berater|Spielerberater|Ehem\.|Länderspiele|Name im Heimatland|$))/i
     );
 
   const foot =
@@ -632,6 +673,10 @@ function transfermarktProfileData(
         'Größe:',
         'Height:'
       ]
+    ) ||
+    transfermarktTextFallback(
+      html,
+      /(?:Größe|Height)\s*:\s*(\d(?:[,.]\d{1,2})?\s*m|\d{3}\s*cm)/i
     );
 
   const contractRaw =
@@ -647,8 +692,10 @@ function transfermarktProfileData(
     transfermarktInfoValue(
       html,
       [
+        'Spielerberater:',
         'Berater:',
-        'Player agent:'
+        'Player agent:',
+        'Agent:'
       ]
     );
 
@@ -657,6 +704,7 @@ function transfermarktProfileData(
       html,
       [
         'Aktueller Verein:',
+        'Verein:',
         'Current club:'
       ]
     );
