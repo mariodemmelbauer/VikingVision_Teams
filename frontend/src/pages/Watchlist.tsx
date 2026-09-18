@@ -1,6 +1,7 @@
 import PageHeader from '../components/PageHeader';
 import { useEffect, useMemo, useState } from 'react';
 import type { Player } from './PlayerProfile';
+import PlayerImage from '../components/PlayerImage';
 
 export type WatchlistEntry = {
   id: number | string;
@@ -57,6 +58,13 @@ export default function Watchlist({
   const [form, setForm] =
     useState<FormState>(emptyForm);
 
+  const [search, setSearch] =
+    useState('');
+  const [statusFilter, setStatusFilter] =
+    useState('Alle');
+  const [priorityFilter, setPriorityFilter] =
+    useState('Alle');
+
   const sortedPlayers = useMemo(
     () =>
       [...players].sort((a, b) =>
@@ -67,6 +75,84 @@ export default function Watchlist({
       ),
     [players]
   );
+
+  const statuses = useMemo(
+    () => [
+      'Alle',
+      ...Array.from(
+        new Set(
+          entries
+            .map(entry => entry.status)
+            .filter((value): value is string => Boolean(value))
+        )
+      ).sort((a, b) => a.localeCompare(b, 'de'))
+    ],
+    [entries]
+  );
+
+  const priorities = useMemo(
+    () => [
+      'Alle',
+      ...Array.from(
+        new Set(
+          entries
+            .map(entry => entry.priority)
+            .filter((value): value is string => Boolean(value))
+        )
+      )
+    ],
+    [entries]
+  );
+
+  const filteredEntries = useMemo(() => {
+    const query =
+      search.trim().toLocaleLowerCase('de');
+
+    return entries.filter(entry => {
+      const player =
+        players.find(
+          item =>
+            String(item.id) ===
+            String(entry.player_id)
+        );
+
+      const matchesSearch =
+        !query ||
+        [
+          entry.player_name,
+          player?.name,
+          player?.current_club,
+          player?.primary_position,
+          entry.reason
+        ]
+          .filter(Boolean)
+          .some(value =>
+            String(value)
+              .toLocaleLowerCase('de')
+              .includes(query)
+          );
+
+      const matchesStatus =
+        statusFilter === 'Alle' ||
+        entry.status === statusFilter;
+
+      const matchesPriority =
+        priorityFilter === 'Alle' ||
+        entry.priority === priorityFilter;
+
+      return (
+        matchesSearch &&
+        matchesStatus &&
+        matchesPriority
+      );
+    });
+  }, [
+    entries,
+    players,
+    search,
+    statusFilter,
+    priorityFilter
+  ]);
 
   useEffect(() => {
     loadWatchlist();
@@ -286,7 +372,7 @@ export default function Watchlist({
           <span>
             {loading
               ? 'Wird geladen…'
-              : `${entries.length} Einträge`}
+              : `${filteredEntries.length} Einträge`}
           </span>
         }
         actions={
@@ -430,6 +516,83 @@ export default function Watchlist({
         </section>
       )}
 
+      <section
+        style={{
+          ...panel,
+          marginTop: '18px'
+        }}
+      >
+        <div style={watchFilterGrid}>
+          <label>
+            <div style={labelStyle}>Suche</div>
+            <input
+              value={search}
+              onChange={event =>
+                setSearch(event.target.value)
+              }
+              placeholder="Spieler, Verein, Position, Grund …"
+              style={inputStyle}
+            />
+          </label>
+
+          <label>
+            <div style={labelStyle}>Status</div>
+            <select
+              value={statusFilter}
+              onChange={event =>
+                setStatusFilter(
+                  event.target.value
+                )
+              }
+              style={inputStyle}
+            >
+              {statuses.map(status => (
+                <option
+                  key={status}
+                  value={status}
+                >
+                  {status}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <div style={labelStyle}>Priorität</div>
+            <select
+              value={priorityFilter}
+              onChange={event =>
+                setPriorityFilter(
+                  event.target.value
+                )
+              }
+              style={inputStyle}
+            >
+              {priorities.map(priority => (
+                <option
+                  key={priority}
+                  value={priority}
+                >
+                  {priority}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setStatusFilter('Alle');
+              setPriorityFilter('Alle');
+            }}
+            style={secondaryButton}
+          >
+            Zurücksetzen
+          </button>
+        </div>
+      </section>
+
       <section style={{ marginTop: '20px' }}>
         <div
           style={{
@@ -442,7 +605,7 @@ export default function Watchlist({
             : `${entries.length} Einträge`}
         </div>
 
-        {!loading && entries.length === 0 && (
+        {!loading && filteredEntries.length === 0 && (
           <div style={panel}>
             Aktuell sind keine Spieler auf der Watchlist.
           </div>
@@ -456,49 +619,66 @@ export default function Watchlist({
             gap: '14px'
           }}
         >
-          {entries.map(entry => {
+          {filteredEntries.map(entry => {
             const player =
               findPlayer(entry.player_id);
 
             return (
               <article
                 key={entry.id}
-                style={panel}
+                style={watchCard}
               >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: '12px'
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: '19px',
-                        fontWeight: 700
-                      }}
-                    >
+                <div style={watchCardHeader}>
+                  <div style={watchImage}>
+                    {player ? (
+                      <PlayerImage
+                        playerId={player.id}
+                        imagePath={player.image_path}
+                        accessToken={accessToken}
+                        apiBase={apiBase}
+                        alt={player.name ?? 'Spieler'}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    ) : (
+                      <span style={watchFallback}>
+                        {(entry.player_name ?? '?')
+                          .charAt(0)
+                          .toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={watchName}>
                       {entry.player_name ??
                         player?.name ??
                         `Spieler ${entry.player_id}`}
                     </div>
 
-                    <div
-                      style={{
-                        marginTop: '5px',
-                        color: '#666',
-                        fontSize: '13px'
-                      }}
-                    >
-                      Hinzugefügt:{' '}
-                      {entry.added_at
-                        ? new Date(
-                            entry.added_at
-                          ).toLocaleDateString(
-                            'de-DE'
-                          )
-                        : '–'}
+                    <div style={watchMeta}>
+                      {[
+                        player?.current_club,
+                        player?.primary_position
+                      ]
+                        .filter(Boolean)
+                        .join(' · ') || 'Spielerdaten offen'}
+                    </div>
+
+                    <div style={watchBadgeRow}>
+                      {entry.status && (
+                        <span style={statusChip}>
+                          {entry.status}
+                        </span>
+                      )}
+                      {entry.priority && (
+                        <span style={priorityChip}>
+                          {entry.priority}
+                        </span>
+                      )}
                     </div>
                   </div>
 
@@ -662,6 +842,84 @@ function InfoBox({
     </div>
   );
 }
+
+const watchFilterGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'minmax(220px, 2fr) repeat(2, minmax(150px, 1fr)) auto',
+  gap: '10px',
+  alignItems: 'end'
+};
+
+const watchCard: React.CSSProperties = {
+  background: '#fff',
+  borderRadius: '16px',
+  padding: '16px',
+  border: '1px solid #e7e9e7',
+  boxShadow: '0 3px 12px rgba(0,0,0,.035)'
+};
+
+const watchCardHeader: React.CSSProperties = {
+  display: 'flex',
+  gap: '12px',
+  justifyContent: 'space-between',
+  alignItems: 'flex-start'
+};
+
+const watchImage: React.CSSProperties = {
+  width: '58px',
+  height: '72px',
+  flex: '0 0 auto',
+  borderRadius: '10px',
+  overflow: 'hidden',
+  background: '#f0f2f0',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center'
+};
+
+const watchFallback: React.CSSProperties = {
+  fontSize: '20px',
+  fontWeight: 900,
+  color: '#0b7a3b'
+};
+
+const watchName: React.CSSProperties = {
+  fontSize: '18px',
+  fontWeight: 800,
+  lineHeight: 1.2
+};
+
+const watchMeta: React.CSSProperties = {
+  marginTop: '5px',
+  color: '#666',
+  fontSize: '12px'
+};
+
+const watchBadgeRow: React.CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap',
+  marginTop: '8px'
+};
+
+const statusChip: React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#edf7f1',
+  color: '#0b6b35',
+  fontSize: '11px',
+  fontWeight: 800
+};
+
+const priorityChip: React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#f4f4f4',
+  color: '#333',
+  fontSize: '11px',
+  fontWeight: 800
+};
 
 const panel: React.CSSProperties = {
   background: '#ffffff',
