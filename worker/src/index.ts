@@ -752,6 +752,52 @@ function transfermarktProfileData(
 }
 
 
+function svRiedOfficialJerseyFallback() {
+  const values:
+    Array<
+      [string, string]
+    > = [
+      ['Andreas Leitner', '1'],
+      ['Felix Wimmer', '77'],
+      ['Dominik Stöger', '34'],
+      ['Samuel Chukwudi', '28'],
+      ['Oliver Sorg', '7'],
+      ['Oliver Steurer', '30'],
+      ['Dejan Radonjic', '5'],
+      ['Alessandro Goiginger', '33'],
+      ['Philipp Pomer', '17'],
+      ['Martin Rasner', '8'],
+      ['Stefan Schwab', '22'],
+      ['Lukas Malicsek', '4'],
+      ['Jussef Nasrawe', '10'],
+      ['Fabian Lechner', '42'],
+      ['Evan Eghosa Aisowieren', '47'],
+      ['Nermin Mesic', '38'],
+      ['Conrad Scholl', '72'],
+      ['Leonit Zeqiri', '40'],
+      ['Fabian Rossdorfer', '18'],
+      ['Yusuf Maart', '6'],
+      ['Joris Boguo', '15'],
+      ['Ante Bajic', '12'],
+      ['Pape Sissoko', '9'],
+      ['Jaedin Rhodes', '11'],
+      ['Tobias Lund Jensen', '19'],
+      ['Tino Kusanovic', '21'],
+      ['Raphael Arize Pesu', '48'],
+      ['Sefiwu Abubakar', '24']
+    ];
+
+  return new Map(
+    values.map(
+      ([name, number]) => [
+        normalizePlayerName(name),
+        number
+      ]
+    )
+  );
+}
+
+
 function svRiedOfficialJerseyMap(
   html: string
 ) {
@@ -5008,7 +5054,7 @@ export default {
           'https://www.svried.at/teams/profis/';
 
         let officialJerseyNumbers =
-          new Map<string, string>();
+          svRiedOfficialJerseyFallback();
 
         try {
           const officialResponse =
@@ -5034,10 +5080,23 @@ export default {
             const officialHtml =
               await officialResponse.text();
 
-            officialJerseyNumbers =
+            const parsedOfficial =
               svRiedOfficialJerseyMap(
                 officialHtml
               );
+
+            for (
+              const [
+                name,
+                number
+              ]
+              of parsedOfficial.entries()
+            ) {
+              officialJerseyNumbers.set(
+                name,
+                number
+              );
+            }
           }
         } catch {
           // Transfermarkt sync must still work if svried.at is temporarily unavailable.
