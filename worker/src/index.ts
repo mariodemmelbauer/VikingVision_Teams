@@ -798,6 +798,78 @@ function svRiedOfficialJerseyFallback() {
 }
 
 
+function svRiedFindOfficialJersey(
+  playerName: unknown,
+  jerseyMap:
+    Map<string, string>
+) {
+  const normalized =
+    normalizePlayerName(
+      playerName
+    );
+
+  if (!normalized) {
+    return null;
+  }
+
+  const direct =
+    jerseyMap.get(
+      normalized
+    );
+
+  if (direct) {
+    return direct;
+  }
+
+  const playerParts =
+    normalized
+      .split(' ')
+      .filter(Boolean);
+
+  for (
+    const [
+      officialName,
+      number
+    ]
+    of jerseyMap.entries()
+  ) {
+    const officialParts =
+      officialName
+        .split(' ')
+        .filter(Boolean);
+
+    const shorter =
+      playerParts.length <=
+        officialParts.length
+        ? playerParts
+        : officialParts;
+
+    const longer =
+      playerParts.length >
+        officialParts.length
+        ? playerParts
+        : officialParts;
+
+    const allShortPartsPresent =
+      shorter.every(
+        part =>
+          longer.includes(
+            part
+          )
+      );
+
+    if (
+      allShortPartsPresent &&
+      shorter.length >= 2
+    ) {
+      return number;
+    }
+  }
+
+  return null;
+}
+
+
 function svRiedOfficialJerseyMap(
   html: string
 ) {
@@ -5255,10 +5327,9 @@ export default {
                 current_club:
                   'SV Ried',
                 jersey_number:
-                  officialJerseyNumbers.get(
-                    normalizePlayerName(
-                      parsed.name
-                    )
+                  svRiedFindOfficialJersey(
+                    parsed.name,
+                    officialJerseyNumbers
                   ) ??
                   (
                     tmId
@@ -5364,6 +5435,72 @@ export default {
           }
         }
 
+        // Second pass:
+        // Apply official shirt numbers to every existing VikingVision squad player,
+        // even if the player was not present in the current Transfermarkt roster page.
+        let officialNumberUpdates = 0;
+
+        const {
+          data: allOwnSquadPlayers,
+          error: ownSquadError
+        } =
+          await supabase
+            .from('players')
+            .select(
+              'id,name,jersey_number,is_own_squad'
+            )
+            .eq(
+              'is_own_squad',
+              true
+            );
+
+        if (!ownSquadError) {
+          for (
+            const squadPlayer
+            of allOwnSquadPlayers ?? []
+          ) {
+            const officialNumber =
+              svRiedFindOfficialJersey(
+                squadPlayer.name,
+                officialJerseyNumbers
+              );
+
+            if (
+              !officialNumber ||
+              String(
+                squadPlayer.jersey_number ??
+                ''
+              ) ===
+                officialNumber
+            ) {
+              continue;
+            }
+
+            const {
+              error:
+                jerseyUpdateError
+            } =
+              await supabase
+                .from('players')
+                .update({
+                  jersey_number:
+                    officialNumber,
+                  updated_at:
+                    now
+                })
+                .eq(
+                  'id',
+                  squadPlayer.id
+                );
+
+            if (
+              !jerseyUpdateError
+            ) {
+              officialNumberUpdates += 1;
+            }
+          }
+        }
+
         return json({
           ok: true,
           source:
@@ -5380,6 +5517,8 @@ export default {
             jerseyNumbers.size,
           official_jersey_number_count:
             officialJerseyNumbers.size,
+          official_jersey_updates:
+            officialNumberUpdates,
           created,
           updated,
           failed:
