@@ -259,6 +259,8 @@ export default function P12Tab({
     useState<ProfileTab>('data');
   const [search, setSearch] =
     useState('');
+  const [statusFilter, setStatusFilter] =
+    useState('Alle');
 
   const [createForm, setCreateForm] =
     useState({
@@ -292,25 +294,47 @@ export default function P12Tab({
       const query =
         search.trim().toLocaleLowerCase('de');
 
-      return players.filter(player => {
-        if (!query) return true;
+      return [...players]
+        .filter(player => {
+          const matchesSearch =
+            !query ||
+            [
+              player.name,
+              player.primary_position,
+              player.player_role,
+              player.p12_status,
+              player.lead_coach,
+              player.season,
+              player.nationality
+            ]
+              .filter(Boolean)
+              .some(value =>
+                String(value)
+                  .toLocaleLowerCase('de')
+                  .includes(query)
+              );
 
-        return [
-          player.name,
-          player.primary_position,
-          player.player_role,
-          player.p12_status,
-          player.lead_coach,
-          player.season
-        ]
-          .filter(Boolean)
-          .some(value =>
-            String(value)
-              .toLocaleLowerCase('de')
-              .includes(query)
+          const matchesStatus =
+            statusFilter === 'Alle' ||
+            player.p12_status === statusFilter;
+
+          return (
+            matchesSearch &&
+            matchesStatus
           );
-      });
-    }, [players, search]);
+        })
+        .sort((a, b) =>
+          String(a.name ?? '')
+            .localeCompare(
+              String(b.name ?? ''),
+              'de'
+            )
+        );
+    }, [
+      players,
+      search,
+      statusFilter
+    ]);
 
   async function api(
     path: string,
@@ -512,6 +536,28 @@ export default function P12Tab({
         player.p12_status === 'Übergang'
     ).length;
 
+  const observationCount =
+    players.filter(
+      player =>
+        player.p12_status === 'Beobachtung'
+    ).length;
+
+  const pausedCount =
+    players.filter(
+      player =>
+        player.p12_status === 'Pausiert'
+    ).length;
+
+  const leadCoachCount =
+    new Set(
+      players
+        .map(
+          player =>
+            player.lead_coach
+        )
+        .filter(Boolean)
+    ).size;
+
   return (
     <section style={{ marginTop: '18px' }}>
       <div style={toolbar}>
@@ -559,23 +605,88 @@ export default function P12Tab({
 
       <div
         className="academy-p12-kpis"
-        style={kpiGrid}
+        style={p12OverviewGrid}
       >
-        <Kpi
+        <P12OverviewCard
           label="Spieler"
           value={players.length}
-          hint="Spieler im P12-Pool"
+          hint="im P12-Pool"
+          active={
+            statusFilter === 'Alle'
+          }
+          onClick={() =>
+            setStatusFilter('Alle')
+          }
         />
-        <Kpi
+
+        <P12OverviewCard
           label="Aktiv"
           value={activeCount}
-          hint="Aktive Entwicklungsprofile"
+          hint="aktive Profile"
+          active={
+            statusFilter === 'Aktiv'
+          }
+          onClick={() =>
+            setStatusFilter('Aktiv')
+          }
         />
-        <Kpi
+
+        <P12OverviewCard
+          label="Beobachtung"
+          value={observationCount}
+          hint="im Blick"
+          active={
+            statusFilter ===
+            'Beobachtung'
+          }
+          onClick={() =>
+            setStatusFilter(
+              'Beobachtung'
+            )
+          }
+        />
+
+        <P12OverviewCard
           label="Übergang"
           value={transitionCount}
-          hint="Kandidaten für den nächsten Schritt"
+          hint="nächster Schritt"
+          active={
+            statusFilter ===
+            'Übergang'
+          }
+          onClick={() =>
+            setStatusFilter(
+              'Übergang'
+            )
+          }
         />
+
+        <P12OverviewCard
+          label="Pausiert"
+          value={pausedCount}
+          hint="aktuell pausiert"
+          active={
+            statusFilter ===
+            'Pausiert'
+          }
+          onClick={() =>
+            setStatusFilter(
+              'Pausiert'
+            )
+          }
+        />
+
+        <div style={p12InfoCard}>
+          <span style={p12OverviewLabel}>
+            Lead Coaches
+          </span>
+          <strong style={p12OverviewValue}>
+            {leadCoachCount}
+          </strong>
+          <span style={p12OverviewHint}>
+            im Pool
+          </span>
+        </div>
       </div>
 
       {showCreate && (
@@ -752,11 +863,34 @@ export default function P12Tab({
           marginTop: '14px'
         }}
       >
-        <TextField
-          label="Suche"
-          value={search}
-          onChange={setSearch}
-        />
+        <div style={p12FilterGrid}>
+          <TextField
+            label="Suche"
+            value={search}
+            onChange={setSearch}
+          />
+
+          <SelectField
+            label="Status"
+            value={statusFilter}
+            options={[
+              'Alle',
+              ...P12_STATUSES
+            ]}
+            onChange={setStatusFilter}
+          />
+
+          <button
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setStatusFilter('Alle');
+            }}
+            style={secondaryButton}
+          >
+            Zurücksetzen
+          </button>
+        </div>
       </section>
 
       {loading ? (
@@ -808,13 +942,11 @@ export default function P12Tab({
                   </span>
                 </div>
 
-                <div
-                  style={{
-                    marginTop: '12px',
-                    display: 'grid',
-                    gap: '5px'
-                  }}
-                >
+                <div style={p12PlayerFacts}>
+                  <SmallInfo
+                    label="Position"
+                    value={player.primary_position}
+                  />
                   <SmallInfo
                     label="Saison"
                     value={player.season}
@@ -823,17 +955,27 @@ export default function P12Tab({
                     label="Lead Coach"
                     value={player.lead_coach}
                   />
+                  <SmallInfo
+                    label="P12 seit"
+                    value={
+                      player.start_date
+                        ? formatDate(
+                            player.start_date
+                          )
+                        : undefined
+                    }
+                  />
                 </div>
 
-                <div
-                  style={{
-                    marginTop: '14px',
-                    color: '#0b6b35',
-                    fontWeight: 700,
-                    fontSize: '13px'
-                  }}
-                >
-                  P12-Profil öffnen →
+                <div style={p12PlayerFooter}>
+                  <span>
+                    {player.current_club ??
+                      'SV Ried'}
+                  </span>
+
+                  <span style={p12OpenHint}>
+                    P12-Profil öffnen →
+                  </span>
                 </div>
               </button>
             )
@@ -4435,6 +4577,68 @@ function SaveRow({
   );
 }
 
+
+function P12OverviewCard({
+  label,
+  value,
+  hint,
+  active,
+  onClick
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...p12OverviewCard,
+        ...(active
+          ? p12OverviewCardActive
+          : {})
+      }}
+    >
+      <span
+        style={{
+          ...p12OverviewLabel,
+          ...(active
+            ? p12OverviewLabelActive
+            : {})
+        }}
+      >
+        {label}
+      </span>
+
+      <strong
+        style={{
+          ...p12OverviewValue,
+          ...(active
+            ? p12OverviewValueActive
+            : {})
+        }}
+      >
+        {value}
+      </strong>
+
+      <span
+        style={{
+          ...p12OverviewHint,
+          ...(active
+            ? p12OverviewHintActive
+            : {})
+        }}
+      >
+        {hint}
+      </span>
+    </button>
+  );
+}
+
+
 function Kpi({
   label,
   value,
@@ -4567,6 +4771,126 @@ const assessmentDeleteActions:
   display: 'flex',
   gap: '8px',
   flexWrap: 'wrap'
+};
+
+const p12OverviewGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(auto-fit, minmax(125px, 1fr))',
+  gap: '10px',
+  marginTop: '14px'
+};
+
+const p12OverviewCard:
+  React.CSSProperties = {
+  appearance: 'none',
+  border:
+    '1px solid #e4e7e4',
+  borderRadius: '12px',
+  background: '#fff',
+  padding: '12px 14px',
+  textAlign: 'left',
+  font: 'inherit',
+  cursor: 'pointer'
+};
+
+const p12OverviewCardActive:
+  React.CSSProperties = {
+  background: '#0b7a3b',
+  borderColor: '#0b7a3b'
+};
+
+const p12InfoCard:
+  React.CSSProperties = {
+  border:
+    '1px solid #e4e7e4',
+  borderRadius: '12px',
+  background: '#f8f9f8',
+  padding: '12px 14px'
+};
+
+const p12OverviewLabel:
+  React.CSSProperties = {
+  display: 'block',
+  color: '#7c827c',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em'
+};
+
+const p12OverviewLabelActive:
+  React.CSSProperties = {
+  color:
+    'rgba(255,255,255,.78)'
+};
+
+const p12OverviewValue:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#161616',
+  fontSize: '22px',
+  lineHeight: 1
+};
+
+const p12OverviewValueActive:
+  React.CSSProperties = {
+  color: '#fff'
+};
+
+const p12OverviewHint:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#999',
+  fontSize: '10px'
+};
+
+const p12OverviewHintActive:
+  React.CSSProperties = {
+  color:
+    'rgba(255,255,255,.7)'
+};
+
+const p12FilterGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'minmax(240px, 2fr) minmax(180px, 1fr) auto',
+  gap: '10px',
+  alignItems: 'end'
+};
+
+const p12PlayerFacts:
+  React.CSSProperties = {
+  marginTop: '12px',
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(2, minmax(0, 1fr))',
+  gap: '6px 12px'
+};
+
+const p12PlayerFooter:
+  React.CSSProperties = {
+  display: 'flex',
+  justifyContent:
+    'space-between',
+  gap: '10px',
+  alignItems: 'center',
+  marginTop: '14px',
+  paddingTop: '10px',
+  borderTop:
+    '1px solid #eef0ee',
+  color: '#777',
+  fontSize: '11px'
+};
+
+const p12OpenHint:
+  React.CSSProperties = {
+  color: '#0b6b35',
+  fontWeight: 800
 };
 
 const panel: React.CSSProperties = {
