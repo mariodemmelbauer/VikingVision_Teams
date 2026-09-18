@@ -132,6 +132,11 @@ export default function Squad({
       failedCount: number;
     } | null>(null);
 
+  const [search, setSearch] =
+    React.useState('');
+  const [statusFilter, setStatusFilter] =
+    React.useState('Alle');
+
   async function syncSquadFromTransfermarkt() {
     if (!accessToken) {
       setArchiveError(
@@ -255,7 +260,7 @@ export default function Squad({
     }
   }
 
-  const ownSquad =
+  const allOwnSquad =
     players.filter(
       player =>
         Boolean(
@@ -264,6 +269,49 @@ export default function Squad({
           }).is_own_squad
         )
     );
+
+  const squadStatuses =
+    [
+      'Alle',
+      ...Array.from(
+        new Set(
+          allOwnSquad
+            .map(player => player.squad_status)
+            .filter((value): value is string => Boolean(value))
+        )
+      )
+    ];
+
+  const ownSquad =
+    allOwnSquad.filter(player => {
+      const query =
+        search.trim().toLocaleLowerCase('de');
+
+      const matchesSearch =
+        !query ||
+        [
+          player.name,
+          player.primary_position,
+          player.current_club,
+          player.nationality,
+          player.player_role
+        ]
+          .filter(Boolean)
+          .some(value =>
+            String(value)
+              .toLocaleLowerCase('de')
+              .includes(query)
+          );
+
+      const matchesStatus =
+        statusFilter === 'Alle' ||
+        player.squad_status === statusFilter;
+
+      return (
+        matchesSearch &&
+        matchesStatus
+      );
+    });
 
   const groups:
     Record<PositionGroup, Player[]> = {
@@ -332,7 +380,7 @@ export default function Squad({
         meta={
           <>
             <span>
-              {ownSquad.length} Kaderspieler
+              {allOwnSquad.length} Kaderspieler
             </span>
             <span>·</span>
             <span>
@@ -392,6 +440,60 @@ export default function Squad({
           </div>
         </section>
       )}
+
+      <section
+        style={{
+          ...panel,
+          marginTop: '14px'
+        }}
+      >
+        <div style={squadFilterGrid}>
+          <label>
+            <div style={filterLabel}>Suche</div>
+            <input
+              value={search}
+              onChange={event =>
+                setSearch(event.target.value)
+              }
+              placeholder="Name, Position, Rolle, Verein …"
+              style={filterControl}
+            />
+          </label>
+
+          <label>
+            <div style={filterLabel}>Status</div>
+            <select
+              value={statusFilter}
+              onChange={event =>
+                setStatusFilter(
+                  event.target.value
+                )
+              }
+              style={filterControl}
+            >
+              {squadStatuses.map(status => (
+                <option
+                  key={status}
+                  value={status}
+                >
+                  {status}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <button
+            type="button"
+            onClick={() => {
+              setSearch('');
+              setStatusFilter('Alle');
+            }}
+            style={secondaryButton}
+          >
+            Zurücksetzen
+          </button>
+        </div>
+      </section>
 
       {pendingArchivePlayer && (
         <section
@@ -510,7 +612,7 @@ export default function Squad({
               style={{
                 display: 'grid',
                 gridTemplateColumns:
-                  'repeat(auto-fill, minmax(260px, 1fr))',
+                  'repeat(auto-fill, minmax(310px, 1fr))',
                 gap: '14px'
               }}
             >
@@ -779,6 +881,36 @@ export default function Squad({
     </main>
   );
 }
+
+const squadFilterGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'minmax(240px, 2fr) minmax(160px, 1fr) auto',
+  gap: '10px',
+  alignItems: 'end'
+};
+
+const filterLabel:
+  React.CSSProperties = {
+  fontSize: '11px',
+  fontWeight: 800,
+  color: '#666',
+  marginBottom: '6px',
+  textTransform: 'uppercase'
+};
+
+const filterControl:
+  React.CSSProperties = {
+  width: '100%',
+  minHeight: '42px',
+  boxSizing: 'border-box',
+  border: '1px solid #d3d6d3',
+  borderRadius: '9px',
+  padding: '10px',
+  background: '#fff',
+  font: 'inherit'
+};
 
 const panel:
   React.CSSProperties = {
