@@ -1979,7 +1979,7 @@ export default {
                 ascending: true
               }
             )
-            .limit(500);
+            .limit(2000);
 
         if (error) {
           return json(
