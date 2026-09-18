@@ -6508,6 +6508,122 @@ export default {
     if (
       request.method === 'DELETE' &&
       url.pathname.startsWith(
+        '/academy/p12/self-assessments/'
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const assessmentId =
+          url.pathname
+            .slice(
+              '/academy/p12/self-assessments/'.length
+            )
+            .replace(
+              /^\/|\/$/g,
+              ''
+            );
+
+        if (!assessmentId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Bewertungs-ID fehlt.'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          error: scoreError
+        } =
+          await supabase
+            .from(
+              'p12_self_scores'
+            )
+            .delete()
+            .eq(
+              'assessment_id',
+              assessmentId
+            );
+
+        if (scoreError) {
+          return json(
+            {
+              ok: false,
+              error:
+                scoreError.message
+            },
+            500
+          );
+        }
+
+        const {
+          data,
+          error:
+            assessmentError
+        } =
+          await supabase
+            .from(
+              'p12_self_assessments'
+            )
+            .delete()
+            .eq(
+              'id',
+              assessmentId
+            )
+            .select('id')
+            .maybeSingle();
+
+        if (assessmentError) {
+          return json(
+            {
+              ok: false,
+              error:
+                assessmentError.message
+            },
+            500
+          );
+        }
+
+        if (!data) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Spielerselbstbewertung wurde nicht gefunden.'
+            },
+            404
+          );
+        }
+
+        return json({
+          ok: true,
+          deleted_id:
+            assessmentId
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 self assessment delete failed'
+          },
+          401
+        );
+      }
+    }
+
+
+    if (
+      request.method === 'DELETE' &&
+      url.pathname.startsWith(
         '/academy/p12/trainer-assessments/'
       )
     ) {
