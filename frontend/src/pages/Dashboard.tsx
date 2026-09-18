@@ -58,8 +58,8 @@ export default function Dashboard({
       >
         <div>
           <div style={brandLine}>
-            <span style={brandMark}>
-              VV
+            <span style={clubDot}>
+              SVR
             </span>
 
             <span style={eyebrow}>
@@ -145,6 +145,52 @@ export default function Dashboard({
               ? `${playerCount} Spieler`
               : undefined
           }
+        />
+      </section>
+
+      <section
+        style={quickStats}
+      >
+        <QuickStat
+          label="Spieler"
+          value={
+            playerCount !== null
+              ? String(playerCount)
+              : '–'
+          }
+          hint="aktive Profile"
+        />
+
+        <QuickStat
+          label="Arbeitsmodus"
+          value={
+            inTeams
+              ? 'Teams'
+              : 'Browser'
+          }
+          hint="aktuelle Sitzung"
+        />
+
+        <QuickStat
+          label="SSO"
+          value={
+            ssoOk
+              ? 'Aktiv'
+              : 'Fehler'
+          }
+          hint="Microsoft Entra"
+        />
+
+        <QuickStat
+          label="Datenbank"
+          value={
+            supabaseOk === true
+              ? 'Verbunden'
+              : supabaseOk === null
+                ? 'Prüft…'
+                : 'Fehler'
+          }
+          hint="Supabase"
         />
       </section>
 
@@ -287,6 +333,57 @@ export default function Dashboard({
       >
         <div>
           <div style={sectionEyebrow}>
+            Plattformen
+          </div>
+
+          <h2 style={sectionTitle}>
+            Externe Tools
+          </h2>
+        </div>
+
+        <span style={sectionHint}>
+          Öffnet separat · VikingVision bleibt offen
+        </span>
+      </section>
+
+      <button
+        type="button"
+        onClick={() =>
+          window.open(
+            'https://svried.statslibuda.de/',
+            '_blank',
+            'noopener,noreferrer'
+          )
+        }
+        style={statsLibudaCard}
+      >
+        <div>
+          <div style={cardEyebrowStyle}>
+            Analyse-Plattform
+          </div>
+
+          <h3 style={statsLibudaTitle}>
+            StatsLibuda
+          </h3>
+
+          <p style={cardDescription}>
+            Externe SV-Ried-Analyseplattform in einem neuen Browser-Tab bzw. Fenster öffnen.
+          </p>
+        </div>
+
+        <div style={externalArrow}>
+          ↗
+        </div>
+      </button>
+
+      <section
+        style={{
+          ...sectionHeader,
+          marginTop: '30px'
+        }}
+      >
+        <div>
+          <div style={sectionEyebrow}>
             Verwaltung
           </div>
           <h2 style={sectionTitle}>
@@ -308,6 +405,32 @@ export default function Dashboard({
         />
       </section>
     </main>
+  );
+}
+
+function QuickStat({
+  label,
+  value,
+  hint
+}: {
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <div style={quickStatCard}>
+      <div style={quickStatLabel}>
+        {label}
+      </div>
+
+      <div style={quickStatValue}>
+        {value}
+      </div>
+
+      <div style={quickStatHint}>
+        {hint}
+      </div>
+    </div>
   );
 }
 
@@ -470,18 +593,18 @@ const brandLine: CSSProperties = {
   gap: '9px'
 };
 
-const brandMark: CSSProperties = {
+const clubDot: CSSProperties = {
   display: 'inline-flex',
-  width: '30px',
-  height: '30px',
+  height: '26px',
   alignItems: 'center',
   justifyContent: 'center',
-  borderRadius: '9px',
+  borderRadius: '999px',
   background: '#0b7a3b',
   color: '#fff',
-  fontSize: '11px',
+  padding: '0 9px',
+  fontSize: '10px',
   fontWeight: 900,
-  letterSpacing: '.04em'
+  letterSpacing: '.06em'
 };
 
 const eyebrow: CSSProperties = {
@@ -575,6 +698,83 @@ const statusLabel: CSSProperties = {
 
 const statusValue: CSSProperties = {
   color: '#777'
+};
+
+const quickStats: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(4, minmax(0, 1fr))',
+  gap: '10px',
+  marginTop: '12px'
+};
+
+const quickStatCard: CSSProperties = {
+  background: '#fff',
+  border: '1px solid #ececec',
+  borderRadius: '13px',
+  padding: '13px 14px',
+  boxShadow:
+    '0 3px 12px rgba(0,0,0,.025)'
+};
+
+const quickStatLabel: CSSProperties = {
+  color: '#7c827c',
+  fontSize: '9px',
+  textTransform: 'uppercase',
+  letterSpacing: '.07em',
+  fontWeight: 900
+};
+
+const quickStatValue: CSSProperties = {
+  marginTop: '5px',
+  color: '#151515',
+  fontSize: '20px',
+  fontWeight: 900,
+  letterSpacing: '-.02em'
+};
+
+const quickStatHint: CSSProperties = {
+  marginTop: '2px',
+  color: '#999',
+  fontSize: '10px'
+};
+
+const statsLibudaCard: CSSProperties = {
+  width: '100%',
+  minHeight: '120px',
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: '20px',
+  textAlign: 'left',
+  border: '1px solid #cde0d4',
+  borderRadius: '16px',
+  padding: '20px',
+  background:
+    'linear-gradient(135deg, #f7fbf8 0%, #edf7f1 100%)',
+  color: '#171717',
+  font: 'inherit',
+  cursor: 'pointer'
+};
+
+const statsLibudaTitle: CSSProperties = {
+  margin: '6px 0 7px',
+  color: '#0b6b35',
+  fontSize: '21px',
+  letterSpacing: '-.02em'
+};
+
+const externalArrow: CSSProperties = {
+  width: '36px',
+  height: '36px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '50%',
+  border: '1px solid #a8cbb6',
+  color: '#0b6b35',
+  fontSize: '18px',
+  flex: '0 0 auto'
 };
 
 const warningBox: CSSProperties = {
