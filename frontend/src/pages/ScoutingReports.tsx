@@ -2129,46 +2129,312 @@ export default function ScoutingReports({
         )}
 
         <div className="vv-report-grid" style={reportGrid}>
-          {filteredReports.map(report => (
-            <article key={report.id} style={panel}>
-              <div style={toolbar}>
-                <div>
-                  <div style={{ fontSize: '18px', fontWeight: 800 }}>
-                    {report.player_name ?? `Spieler ${report.player_id}`}
+          {filteredReports.map(report => {
+            const reportPlayer =
+              players.find(
+                player =>
+                  String(player.id) ===
+                  String(report.player_id)
+              );
+
+            const ratings = [
+              report.technical_rating,
+              report.tactical_rating,
+              report.athletic_rating,
+              report.mentality_rating,
+              report.potential_rating
+            ].filter(
+              (value): value is number =>
+                typeof value === 'number'
+            );
+
+            const averageRating =
+              ratings.length > 0
+                ? (
+                    ratings.reduce(
+                      (sum, value) =>
+                        sum + value,
+                      0
+                    ) /
+                    ratings.length
+                  ).toFixed(1)
+                : '–';
+
+            return (
+              <article
+                key={report.id}
+                style={reportCard}
+              >
+                <div style={reportHeader}>
+                  <div style={reportPlayerImage}>
+                    {reportPlayer ? (
+                      <PlayerImage
+                        playerId={reportPlayer.id}
+                        imagePath={reportPlayer.image_path}
+                        accessToken={accessToken}
+                        apiBase={apiBase}
+                        alt={
+                          reportPlayer.name ??
+                          'Spieler'
+                        }
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                    ) : (
+                      <span style={reportImageFallback}>
+                        {(report.player_name ?? '?')
+                          .charAt(0)
+                          .toUpperCase()}
+                      </span>
+                    )}
                   </div>
-                  <div style={subtle}>
-                    {report.observation_date ?? '–'} · {report.observed_position ?? 'Position –'}
+
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={reportTitleRow}>
+                      <div>
+                        <div style={reportPlayerName}>
+                          {report.player_name ??
+                            reportPlayer?.name ??
+                            `Spieler ${report.player_id}`}
+                        </div>
+
+                        <div style={reportMeta}>
+                          {[
+                            report.observation_date
+                              ? new Date(
+                                  report.observation_date
+                                ).toLocaleDateString(
+                                  'de-DE'
+                                )
+                              : null,
+                            report.observed_position,
+                            report.opponent
+                              ? `vs. ${report.opponent}`
+                              : null
+                          ]
+                            .filter(Boolean)
+                            .join(' · ') || 'Beobachtung'}
+                        </div>
+                      </div>
+
+                      <div style={averageBadge}>
+                        <span style={averageLabel}>
+                          Ø
+                        </span>
+                        <strong style={averageValue}>
+                          {averageRating}
+                        </strong>
+                      </div>
+                    </div>
+
+                    <div style={reportContextRow}>
+                      {report.competition && (
+                        <span style={contextChip}>
+                          {report.competition}
+                        </span>
+                      )}
+
+                      {report.minutes_played != null && (
+                        <span style={contextChip}>
+                          {report.minutes_played} Min.
+                        </span>
+                      )}
+
+                      {report.scout_name && (
+                        <span style={contextChipMuted}>
+                          Scout: {report.scout_name}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <button type="button" onClick={() => startEdit(report)} style={smallButton}>
-                  Bearbeiten
-                </button>
-              </div>
 
-              <div style={ratingRow}>
-                <MiniRating label="TECH" value={report.technical_rating} />
-                <MiniRating label="TAKT" value={report.tactical_rating} />
-                <MiniRating label="ATHL" value={report.athletic_rating} />
-                <MiniRating label="MENT" value={report.mentality_rating} />
-                <MiniRating label="POT" value={report.potential_rating} />
-              </div>
+                <div style={ratingGrid}>
+                  <RatingBox
+                    label="Technik"
+                    value={report.technical_rating}
+                  />
+                  <RatingBox
+                    label="Taktik"
+                    value={report.tactical_rating}
+                  />
+                  <RatingBox
+                    label="Athletik"
+                    value={report.athletic_rating}
+                  />
+                  <RatingBox
+                    label="Mentalität"
+                    value={report.mentality_rating}
+                  />
+                  <RatingBox
+                    label="Potenzial"
+                    value={report.potential_rating}
+                  />
+                </div>
 
-              <Info label="Scout" value={report.scout_name} />
-              <Info label="Wettbewerb" value={report.competition} />
-              <Info label="Spiel" value={report.match_name} />
-              <Info label="Gegner" value={report.opponent} />
+                {(report.strengths ||
+                  report.development_areas) && (
+                  <div style={reportSplitGrid}>
+                    <ReportTextBox
+                      label="Stärken"
+                      value={report.strengths}
+                      tone="positive"
+                    />
 
-              {report.strengths && <TextBlock label="Stärken" value={report.strengths} />}
-              {report.development_areas && <TextBlock label="Entwicklungsfelder" value={report.development_areas} />}
-              {report.recommendation && <TextBlock label="Empfehlung" value={report.recommendation} />}
-              {report.next_action && <TextBlock label="Nächste Aktion" value={report.next_action} />}
-            </article>
-          ))}
+                    <ReportTextBox
+                      label="Entwicklungsfelder"
+                      value={report.development_areas}
+                      tone="neutral"
+                    />
+                  </div>
+                )}
+
+                {report.overall_impression && (
+                  <div style={impressionBox}>
+                    <div style={reportTextLabel}>
+                      Gesamteindruck
+                    </div>
+                    <div style={reportTextValue}>
+                      {report.overall_impression}
+                    </div>
+                  </div>
+                )}
+
+                {(report.recommendation ||
+                  report.next_action) && (
+                  <div style={decisionGrid}>
+                    <ReportTextBox
+                      label="Empfehlung"
+                      value={report.recommendation}
+                      tone="positive"
+                    />
+
+                    <ReportTextBox
+                      label="Nächste Aktion"
+                      value={report.next_action}
+                      tone="action"
+                    />
+                  </div>
+                )}
+
+                <div style={reportFooter}>
+                  <div style={reportFooterMeta}>
+                    {report.match_name ||
+                      report.opponent ||
+                      'Scoutingbericht'}
+                  </div>
+
+                  <div style={reportFooterActions}>
+                    {reportPlayer &&
+                      onOpenPlayer && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onOpenPlayer(
+                              reportPlayer
+                            )
+                          }
+                          style={smallButton}
+                        >
+                          Spielerprofil
+                        </button>
+                      )}
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        startEdit(report)
+                      }
+                      style={smallButton}
+                    >
+                      Bericht bearbeiten
+                    </button>
+                  </div>
+                </div>
+              </article>
+            );
+          })}
+
         </div>
       </section>
     </main>
   );
 }
+
+
+function RatingBox({
+  label,
+  value
+}: {
+  label: string;
+  value?: number;
+}) {
+  return (
+    <div style={reportRatingBox}>
+      <span style={reportRatingLabel}>
+        {label}
+      </span>
+
+      <strong style={reportRatingValue}>
+        {value ?? '–'}
+      </strong>
+    </div>
+  );
+}
+
+function ReportTextBox({
+  label,
+  value,
+  tone
+}: {
+  label: string;
+  value?: string;
+  tone:
+    | 'positive'
+    | 'neutral'
+    | 'action';
+}) {
+  if (!value) {
+    return (
+      <div style={reportTextBoxMuted}>
+        <div style={reportTextLabel}>
+          {label}
+        </div>
+        <div style={reportTextEmpty}>
+          –
+        </div>
+      </div>
+    );
+  }
+
+  const toneStyle =
+    tone === 'positive'
+      ? reportTextPositive
+      : tone === 'action'
+        ? reportTextAction
+        : reportTextNeutral;
+
+  return (
+    <div
+      style={{
+        ...reportTextBox,
+        ...toneStyle
+      }}
+    >
+      <div style={reportTextLabel}>
+        {label}
+      </div>
+
+      <div style={reportTextValue}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -3125,6 +3391,229 @@ function nullableNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+const reportCard: React.CSSProperties = {
+  background: '#fff',
+  border: '1px solid #e7e9e7',
+  borderRadius: '16px',
+  padding: '16px',
+  boxShadow: '0 3px 12px rgba(0,0,0,.035)'
+};
+
+const reportHeader: React.CSSProperties = {
+  display: 'flex',
+  gap: '12px',
+  alignItems: 'flex-start'
+};
+
+const reportPlayerImage: React.CSSProperties = {
+  width: '58px',
+  height: '72px',
+  flex: '0 0 auto',
+  borderRadius: '10px',
+  overflow: 'hidden',
+  background: '#f0f2f0',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center'
+};
+
+const reportImageFallback: React.CSSProperties = {
+  color: '#0b7a3b',
+  fontWeight: 900,
+  fontSize: '20px'
+};
+
+const reportTitleRow: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '10px',
+  alignItems: 'flex-start'
+};
+
+const reportPlayerName: React.CSSProperties = {
+  fontSize: '18px',
+  fontWeight: 900,
+  lineHeight: 1.2
+};
+
+const reportMeta: React.CSSProperties = {
+  marginTop: '5px',
+  color: '#6f746f',
+  fontSize: '11px',
+  lineHeight: 1.35
+};
+
+const averageBadge: React.CSSProperties = {
+  minWidth: '42px',
+  height: '42px',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '12px',
+  background: '#0b7a3b',
+  color: '#fff',
+  flex: '0 0 auto'
+};
+
+const averageLabel: React.CSSProperties = {
+  fontSize: '8px',
+  opacity: .8,
+  lineHeight: 1
+};
+
+const averageValue: React.CSSProperties = {
+  marginTop: '2px',
+  fontSize: '15px',
+  lineHeight: 1
+};
+
+const reportContextRow: React.CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap',
+  marginTop: '9px'
+};
+
+const contextChip: React.CSSProperties = {
+  padding: '4px 7px',
+  borderRadius: '999px',
+  background: '#edf7f1',
+  color: '#0b6b35',
+  fontSize: '10px',
+  fontWeight: 800
+};
+
+const contextChipMuted: React.CSSProperties = {
+  padding: '4px 7px',
+  borderRadius: '999px',
+  background: '#f3f4f3',
+  color: '#666',
+  fontSize: '10px',
+  fontWeight: 700
+};
+
+const ratingGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+  gap: '6px',
+  marginTop: '14px'
+};
+
+const reportRatingBox: React.CSSProperties = {
+  padding: '8px 6px',
+  borderRadius: '10px',
+  background: '#f7f8f7',
+  textAlign: 'center'
+};
+
+const reportRatingLabel: React.CSSProperties = {
+  display: 'block',
+  color: '#858a85',
+  fontSize: '8px',
+  fontWeight: 800,
+  textTransform: 'uppercase',
+  letterSpacing: '.03em'
+};
+
+const reportRatingValue: React.CSSProperties = {
+  display: 'block',
+  marginTop: '3px',
+  fontSize: '15px'
+};
+
+const reportSplitGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: '8px',
+  marginTop: '12px'
+};
+
+const decisionGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+  gap: '8px',
+  marginTop: '8px'
+};
+
+const reportTextBox: React.CSSProperties = {
+  padding: '10px',
+  borderRadius: '10px',
+  border: '1px solid transparent'
+};
+
+const reportTextBoxMuted: React.CSSProperties = {
+  padding: '10px',
+  borderRadius: '10px',
+  background: '#f7f8f7'
+};
+
+const reportTextPositive: React.CSSProperties = {
+  background: '#f3faf5',
+  borderColor: '#d5e9dc'
+};
+
+const reportTextNeutral: React.CSSProperties = {
+  background: '#f8f8f8',
+  borderColor: '#ececec'
+};
+
+const reportTextAction: React.CSSProperties = {
+  background: '#fff9ec',
+  borderColor: '#efe0b8'
+};
+
+const reportTextLabel: React.CSSProperties = {
+  color: '#737873',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.04em'
+};
+
+const reportTextValue: React.CSSProperties = {
+  marginTop: '4px',
+  color: '#222',
+  fontSize: '11px',
+  lineHeight: 1.45,
+  whiteSpace: 'pre-wrap'
+};
+
+const reportTextEmpty: React.CSSProperties = {
+  marginTop: '4px',
+  color: '#aaa',
+  fontSize: '11px'
+};
+
+const impressionBox: React.CSSProperties = {
+  marginTop: '8px',
+  padding: '10px',
+  borderRadius: '10px',
+  background: '#f7f8f7'
+};
+
+const reportFooter: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  gap: '10px',
+  flexWrap: 'wrap',
+  alignItems: 'center',
+  marginTop: '12px',
+  paddingTop: '11px',
+  borderTop: '1px solid #eef0ee'
+};
+
+const reportFooterMeta: React.CSSProperties = {
+  color: '#888',
+  fontSize: '10px'
+};
+
+const reportFooterActions: React.CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap'
+};
+
 const panel: React.CSSProperties = {
   background: '#fff',
   border: '1px solid #ececec',
@@ -3451,7 +3940,7 @@ const miniRating: React.CSSProperties = {
 };
 const reportGrid: React.CSSProperties = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+  gridTemplateColumns: 'repeat(auto-fill, minmax(380px, 1fr))',
   gap: '14px',
   marginTop: '10px'
 };
