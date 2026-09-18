@@ -2182,6 +2182,14 @@ function SelfAssessmentSection({
     useState<string | undefined>();
   const [copied, setCopied] =
     useState(false);
+  const [pendingDeleteId, setPendingDeleteId] =
+    useState<number | null>(null);
+  const [deletingId, setDeletingId] =
+    useState<number | null>(null);
+  const [deleteError, setDeleteError] =
+    useState<string | undefined>();
+  const [deleteSuccess, setDeleteSuccess] =
+    useState<string | undefined>();
 
   async function createInvite() {
     setWorking(true);
@@ -2244,6 +2252,40 @@ function SelfAssessmentSection({
       setCopied(true);
     } catch {
       setCopied(false);
+    }
+  }
+
+  async function deleteSelfAssessment(
+    assessment: SelfAssessment
+  ) {
+    setDeletingId(
+      assessment.id
+    );
+    setDeleteError(undefined);
+    setDeleteSuccess(undefined);
+
+    try {
+      await api(
+        `/academy/p12/self-assessments/${assessment.id}`,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      setPendingDeleteId(null);
+      setDeleteSuccess(
+        `Spielerselbstbewertung "${assessment.period_label}" wurde gelöscht.`
+      );
+
+      await onReload();
+    } catch (err) {
+      setDeleteError(
+        err instanceof Error
+          ? err.message
+          : 'Spielerselbstbewertung konnte nicht gelöscht werden.'
+      );
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -2343,6 +2385,18 @@ function SelfAssessmentSection({
             {inviteError}
           </div>
         )}
+
+        {deleteSuccess && (
+          <div style={successBox}>
+            {deleteSuccess}
+          </div>
+        )}
+
+        {deleteError && (
+          <div style={errorBox}>
+            {deleteError}
+          </div>
+        )}
       </section>
 
       {assessments.length === 0 ? (
@@ -2369,14 +2423,94 @@ function SelfAssessmentSection({
                 style={panel}
               >
                 <div style={toolbar}>
-                  <strong>
-                    {assessment.period_label}
-                  </strong>
-                  <span style={subtle}>
-                    {assessment.assessment_date ??
-                      '–'}
-                  </span>
+                  <div>
+                    <strong>
+                      {assessment.period_label}
+                    </strong>
+                    <div style={subtle}>
+                      {assessment.assessment_date ??
+                        '–'}
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingDeleteId(
+                        assessment.id
+                      );
+                      setDeleteError(undefined);
+                      setDeleteSuccess(undefined);
+                    }}
+                    disabled={
+                      deletingId ===
+                      assessment.id
+                    }
+                    style={assessmentDeleteButton}
+                  >
+                    {deletingId ===
+                    assessment.id
+                      ? 'Wird gelöscht…'
+                      : 'Selbstbewertung löschen'}
+                  </button>
                 </div>
+
+                {pendingDeleteId ===
+                  assessment.id && (
+                  <div
+                    style={{
+                      ...assessmentDeleteConfirm,
+                      marginTop: '12px'
+                    }}
+                  >
+                    <div>
+                      <strong>
+                        Diese Spielerselbstbewertung wirklich löschen?
+                      </strong>
+
+                      <div style={assessmentDeleteHint}>
+                        Die Bewertungsphase und alle dazugehörigen Einzelbewertungen werden dauerhaft gelöscht. Ein bereits verwendeter Einladungslink bleibt verbraucht; für eine neue Selbsteinschätzung kann anschließend ein neuer Link erstellt werden.
+                      </div>
+                    </div>
+
+                    <div style={assessmentDeleteActions}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPendingDeleteId(
+                            null
+                          )
+                        }
+                        disabled={
+                          deletingId ===
+                          assessment.id
+                        }
+                        style={secondaryButton}
+                      >
+                        Abbrechen
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          deleteSelfAssessment(
+                            assessment
+                          )
+                        }
+                        disabled={
+                          deletingId ===
+                          assessment.id
+                        }
+                        style={assessmentDeleteButton}
+                      >
+                        {deletingId ===
+                        assessment.id
+                          ? 'Wird gelöscht…'
+                          : 'Ja, Selbstbewertung löschen'}
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div
                   className="academy-p12-form-grid"
