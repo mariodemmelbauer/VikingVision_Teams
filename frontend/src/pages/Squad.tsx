@@ -130,6 +130,7 @@ export default function Squad({
       createdCount: number;
       updatedCount: number;
       failedCount: number;
+      jerseyNumberCount: number;
     } | null>(null);
 
   const [search, setSearch] =
@@ -185,7 +186,9 @@ export default function Squad({
         updatedCount:
           data.updated_count ?? 0,
         failedCount:
-          data.failed_count ?? 0
+          data.failed_count ?? 0,
+        jerseyNumberCount:
+          data.jersey_number_count ?? 0
       });
 
       setArchiveSuccess(
@@ -426,6 +429,7 @@ export default function Squad({
             Transfermarkt: {syncResult.sourceCount} Spieler ·
             {' '}Neu: {syncResult.createdCount} ·
             {' '}Aktualisiert: {syncResult.updatedCount} ·
+            {' '}Trikotnummern: {syncResult.jerseyNumberCount} ·
             {' '}Fehler: {syncResult.failedCount}
           </div>
 
@@ -714,11 +718,11 @@ export default function Squad({
                                 borderRadius:
                                   '7px',
                                 padding:
-                                  '3px 7px',
+                                  '4px 8px',
                                 fontWeight:
-                                  700,
+                                  900,
                                 fontSize:
-                                  '12px'
+                                  '13px'
                               }}
                             >
                               {
