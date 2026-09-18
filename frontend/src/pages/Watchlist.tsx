@@ -64,6 +64,8 @@ export default function Watchlist({
     useState('Alle');
   const [priorityFilter, setPriorityFilter] =
     useState('Alle');
+  const [sortMode, setSortMode] =
+    useState('Priorität');
 
   const sortedPlayers = useMemo(
     () =>
@@ -108,51 +110,208 @@ export default function Watchlist({
     const query =
       search.trim().toLocaleLowerCase('de');
 
-    return entries.filter(entry => {
-      const player =
-        players.find(
-          item =>
-            String(item.id) ===
-            String(entry.player_id)
-        );
+    const priorityRank = (
+      value?: string
+    ) => {
+      const normalized =
+        String(value ?? '')
+          .toLocaleLowerCase('de')
+          .trim();
 
-      const matchesSearch =
-        !query ||
-        [
-          entry.player_name,
-          player?.name,
-          player?.current_club,
-          player?.primary_position,
-          entry.reason
-        ]
-          .filter(Boolean)
-          .some(value =>
-            String(value)
-              .toLocaleLowerCase('de')
-              .includes(query)
+      if (
+        normalized === 'hoch' ||
+        normalized === 'high' ||
+        normalized === 'a'
+      ) {
+        return 0;
+      }
+
+      if (
+        normalized === 'mittel' ||
+        normalized === 'medium' ||
+        normalized === 'b'
+      ) {
+        return 1;
+      }
+
+      if (
+        normalized === 'niedrig' ||
+        normalized === 'low' ||
+        normalized === 'c'
+      ) {
+        return 2;
+      }
+
+      return 3;
+    };
+
+    const result =
+      entries.filter(entry => {
+        const player =
+          players.find(
+            item =>
+              String(item.id) ===
+              String(entry.player_id)
           );
 
-      const matchesStatus =
-        statusFilter === 'Alle' ||
-        entry.status === statusFilter;
+        const matchesSearch =
+          !query ||
+          [
+            entry.player_name,
+            player?.name,
+            player?.current_club,
+            player?.primary_position,
+            player?.league,
+            entry.reason
+          ]
+            .filter(Boolean)
+            .some(value =>
+              String(value)
+                .toLocaleLowerCase('de')
+                .includes(query)
+            );
 
-      const matchesPriority =
-        priorityFilter === 'Alle' ||
-        entry.priority === priorityFilter;
+        const matchesStatus =
+          statusFilter === 'Alle' ||
+          entry.status === statusFilter;
 
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesPriority
-      );
-    });
+        const matchesPriority =
+          priorityFilter === 'Alle' ||
+          entry.priority === priorityFilter;
+
+        return (
+          matchesSearch &&
+          matchesStatus &&
+          matchesPriority
+        );
+      });
+
+    return result.sort(
+      (a, b) => {
+        if (
+          sortMode ===
+          'Priorität'
+        ) {
+          const rankDiff =
+            priorityRank(
+              a.priority
+            ) -
+            priorityRank(
+              b.priority
+            );
+
+          if (rankDiff !== 0) {
+            return rankDiff;
+          }
+        }
+
+        if (
+          sortMode ===
+          'Neueste'
+        ) {
+          return String(
+            b.added_at ?? ''
+          ).localeCompare(
+            String(
+              a.added_at ?? ''
+            )
+          );
+        }
+
+        if (
+          sortMode ===
+          'Name'
+        ) {
+          return String(
+            a.player_name ??
+            findPlayerName(
+              players,
+              a.player_id
+            )
+          ).localeCompare(
+            String(
+              b.player_name ??
+              findPlayerName(
+                players,
+                b.player_id
+              )
+            ),
+            'de'
+          );
+        }
+
+        return String(
+          b.added_at ?? ''
+        ).localeCompare(
+          String(
+            a.added_at ?? ''
+          )
+        );
+      }
+    );
   }, [
     entries,
     players,
     search,
     statusFilter,
-    priorityFilter
+    priorityFilter,
+    sortMode
   ]);
+
+  const highPriorityCount =
+    entries.filter(
+      entry =>
+        ['hoch', 'high', 'a']
+          .includes(
+            String(
+              entry.priority ?? ''
+            )
+              .toLocaleLowerCase(
+                'de'
+              )
+              .trim()
+          )
+    ).length;
+
+  const newThirtyDaysCount =
+    entries.filter(
+      entry => {
+        if (!entry.added_at) {
+          return false;
+        }
+
+        const added =
+          new Date(
+            entry.added_at
+          );
+
+        if (
+          Number.isNaN(
+            added.getTime()
+          )
+        ) {
+          return false;
+        }
+
+        const limit =
+          new Date();
+
+        limit.setDate(
+          limit.getDate() -
+          30
+        );
+
+        return added >= limit;
+      }
+    ).length;
+
+  const activeStatusCount =
+    statuses.length > 0
+      ? Math.max(
+          statuses.length - 1,
+          0
+        )
+      : 0;
 
   useEffect(() => {
     loadWatchlist();
@@ -386,6 +545,33 @@ export default function Watchlist({
         }
       />
 
+      <section style={watchOverviewGrid}>
+        <WatchOverviewCard
+          label="Watchlist"
+          value={entries.length}
+          hint="Spieler gesamt"
+        />
+
+        <WatchOverviewCard
+          label="Hohe Priorität"
+          value={highPriorityCount}
+          hint="sofort im Fokus"
+          accent
+        />
+
+        <WatchOverviewCard
+          label="Neu"
+          value={newThirtyDaysCount}
+          hint="letzte 30 Tage"
+        />
+
+        <WatchOverviewCard
+          label="Status"
+          value={activeStatusCount}
+          hint="aktive Kategorien"
+        />
+      </section>
+
       {error && (
         <section style={errorBox}>
           <strong>Fehler:</strong>
@@ -579,12 +765,36 @@ export default function Watchlist({
             </select>
           </label>
 
+          <label>
+            <div style={labelStyle}>Sortierung</div>
+            <select
+              value={sortMode}
+              onChange={event =>
+                setSortMode(
+                  event.target.value
+                )
+              }
+              style={inputStyle}
+            >
+              <option value="Priorität">
+                Priorität
+              </option>
+              <option value="Neueste">
+                Neueste
+              </option>
+              <option value="Name">
+                Name
+              </option>
+            </select>
+          </label>
+
           <button
             type="button"
             onClick={() => {
               setSearch('');
               setStatusFilter('Alle');
               setPriorityFilter('Alle');
+              setSortMode('Priorität');
             }}
             style={secondaryButton}
           >
@@ -680,6 +890,18 @@ export default function Watchlist({
                         </span>
                       )}
                     </div>
+
+                    {entry.added_at && (
+                      <div style={watchDate}>
+                        Seit{' '}
+                        {new Date(
+                          entry.added_at
+                        ).toLocaleDateString(
+                          'de-DE'
+                        )}
+                        {' '}auf der Watchlist
+                      </div>
+                    )}
                   </div>
 
                   <div
@@ -775,6 +997,80 @@ export default function Watchlist({
   );
 }
 
+
+function findPlayerName(
+  players: Player[],
+  playerId:
+    number |
+    string
+) {
+  return (
+    players.find(
+      player =>
+        String(player.id) ===
+        String(playerId)
+    )?.name ??
+    ''
+  );
+}
+
+function WatchOverviewCard({
+  label,
+  value,
+  hint,
+  accent = false
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        ...watchOverviewCard,
+        ...(accent
+          ? watchOverviewCardAccent
+          : {})
+      }}
+    >
+      <span
+        style={{
+          ...watchOverviewLabel,
+          ...(accent
+            ? watchOverviewLabelAccent
+            : {})
+        }}
+      >
+        {label}
+      </span>
+
+      <strong
+        style={{
+          ...watchOverviewValue,
+          ...(accent
+            ? watchOverviewValueAccent
+            : {})
+        }}
+      >
+        {value}
+      </strong>
+
+      <span
+        style={{
+          ...watchOverviewHint,
+          ...(accent
+            ? watchOverviewHintAccent
+            : {})
+        }}
+      >
+        {hint}
+      </span>
+    </div>
+  );
+}
+
+
 function FormField({
   label,
   children
@@ -843,10 +1139,72 @@ function InfoBox({
   );
 }
 
+const watchOverviewGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(4, minmax(0, 1fr))',
+  gap: '10px',
+  marginTop: '14px'
+};
+
+const watchOverviewCard: React.CSSProperties = {
+  border: '1px solid #e4e7e4',
+  borderRadius: '12px',
+  background: '#fff',
+  padding: '12px 14px'
+};
+
+const watchOverviewCardAccent: React.CSSProperties = {
+  background: '#0b7a3b',
+  borderColor: '#0b7a3b'
+};
+
+const watchOverviewLabel: React.CSSProperties = {
+  display: 'block',
+  color: '#777d77',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em'
+};
+
+const watchOverviewLabelAccent: React.CSSProperties = {
+  color: 'rgba(255,255,255,.76)'
+};
+
+const watchOverviewValue: React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#161616',
+  fontSize: '22px',
+  lineHeight: 1
+};
+
+const watchOverviewValueAccent: React.CSSProperties = {
+  color: '#fff'
+};
+
+const watchOverviewHint: React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#999',
+  fontSize: '10px'
+};
+
+const watchOverviewHintAccent: React.CSSProperties = {
+  color: 'rgba(255,255,255,.72)'
+};
+
+const watchDate: React.CSSProperties = {
+  marginTop: '7px',
+  color: '#8b8f8b',
+  fontSize: '10px'
+};
+
 const watchFilterGrid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'minmax(220px, 2fr) repeat(2, minmax(150px, 1fr)) auto',
+    'minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)) auto',
   gap: '10px',
   alignItems: 'end'
 };
