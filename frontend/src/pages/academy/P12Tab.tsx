@@ -1020,8 +1020,63 @@ function P12PlayerProfile({
 
   return (
     <section style={{ marginTop: '18px' }}>
-      <div style={toolbar}>
-        <div>
+      <section style={p12ProfileHero}>
+        <div style={p12ProfileIdentity}>
+          <div style={p12ProfileAvatar}>
+            {player.name
+              ?.split(' ')
+              .slice(0, 2)
+              .map(part =>
+                part
+                  .charAt(0)
+                  .toUpperCase()
+              )
+              .join('') ||
+              'P12'}
+          </div>
+
+          <div style={{ minWidth: 0 }}>
+            <div style={p12ProfileEyebrow}>
+              P12Vision · Spielerprofil
+            </div>
+
+            <h2 style={p12ProfileName}>
+              {player.name ??
+                'P12-Spieler'}
+            </h2>
+
+            <div style={p12ProfileMeta}>
+              {[
+                player.primary_position,
+                player.player_role,
+                player.current_club
+              ]
+                .filter(Boolean)
+                .join(' · ')}
+            </div>
+
+            <div style={p12ProfileBadges}>
+              <span style={p12ProfileStatusBadge}>
+                {player.p12_status ??
+                  'Aktiv'}
+              </span>
+
+              {player.season && (
+                <span style={p12ProfileSoftBadge}>
+                  {player.season}
+                </span>
+              )}
+
+              {player.lead_coach && (
+                <span style={p12ProfileSoftBadge}>
+                  Lead Coach: {player.lead_coach}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div style={p12ProfileActions}>
           <button
             type="button"
             onClick={onBack}
@@ -1029,38 +1084,6 @@ function P12PlayerProfile({
           >
             ← P12-Übersicht
           </button>
-
-          <h2
-            style={{
-              margin: '14px 0 0'
-            }}
-          >
-            {player.name ??
-              'P12-Spieler'}
-          </h2>
-
-          <div style={subtle}>
-            {[
-              player.primary_position,
-              player.player_role,
-              player.p12_status
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </div>
-        </div>
-
-        <div
-          style={{
-            display: 'flex',
-            gap: '8px',
-            alignItems: 'center',
-            flexWrap: 'wrap'
-          }}
-        >
-          <span style={pill}>
-            {player.season ?? 'P12'}
-          </span>
 
           <button
             type="button"
@@ -1072,7 +1095,85 @@ function P12PlayerProfile({
             PDF / Drucken
           </button>
         </div>
-      </div>
+      </section>
+
+      <section style={p12ProfileStats}>
+        <P12ProfileStat
+          label="Trainerbewertungen"
+          value={
+            detail.trainerAssessments.length
+          }
+          hint={
+            detail.trainerAssessments[0]
+              ?.assessment_date
+              ? `zuletzt ${formatDate(
+                  detail.trainerAssessments[0]
+                    .assessment_date!
+                )}`
+              : 'noch offen'
+          }
+        />
+
+        <P12ProfileStat
+          label="Selbstbewertungen"
+          value={
+            detail.selfAssessments.length
+          }
+          hint={
+            detail.selfAssessments[0]
+              ?.assessment_date
+              ? `zuletzt ${formatDate(
+                  detail.selfAssessments[0]
+                    .assessment_date!
+                )}`
+              : 'noch offen'
+          }
+        />
+
+        <P12ProfileStat
+          label="Sport Science"
+          value={
+            detail.sportsScienceTests.length
+          }
+          hint={
+            detail.sportsScienceTests.length >
+            0
+              ? `zuletzt ${formatDate(
+                  [...detail.sportsScienceTests]
+                    .sort(
+                      (a, b) =>
+                        String(
+                          b.test_date ??
+                          ''
+                        ).localeCompare(
+                          String(
+                            a.test_date ??
+                            ''
+                          )
+                        )
+                    )[0]
+                    ?.test_date ??
+                    ''
+                )}`
+              : 'noch offen'
+          }
+        />
+
+        <P12ProfileStat
+          label="P12 seit"
+          value={
+            player.start_date
+              ? formatDate(
+                  player.start_date
+                )
+              : '–'
+          }
+          hint={
+            player.season ??
+            'Saison offen'
+          }
+        />
+      </section>
 
       {error && (
         <div style={errorBox}>
@@ -4411,6 +4512,36 @@ function valuesMap(
   return result;
 }
 
+
+function P12ProfileStat({
+  label,
+  value,
+  hint
+}: {
+  label: string;
+  value:
+    string |
+    number;
+  hint: string;
+}) {
+  return (
+    <div style={p12ProfileStatCard}>
+      <span style={p12ProfileStatLabel}>
+        {label}
+      </span>
+
+      <strong style={p12ProfileStatValue}>
+        {value}
+      </strong>
+
+      <span style={p12ProfileStatHint}>
+        {hint}
+      </span>
+    </div>
+  );
+}
+
+
 function ProfileTabButton({
   active,
   onClick,
@@ -4794,6 +4925,152 @@ const assessmentDeleteActions:
   display: 'flex',
   gap: '8px',
   flexWrap: 'wrap'
+};
+
+const p12ProfileHero:
+  React.CSSProperties = {
+  display: 'flex',
+  justifyContent:
+    'space-between',
+  gap: '18px',
+  alignItems:
+    'flex-start',
+  flexWrap: 'wrap',
+  padding: '18px',
+  borderRadius: '16px',
+  background: '#fff',
+  border:
+    '1px solid #e7e9e7'
+};
+
+const p12ProfileIdentity:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '14px',
+  alignItems: 'center',
+  minWidth: 0
+};
+
+const p12ProfileAvatar:
+  React.CSSProperties = {
+  width: '64px',
+  height: '64px',
+  flex: '0 0 auto',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '16px',
+  background: '#0b7a3b',
+  color: '#fff',
+  fontSize: '16px',
+  fontWeight: 900,
+  letterSpacing: '.03em'
+};
+
+const p12ProfileEyebrow:
+  React.CSSProperties = {
+  color: '#0b7a3b',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.07em'
+};
+
+const p12ProfileName:
+  React.CSSProperties = {
+  margin: '4px 0 0',
+  fontSize: '26px',
+  lineHeight: 1.05,
+  letterSpacing: '-.025em'
+};
+
+const p12ProfileMeta:
+  React.CSSProperties = {
+  marginTop: '5px',
+  color: '#666',
+  fontSize: '12px',
+  lineHeight: 1.4
+};
+
+const p12ProfileBadges:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap',
+  marginTop: '9px'
+};
+
+const p12ProfileStatusBadge:
+  React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#edf7f1',
+  color: '#0b6b35',
+  fontSize: '10px',
+  fontWeight: 900
+};
+
+const p12ProfileSoftBadge:
+  React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#f2f3f2',
+  color: '#555',
+  fontSize: '10px',
+  fontWeight: 800
+};
+
+const p12ProfileActions:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '8px',
+  flexWrap: 'wrap',
+  justifyContent: 'flex-end'
+};
+
+const p12ProfileStats:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(4, minmax(0, 1fr))',
+  gap: '10px',
+  marginTop: '12px'
+};
+
+const p12ProfileStatCard:
+  React.CSSProperties = {
+  padding: '11px 12px',
+  borderRadius: '11px',
+  background: '#fff',
+  border:
+    '1px solid #e7e9e7'
+};
+
+const p12ProfileStatLabel:
+  React.CSSProperties = {
+  display: 'block',
+  color: '#858a85',
+  fontSize: '8px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em'
+};
+
+const p12ProfileStatValue:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#161616',
+  fontSize: '20px',
+  lineHeight: 1
+};
+
+const p12ProfileStatHint:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#999',
+  fontSize: '9px'
 };
 
 const p12OverviewGrid:
