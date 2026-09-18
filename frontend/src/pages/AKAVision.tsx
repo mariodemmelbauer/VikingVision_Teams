@@ -2028,119 +2028,405 @@ function SkillAcTab({
 }: {
   forms: SkillAcForm[];
 }) {
-  const sorted =
-    [...forms].sort(
-      (a, b) =>
-        String(
-          a.player_name ?? ''
-        ).localeCompare(
-          String(
-            b.player_name ?? ''
-          ),
-          'de'
+  const [search, setSearch] =
+    useState('');
+  const [sortMode, setSortMode] =
+    useState('Name');
+  const [periodFilter, setPeriodFilter] =
+    useState('Alle');
+
+  const periods =
+    [
+      'Alle',
+      ...Array.from(
+        new Set(
+          forms
+            .flatMap(
+              form => [
+                form.period_old,
+                form.period_new
+              ]
+            )
+            .filter(
+              (value): value is string =>
+                Boolean(
+                  value?.trim()
+                )
+            )
+            .map(
+              value =>
+                value.trim()
+            )
         )
-    );
+      ).sort(
+        (a, b) =>
+          a.localeCompare(
+            b,
+            'de'
+          )
+      )
+    ];
+
+  const completeCount =
+    forms.filter(
+      form =>
+        Boolean(
+          form.skill_new &&
+          form.ac_new
+        )
+    ).length;
+
+  const reflectionCount =
+    forms.filter(
+      form =>
+        Boolean(
+          form.reflection
+        )
+    ).length;
+
+  const changeCount =
+    forms.filter(
+      form =>
+        Boolean(
+          form.biggest_changes
+        )
+    ).length;
+
+  const playerCount =
+    new Set(
+      forms.map(
+        form =>
+          String(
+            form.academy_player_id
+          )
+      )
+    ).size;
+
+  const filtered =
+    [...forms]
+      .filter(
+        form => {
+          const query =
+            search
+              .trim()
+              .toLocaleLowerCase(
+                'de'
+              );
+
+          const matchesSearch =
+            !query ||
+            [
+              form.player_name,
+              form.team_old,
+              form.team_new,
+              form.skill_old,
+              form.skill_new,
+              form.ac_old,
+              form.ac_new,
+              form.biggest_changes,
+              form.reflection,
+              form.consequence_general
+            ]
+              .filter(Boolean)
+              .some(
+                value =>
+                  String(
+                    value
+                  )
+                    .toLocaleLowerCase(
+                      'de'
+                    )
+                    .includes(
+                      query
+                    )
+              );
+
+          const matchesPeriod =
+            periodFilter ===
+              'Alle' ||
+            form.period_old ===
+              periodFilter ||
+            form.period_new ===
+              periodFilter;
+
+          return (
+            matchesSearch &&
+            matchesPeriod
+          );
+        }
+      )
+      .sort(
+        (a, b) => {
+          if (
+            sortMode ===
+            'Periode'
+          ) {
+            return String(
+              b.period_new ??
+              b.period_old ??
+              ''
+            ).localeCompare(
+              String(
+                a.period_new ??
+                a.period_old ??
+                ''
+              ),
+              'de'
+            );
+          }
+
+          if (
+            sortMode ===
+            'Team'
+          ) {
+            return String(
+              a.team_new ??
+              a.team_old ??
+              ''
+            ).localeCompare(
+              String(
+                b.team_new ??
+                b.team_old ??
+                ''
+              ),
+              'de'
+            );
+          }
+
+          return String(
+            a.player_name ?? ''
+          ).localeCompare(
+            String(
+              b.player_name ??
+              ''
+            ),
+            'de'
+          );
+        }
+      );
 
   return (
     <section style={{ marginTop: '18px' }}>
-      <div
-        style={{
-          marginBottom: '12px',
-          fontWeight: 700
-        }}
-      >
-        {sorted.length} Skill-/AC-Formulare
+      <section style={skillOverviewGrid}>
+        <SkillOverviewCard
+          label="Formulare"
+          value={forms.length}
+          hint="gesamt"
+          accent
+        />
+
+        <SkillOverviewCard
+          label="Spieler"
+          value={playerCount}
+          hint="mit Skill / AC"
+        />
+
+        <SkillOverviewCard
+          label="Vollständig"
+          value={completeCount}
+          hint="Skill + AC neu"
+        />
+
+        <SkillOverviewCard
+          label="Reflexion"
+          value={reflectionCount}
+          hint="erfasst"
+        />
+
+        <SkillOverviewCard
+          label="Veränderungen"
+          value={changeCount}
+          hint="dokumentiert"
+        />
+      </section>
+
+      <section style={skillToolbar}>
+        <label>
+          <div style={filterLabel}>
+            Suche
+          </div>
+
+          <input
+            value={search}
+            onChange={event =>
+              setSearch(
+                event.target.value
+              )
+            }
+            placeholder="Spieler, Skill, AC, Reflexion …"
+            style={filterControl}
+          />
+        </label>
+
+        <label>
+          <div style={filterLabel}>
+            Periode
+          </div>
+
+          <select
+            value={periodFilter}
+            onChange={event =>
+              setPeriodFilter(
+                event.target.value
+              )
+            }
+            style={filterControl}
+          >
+            {periods.map(
+              period => (
+                <option
+                  key={period}
+                  value={period}
+                >
+                  {period}
+                </option>
+              )
+            )}
+          </select>
+        </label>
+
+        <label>
+          <div style={filterLabel}>
+            Sortierung
+          </div>
+
+          <select
+            value={sortMode}
+            onChange={event =>
+              setSortMode(
+                event.target.value
+              )
+            }
+            style={filterControl}
+          >
+            <option value="Name">
+              Name
+            </option>
+            <option value="Periode">
+              Periode
+            </option>
+            <option value="Team">
+              Team
+            </option>
+          </select>
+        </label>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSearch('');
+            setPeriodFilter(
+              'Alle'
+            );
+            setSortMode('Name');
+          }}
+          style={secondaryButton}
+        >
+          Zurücksetzen
+        </button>
+      </section>
+
+      <div style={skillResultBar}>
+        <span>
+          {filtered.length} von {forms.length} Formularen
+        </span>
       </div>
 
-      {sorted.length === 0 ? (
+      {filtered.length === 0 ? (
         <section style={panel}>
-          Noch keine Skill-/AC-Daten vorhanden.
+          Keine Skill-/AC-Daten für die aktuelle Auswahl vorhanden.
         </section>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fill, minmax(360px, 1fr))',
-            gap: '14px'
-          }}
-        >
-          {sorted.map(form => (
+        <div style={skillCardGrid}>
+          {filtered.map(form => (
             <article
               key={form.id}
-              style={panel}
+              style={skillCard}
             >
-              <strong
-                style={{
-                  fontSize: '18px'
-                }}
-              >
-                {form.player_name ??
-                  `Spieler ${form.academy_player_id}`}
-              </strong>
+              <div style={skillCardHeader}>
+                <div>
+                  <div style={skillPlayerName}>
+                    {form.player_name ??
+                      `Spieler ${form.academy_player_id}`}
+                  </div>
 
-              <div
-                style={{
-                  marginTop: '4px',
-                  color: '#777',
-                  fontSize: '12px'
-                }}
-              >
-                {[
-                  form.period_old,
-                  form.period_new
-                ]
-                  .filter(Boolean)
-                  .join(' → ')}
+                  <div style={skillPeriod}>
+                    {[
+                      form.period_old,
+                      form.period_new
+                    ]
+                      .filter(Boolean)
+                      .join(' → ') ||
+                      'Periode offen'}
+                  </div>
+                </div>
+
+                {(form.team_old ||
+                  form.team_new) && (
+                  <span style={skillTeamBadge}>
+                    {[
+                      form.team_old,
+                      form.team_new
+                    ]
+                      .filter(Boolean)
+                      .join(' → ')}
+                  </span>
+                )}
               </div>
 
-              {(form.team_old || form.team_new) && (
-                <InfoLine
-                  label="Team"
-                  value={[
-                    form.team_old,
-                    form.team_new
-                  ]
-                    .filter(Boolean)
-                    .join(' → ')}
-                />
-              )}
-
-              {(form.skill_old || form.skill_new) && (
-                <TextCompare
+              <div style={skillCompareGrid}>
+                <SkillCompareBox
                   title="Skill"
                   oldValue={form.skill_old}
                   newValue={form.skill_new}
                 />
-              )}
 
-              {(form.ac_old || form.ac_new) && (
-                <TextCompare
+                <SkillCompareBox
                   title="AC"
                   oldValue={form.ac_old}
                   newValue={form.ac_new}
                 />
-              )}
+              </div>
 
               {form.biggest_changes && (
-                <TextBlock
+                <SkillTextBox
                   label="Größte Veränderungen"
                   value={form.biggest_changes}
+                  tone="positive"
                 />
               )}
 
               {form.consequence_general && (
-                <TextBlock
+                <SkillTextBox
                   label="Konsequenz allgemein"
                   value={form.consequence_general}
+                  tone="neutral"
                 />
               )}
 
               {form.reflection && (
-                <TextBlock
+                <SkillTextBox
                   label="Reflexion"
                   value={form.reflection}
+                  tone="reflection"
                 />
+              )}
+
+              {(form.author_old ||
+                form.author_new) && (
+                <div style={skillFooter}>
+                  <span>
+                    Autor:{' '}
+                    <strong>
+                      {[
+                        form.author_old,
+                        form.author_new
+                      ]
+                        .filter(Boolean)
+                        .join(' → ')}
+                    </strong>
+                  </span>
+                </div>
               )}
             </article>
           ))}
@@ -2149,6 +2435,141 @@ function SkillAcTab({
     </section>
   );
 }
+
+function SkillOverviewCard({
+  label,
+  value,
+  hint,
+  accent = false
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        ...skillOverviewCard,
+        ...(accent
+          ? skillOverviewCardAccent
+          : {})
+      }}
+    >
+      <span
+        style={{
+          ...skillOverviewLabel,
+          ...(accent
+            ? skillOverviewLabelAccent
+            : {})
+        }}
+      >
+        {label}
+      </span>
+
+      <strong
+        style={{
+          ...skillOverviewValue,
+          ...(accent
+            ? skillOverviewValueAccent
+            : {})
+        }}
+      >
+        {value}
+      </strong>
+
+      <span
+        style={{
+          ...skillOverviewHint,
+          ...(accent
+            ? skillOverviewHintAccent
+            : {})
+        }}
+      >
+        {hint}
+      </span>
+    </div>
+  );
+}
+
+function SkillCompareBox({
+  title,
+  oldValue,
+  newValue
+}: {
+  title: string;
+  oldValue?: string;
+  newValue?: string;
+}) {
+  return (
+    <div style={skillCompareBox}>
+      <div style={skillCompareTitle}>
+        {title}
+      </div>
+
+      <div style={skillCompareColumns}>
+        <div style={skillCompareOld}>
+          <div style={skillCompareLabel}>
+            Alt
+          </div>
+
+          <div style={skillCompareValue}>
+            {oldValue || '–'}
+          </div>
+        </div>
+
+        <div style={skillCompareNew}>
+          <div style={skillCompareLabel}>
+            Neu
+          </div>
+
+          <div style={skillCompareValue}>
+            {newValue || '–'}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SkillTextBox({
+  label,
+  value,
+  tone
+}: {
+  label: string;
+  value: string;
+  tone:
+    | 'positive'
+    | 'neutral'
+    | 'reflection';
+}) {
+  const toneStyle =
+    tone === 'positive'
+      ? skillTextPositive
+      : tone ===
+          'reflection'
+        ? skillTextReflection
+        : skillTextNeutral;
+
+  return (
+    <div
+      style={{
+        ...skillTextBox,
+        ...toneStyle
+      }}
+    >
+      <div style={skillTextLabel}>
+        {label}
+      </div>
+
+      <div style={skillTextValue}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 
 function TextCompare({
   title,
@@ -3198,6 +3619,263 @@ const sportTrendHint:
   React.CSSProperties = {
   marginTop: '10px',
   color: '#8b8f8b',
+  fontSize: '10px'
+};
+
+const skillOverviewGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(5, minmax(0, 1fr))',
+  gap: '10px'
+};
+
+const skillOverviewCard:
+  React.CSSProperties = {
+  border:
+    '1px solid #e3e7e3',
+  borderRadius: '12px',
+  background: '#fff',
+  padding: '12px 14px'
+};
+
+const skillOverviewCardAccent:
+  React.CSSProperties = {
+  background: '#0b7a3b',
+  borderColor: '#0b7a3b'
+};
+
+const skillOverviewLabel:
+  React.CSSProperties = {
+  display: 'block',
+  color: '#7a807a',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em'
+};
+
+const skillOverviewLabelAccent:
+  React.CSSProperties = {
+  color:
+    'rgba(255,255,255,.76)'
+};
+
+const skillOverviewValue:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#151515',
+  fontSize: '22px',
+  lineHeight: 1
+};
+
+const skillOverviewValueAccent:
+  React.CSSProperties = {
+  color: '#fff'
+};
+
+const skillOverviewHint:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#999',
+  fontSize: '10px'
+};
+
+const skillOverviewHintAccent:
+  React.CSSProperties = {
+  color:
+    'rgba(255,255,255,.7)'
+};
+
+const skillToolbar:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'minmax(240px, 2fr) repeat(2, minmax(150px, 1fr)) auto',
+  gap: '10px',
+  alignItems: 'end',
+  marginTop: '14px',
+  padding: '14px',
+  border:
+    '1px solid #ececec',
+  borderRadius: '12px',
+  background: '#fff'
+};
+
+const skillResultBar:
+  React.CSSProperties = {
+  marginTop: '12px',
+  marginBottom: '10px',
+  color: '#666',
+  fontSize: '11px',
+  fontWeight: 700
+};
+
+const skillCardGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(auto-fill, minmax(380px, 1fr))',
+  gap: '14px'
+};
+
+const skillCard:
+  React.CSSProperties = {
+  background: '#fff',
+  border:
+    '1px solid #e7e9e7',
+  borderRadius: '15px',
+  padding: '16px',
+  boxShadow:
+    '0 3px 12px rgba(0,0,0,.03)'
+};
+
+const skillCardHeader:
+  React.CSSProperties = {
+  display: 'flex',
+  justifyContent:
+    'space-between',
+  alignItems: 'flex-start',
+  gap: '12px'
+};
+
+const skillPlayerName:
+  React.CSSProperties = {
+  fontSize: '18px',
+  fontWeight: 900
+};
+
+const skillPeriod:
+  React.CSSProperties = {
+  marginTop: '4px',
+  color: '#777',
+  fontSize: '11px'
+};
+
+const skillTeamBadge:
+  React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#edf7f1',
+  color: '#0b6b35',
+  fontSize: '10px',
+  fontWeight: 900
+};
+
+const skillCompareGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(2, minmax(0, 1fr))',
+  gap: '8px',
+  marginTop: '14px'
+};
+
+const skillCompareBox:
+  React.CSSProperties = {
+  minWidth: 0
+};
+
+const skillCompareTitle:
+  React.CSSProperties = {
+  marginBottom: '6px',
+  fontSize: '11px',
+  fontWeight: 900
+};
+
+const skillCompareColumns:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(2, minmax(0, 1fr))',
+  gap: '6px'
+};
+
+const skillCompareOld:
+  React.CSSProperties = {
+  background: '#f6f7f6',
+  borderRadius: '9px',
+  padding: '9px'
+};
+
+const skillCompareNew:
+  React.CSSProperties = {
+  background: '#f1f8f3',
+  borderRadius: '9px',
+  padding: '9px'
+};
+
+const skillCompareLabel:
+  React.CSSProperties = {
+  color: '#858985',
+  fontSize: '8px',
+  fontWeight: 900,
+  textTransform: 'uppercase'
+};
+
+const skillCompareValue:
+  React.CSSProperties = {
+  marginTop: '4px',
+  color: '#222',
+  fontSize: '11px',
+  lineHeight: 1.4,
+  whiteSpace: 'pre-wrap'
+};
+
+const skillTextBox:
+  React.CSSProperties = {
+  marginTop: '9px',
+  borderRadius: '10px',
+  padding: '10px',
+  border:
+    '1px solid transparent'
+};
+
+const skillTextPositive:
+  React.CSSProperties = {
+  background: '#f3faf5',
+  borderColor: '#d5eadc'
+};
+
+const skillTextNeutral:
+  React.CSSProperties = {
+  background: '#f8f8f8',
+  borderColor: '#ececec'
+};
+
+const skillTextReflection:
+  React.CSSProperties = {
+  background: '#fff9ed',
+  borderColor: '#f0e1b9'
+};
+
+const skillTextLabel:
+  React.CSSProperties = {
+  color: '#737873',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.04em'
+};
+
+const skillTextValue:
+  React.CSSProperties = {
+  marginTop: '4px',
+  color: '#222',
+  fontSize: '11px',
+  lineHeight: 1.45,
+  whiteSpace: 'pre-wrap'
+};
+
+const skillFooter:
+  React.CSSProperties = {
+  marginTop: '10px',
+  paddingTop: '9px',
+  borderTop:
+    '1px solid #eef0ee',
+  color: '#888',
   fontSize: '10px'
 };
 
