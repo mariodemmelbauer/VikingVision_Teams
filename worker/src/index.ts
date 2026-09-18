@@ -752,6 +752,74 @@ function transfermarktProfileData(
 }
 
 
+function svRiedOfficialJerseyMap(
+  html: string
+) {
+  const result =
+    new Map<string, string>();
+
+  const text =
+    stripHtml(
+      html
+    )
+      .replace(
+        /\u00a0/g,
+        ' '
+      )
+      .replace(
+        /\s+/g,
+        ' '
+      )
+      .trim();
+
+  // The official SV Ried squad page renders entries like:
+  // 1|Andreas Leitner, 77|Felix Wimmer, 34|Dominik Stöger, ...
+  const pattern =
+    /(?:^|\s)(\d{1,2})\s*\|\s*([A-ZÀ-ÖØ-ÝÄÖÜ][A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß.'’\-]+(?:\s+[A-ZÀ-ÖØ-ÝÄÖÜ][A-Za-zÀ-ÖØ-öø-ÿÄÖÜäöüß.'’\-]+){1,4})(?=\s|$)/g;
+
+  let match:
+    RegExpExecArray |
+    null;
+
+  while (
+    (
+      match =
+        pattern.exec(
+          text
+        )
+    )
+  ) {
+    const number =
+      match[1];
+
+    const name =
+      match[2]
+        .replace(
+          /\s+/g,
+          ' '
+        )
+        .trim();
+
+    const key =
+      normalizePlayerName(
+        name
+      );
+
+    if (
+      key &&
+      number
+    ) {
+      result.set(
+        key,
+        number
+      );
+    }
+  }
+
+  return result;
+}
+
+
 function transfermarktSquadJerseyMap(
   html: string,
   baseUrl: URL
@@ -4936,6 +5004,45 @@ export default {
             squadUrl
           );
 
+        const officialRosterUrl =
+          'https://www.svried.at/teams/profis/';
+
+        let officialJerseyNumbers =
+          new Map<string, string>();
+
+        try {
+          const officialResponse =
+            await fetch(
+              officialRosterUrl,
+              {
+                headers: {
+                  'User-Agent':
+                    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/153 Safari/537.36',
+                  'Accept-Language':
+                    'de-AT,de;q=0.9,en;q=0.8',
+                  Accept:
+                    'text/html,application/xhtml+xml'
+                },
+                redirect:
+                  'follow'
+              }
+            );
+
+          if (
+            officialResponse.ok
+          ) {
+            const officialHtml =
+              await officialResponse.text();
+
+            officialJerseyNumbers =
+              svRiedOfficialJerseyMap(
+                officialHtml
+              );
+          }
+        } catch {
+          // Transfermarkt sync must still work if svried.at is temporarily unavailable.
+        }
+
         if (profileUrls.length === 0) {
           return json(
             {
@@ -5089,14 +5196,20 @@ export default {
                 current_club:
                   'SV Ried',
                 jersey_number:
-                  tmId
-                    ? jerseyNumbers.get(
-                        tmId
-                      ) ??
-                      existing?.jersey_number ??
-                      null
-                    : existing?.jersey_number ??
-                      null,
+                  officialJerseyNumbers.get(
+                    normalizePlayerName(
+                      parsed.name
+                    )
+                  ) ??
+                  (
+                    tmId
+                      ? jerseyNumbers.get(
+                          tmId
+                        )
+                      : undefined
+                  ) ??
+                  existing?.jersey_number ??
+                  null,
                 is_own_squad:
                   true,
                 archived_at:
@@ -5206,6 +5319,8 @@ export default {
             failed.length,
           jersey_number_count:
             jerseyNumbers.size,
+          official_jersey_number_count:
+            officialJerseyNumbers.size,
           created,
           updated,
           failed:
