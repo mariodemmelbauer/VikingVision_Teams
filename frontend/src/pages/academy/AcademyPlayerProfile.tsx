@@ -1177,57 +1177,77 @@ export default function AcademyPlayerProfile({
   return (
     <div style={modalBackdrop}>
       <div style={modalPanel}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent:
-              'space-between',
-            gap: '12px',
-            alignItems:
-              'flex-start',
-            flexWrap: 'wrap'
-          }}
-        >
-          <div>
-            <div className="eyebrow">
-              AKAVision Spielerprofil
+        <section style={academyProfileHero}>
+          <div style={academyProfileIdentity}>
+            <div style={academyProfileAvatar}>
+              {player.jersey_number ? (
+                <span style={academyProfileJersey}>
+                  {player.jersey_number}
+                </span>
+              ) : (
+                <span style={academyProfileInitials}>
+                  {player.name
+                    .split(' ')
+                    .slice(0, 2)
+                    .map(part =>
+                      part
+                        .charAt(0)
+                        .toUpperCase()
+                    )
+                    .join('')}
+                </span>
+              )}
             </div>
 
-            <h2
-              style={{
-                margin:
-                  '4px 0 0 0'
-              }}
-            >
-              {player.jersey_number
-                ? `${player.jersey_number} · `
-                : ''}
-              {player.name}
-            </h2>
+            <div style={{ minWidth: 0 }}>
+              <div style={academyProfileEyebrow}>
+                AKAVision Spielerprofil
+              </div>
 
-            <div
-              style={{
-                marginTop: '5px',
-                color: '#666'
-              }}
-            >
-              {[
-                player.team,
-                player.primary_position,
-                player.player_role
-              ]
-                .filter(Boolean)
-                .join(' · ')}
+              <h2 style={academyProfileName}>
+                {player.name}
+              </h2>
+
+              <div style={academyProfileMeta}>
+                {[
+                  player.team,
+                  player.primary_position,
+                  player.player_role,
+                  player.current_club
+                ]
+                  .filter(Boolean)
+                  .join(' · ')}
+              </div>
+
+              <div style={academyProfileBadges}>
+                {player.squad_status && (
+                  <span style={academyProfileStatusBadge}>
+                    {player.squad_status}
+                  </span>
+                )}
+
+                {player.is_p12 && (
+                  <span style={academyProfileP12Badge}>
+                    P12
+                  </span>
+                )}
+
+                {player.boarding_school && (
+                  <span style={academyProfileSoftBadge}>
+                    Internat
+                  </span>
+                )}
+
+                {player.bus_use && (
+                  <span style={academyProfileSoftBadge}>
+                    Bus
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
-          <div
-            style={{
-              display: 'flex',
-              gap: '8px',
-              flexWrap: 'wrap'
-            }}
-          >
+          <div style={academyProfileActions}>
             <button
               type="button"
               onClick={() =>
@@ -1235,11 +1255,11 @@ export default function AcademyPlayerProfile({
                   value => !value
                 )
               }
-              style={primaryButton}
+              style={secondaryButton}
             >
               {editing
                 ? 'Bearbeiten schließen'
-                : 'Spieler bearbeiten'}
+                : 'Stammdaten bearbeiten'}
             </button>
 
             <button
@@ -1249,9 +1269,9 @@ export default function AcademyPlayerProfile({
                   value => !value
                 )
               }
-              style={primaryButton}
+              style={academyProfileActionButton}
             >
-              + Sport-Science-Test
+              + Sport Science
             </button>
 
             <button
@@ -1262,9 +1282,9 @@ export default function AcademyPlayerProfile({
                   value => !value
                 );
               }}
-              style={primaryButton}
+              style={academyProfileActionButton}
             >
-              + Ideale-Bewertung
+              + Ideale
             </button>
 
             <button
@@ -1275,7 +1295,7 @@ export default function AcademyPlayerProfile({
                   value => !value
                 );
               }}
-              style={primaryButton}
+              style={academyProfileActionButton}
             >
               + Skill / AC
             </button>
@@ -1288,7 +1308,55 @@ export default function AcademyPlayerProfile({
               ✕ Schließen
             </button>
           </div>
-        </div>
+        </section>
+
+        <section style={academyProfileStats}>
+          <AcademyProfileStat
+            label="Ideale"
+            value={playerIdeals.length}
+            hint={
+              latestIdeal?.assessment_date
+                ? `zuletzt ${formatDate(
+                    latestIdeal.assessment_date
+                  )}`
+                : 'noch offen'
+            }
+          />
+
+          <AcademyProfileStat
+            label="Sport Science"
+            value={playerTests.length}
+            hint={
+              latestSportTest?.test_date
+                ? `zuletzt ${formatDate(
+                    latestSportTest.test_date
+                  )}`
+                : 'noch offen'
+            }
+          />
+
+          <AcademyProfileStat
+            label="Skill / AC"
+            value={playerSkillAc.length}
+            hint={
+              latestSkillAc?.period_new ??
+              latestSkillAc?.period_old ??
+              'noch offen'
+            }
+          />
+
+          <AcademyProfileStat
+            label="Schule"
+            value={
+              player.school_class ||
+              '–'
+            }
+            hint={
+              player.school_type ||
+              'keine Angabe'
+            }
+          />
+        </section>
 
         {profileError && (
           <div style={errorBox}>
@@ -3767,6 +3835,36 @@ function TrendDisplay({
   );
 }
 
+
+function AcademyProfileStat({
+  label,
+  value,
+  hint
+}: {
+  label: string;
+  value:
+    string |
+    number;
+  hint: string;
+}) {
+  return (
+    <div style={academyProfileStatCard}>
+      <span style={academyProfileStatLabel}>
+        {label}
+      </span>
+
+      <strong style={academyProfileStatValue}>
+        {value}
+      </strong>
+
+      <span style={academyProfileStatHint}>
+        {hint}
+      </span>
+    </div>
+  );
+}
+
+
 function ProfileTabButton({
   active,
   onClick,
@@ -4241,6 +4339,182 @@ const profileFormGrid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
   gap: '12px'
+};
+
+const academyProfileHero:
+  React.CSSProperties = {
+  display: 'flex',
+  justifyContent:
+    'space-between',
+  gap: '18px',
+  alignItems: 'flex-start',
+  flexWrap: 'wrap',
+  padding: '18px',
+  borderRadius: '16px',
+  background: '#fff',
+  border:
+    '1px solid #e7e9e7'
+};
+
+const academyProfileIdentity:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '14px',
+  alignItems: 'center',
+  minWidth: 0
+};
+
+const academyProfileAvatar:
+  React.CSSProperties = {
+  width: '64px',
+  height: '64px',
+  flex: '0 0 auto',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '16px',
+  background: '#0b7a3b',
+  color: '#fff'
+};
+
+const academyProfileJersey:
+  React.CSSProperties = {
+  fontSize: '24px',
+  fontWeight: 900
+};
+
+const academyProfileInitials:
+  React.CSSProperties = {
+  fontSize: '16px',
+  fontWeight: 900,
+  letterSpacing: '.03em'
+};
+
+const academyProfileEyebrow:
+  React.CSSProperties = {
+  color: '#0b7a3b',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.07em'
+};
+
+const academyProfileName:
+  React.CSSProperties = {
+  margin: '4px 0 0',
+  fontSize: '26px',
+  lineHeight: 1.05,
+  letterSpacing: '-.025em'
+};
+
+const academyProfileMeta:
+  React.CSSProperties = {
+  marginTop: '5px',
+  color: '#666',
+  fontSize: '12px',
+  lineHeight: 1.4
+};
+
+const academyProfileBadges:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap',
+  marginTop: '9px'
+};
+
+const academyProfileStatusBadge:
+  React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#edf7f1',
+  color: '#0b6b35',
+  fontSize: '10px',
+  fontWeight: 900
+};
+
+const academyProfileP12Badge:
+  React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#111',
+  color: '#fff',
+  fontSize: '10px',
+  fontWeight: 900
+};
+
+const academyProfileSoftBadge:
+  React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#f2f3f2',
+  color: '#555',
+  fontSize: '10px',
+  fontWeight: 800
+};
+
+const academyProfileActions:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '8px',
+  flexWrap: 'wrap',
+  justifyContent: 'flex-end'
+};
+
+const academyProfileActionButton:
+  React.CSSProperties = {
+  border: '1px solid #a7ccb6',
+  background: '#f3faf5',
+  color: '#0b6b35',
+  padding: '10px 13px',
+  borderRadius: '9px',
+  cursor: 'pointer',
+  fontWeight: 800,
+  fontSize: '11px'
+};
+
+const academyProfileStats:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(4, minmax(0, 1fr))',
+  gap: '10px',
+  marginTop: '12px'
+};
+
+const academyProfileStatCard:
+  React.CSSProperties = {
+  padding: '11px 12px',
+  borderRadius: '11px',
+  background: '#fff',
+  border: '1px solid #e7e9e7'
+};
+
+const academyProfileStatLabel:
+  React.CSSProperties = {
+  display: 'block',
+  color: '#858a85',
+  fontSize: '8px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em'
+};
+
+const academyProfileStatValue:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#161616',
+  fontSize: '20px',
+  lineHeight: 1
+};
+
+const academyProfileStatHint:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#999',
+  fontSize: '9px'
 };
 
 const modalBackdrop: React.CSSProperties = {
