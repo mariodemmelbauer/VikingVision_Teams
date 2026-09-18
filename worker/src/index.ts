@@ -6506,6 +6506,122 @@ export default {
     }
 
     if (
+      request.method === 'DELETE' &&
+      url.pathname.startsWith(
+        '/academy/p12/trainer-assessments/'
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const assessmentId =
+          url.pathname
+            .slice(
+              '/academy/p12/trainer-assessments/'.length
+            )
+            .replace(
+              /^\/|\/$/g,
+              ''
+            );
+
+        if (!assessmentId) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Bewertungs-ID fehlt.'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          error: scoreError
+        } =
+          await supabase
+            .from(
+              'p12_trainer_scores'
+            )
+            .delete()
+            .eq(
+              'assessment_id',
+              assessmentId
+            );
+
+        if (scoreError) {
+          return json(
+            {
+              ok: false,
+              error:
+                scoreError.message
+            },
+            500
+          );
+        }
+
+        const {
+          data,
+          error:
+            assessmentError
+        } =
+          await supabase
+            .from(
+              'p12_trainer_assessments'
+            )
+            .delete()
+            .eq(
+              'id',
+              assessmentId
+            )
+            .select('id')
+            .maybeSingle();
+
+        if (assessmentError) {
+          return json(
+            {
+              ok: false,
+              error:
+                assessmentError.message
+            },
+            500
+          );
+        }
+
+        if (!data) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Trainerbewertung wurde nicht gefunden.'
+            },
+            404
+          );
+        }
+
+        return json({
+          ok: true,
+          deleted_id:
+            assessmentId
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'P12 trainer assessment delete failed'
+          },
+          401
+        );
+      }
+    }
+
+
+    if (
       request.method === 'POST' &&
       url.pathname ===
         '/academy/p12/sport-science'
