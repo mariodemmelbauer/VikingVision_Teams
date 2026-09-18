@@ -74,10 +74,17 @@ function positionGroup(
   if (
     value.includes('stürmer') ||
     value.includes('stuermer') ||
+    value.includes('sturm') ||
     value.includes('angriff') ||
     value.includes('offensiv') ||
     value.includes('winger') ||
     value.includes('forward') ||
+    value.includes('linksaußen') ||
+    value.includes('linksaussen') ||
+    value.includes('rechtsaußen') ||
+    value.includes('rechtsaussen') ||
+    value.includes('außenstürmer') ||
+    value.includes('aussenstuermer') ||
     value === 'st' ||
     value === 'cf' ||
     value === 'lf' ||
@@ -130,7 +137,6 @@ export default function Squad({
       createdCount: number;
       updatedCount: number;
       failedCount: number;
-      jerseyNumberCount: number;
     } | null>(null);
 
   const [search, setSearch] =
@@ -186,9 +192,7 @@ export default function Squad({
         updatedCount:
           data.updated_count ?? 0,
         failedCount:
-          data.failed_count ?? 0,
-        jerseyNumberCount:
-          data.jersey_number_count ?? 0
+          data.failed_count ?? 0
       });
 
       setArchiveSuccess(
@@ -429,7 +433,6 @@ export default function Squad({
             Transfermarkt: {syncResult.sourceCount} Spieler ·
             {' '}Neu: {syncResult.createdCount} ·
             {' '}Aktualisiert: {syncResult.updatedCount} ·
-            {' '}Trikotnummern: {syncResult.jerseyNumberCount} ·
             {' '}Fehler: {syncResult.failedCount}
           </div>
 
@@ -718,11 +721,11 @@ export default function Squad({
                                 borderRadius:
                                   '7px',
                                 padding:
-                                  '4px 8px',
+                                  '3px 7px',
                                 fontWeight:
-                                  900,
+                                  700,
                                 fontSize:
-                                  '13px'
+                                  '12px'
                               }}
                             >
                               {
