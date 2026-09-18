@@ -718,7 +718,11 @@ function PlayersTab({
           statusFilter === 'Alle' ||
           player.squad_status === statusFilter;
 
-        return matchesSearch && matchesPosition && matchesStatus;
+        return (
+          matchesSearch &&
+          matchesPosition &&
+          matchesStatus
+        );
       })
       .sort((a, b) => {
         const numberA = Number(a.jersey_number);
@@ -733,7 +737,12 @@ function PlayersTab({
 
         return a.name.localeCompare(b.name, 'de');
       });
-  }, [players, search, positionFilter, statusFilter]);
+  }, [
+    players,
+    search,
+    positionFilter,
+    statusFilter
+  ]);
 
   const resetFilters = () => {
     setSearch('');
@@ -836,7 +845,7 @@ function PlayersTab({
           style={{
             display: 'grid',
             gridTemplateColumns:
-              'repeat(auto-fill, minmax(260px, 1fr))',
+              'repeat(auto-fill, minmax(310px, 1fr))',
             gap: '14px'
           }}
         >
@@ -845,72 +854,154 @@ function PlayersTab({
               key={player.id}
               type="button"
               onClick={() => onOpenPlayer(player)}
-              style={{
-                ...panel,
-                textAlign: 'left',
-                width: '100%',
-                cursor: 'pointer',
-                color: 'inherit',
-                font: 'inherit'
-              }}
+              style={academyPlayerCard}
             >
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'baseline',
-                  gap: '8px'
-                }}
-              >
-                {player.jersey_number && (
-                  <span style={numberBadge}>
-                    {player.jersey_number}
-                  </span>
-                )}
+              <div style={academyCardTop}>
+                <div style={academyAvatar}>
+                  {player.jersey_number ? (
+                    <span style={academyJersey}>
+                      {player.jersey_number}
+                    </span>
+                  ) : (
+                    <span style={academyInitials}>
+                      {player.name
+                        .split(' ')
+                        .slice(0, 2)
+                        .map(part => part.charAt(0))
+                        .join('')
+                        .toUpperCase()}
+                    </span>
+                  )}
+                </div>
 
-                <strong style={{ fontSize: '18px' }}>
-                  {player.name}
-                </strong>
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={academyNameRow}>
+                    <strong style={academyName}>
+                      {player.name}
+                    </strong>
+
+                    <div style={academyBadgeRow}>
+                      {player.is_p12 && (
+                        <span style={p12Badge}>
+                          P12
+                        </span>
+                      )}
+
+                      {player.squad_status && (
+                        <span
+                          style={{
+                            ...statusBadge,
+                            ...(player.squad_status === 'Aktiv'
+                              ? statusBadgeActive
+                              : {})
+                          }}
+                        >
+                          {player.squad_status}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div style={academyMetaPrimary}>
+                    {[
+                      player.primary_position,
+                      player.player_role
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || 'Position / Rolle offen'}
+                  </div>
+
+                  <div style={academyMetaSecondary}>
+                    {[
+                      player.preferred_foot
+                        ? `Fuß ${player.preferred_foot}`
+                        : null,
+                      player.nationality,
+                      player.height
+                        ? `${player.height} cm`
+                        : null
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                </div>
               </div>
 
-              <InfoLine label="Position" value={player.primary_position} />
-              <InfoLine label="Rolle" value={player.player_role} />
-              <InfoLine label="Fuß" value={player.preferred_foot} />
-              <InfoLine label="Status" value={player.squad_status} />
-
-              {player.birth_date && (
-                <InfoLine
+              <div style={academyInfoGrid}>
+                <AcademyMiniInfo
                   label="Geburtsdatum"
-                  value={formatDate(player.birth_date)}
+                  value={
+                    player.birth_date
+                      ? formatDate(player.birth_date)
+                      : '–'
+                  }
                 />
-              )}
 
-              {player.school_type && (
-                <InfoLine
+                <AcademyMiniInfo
                   label="Schule"
-                  value={[
-                    player.school_type,
-                    player.school_class
-                  ]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  value={
+                    [
+                      player.school_type,
+                      player.school_class
+                    ]
+                      .filter(Boolean)
+                      .join(' · ') || '–'
+                  }
                 />
+
+                <AcademyMiniInfo
+                  label="Internat"
+                  value={
+                    player.boarding_school
+                      ? 'Ja'
+                      : 'Nein'
+                  }
+                />
+
+                <AcademyMiniInfo
+                  label="Bus"
+                  value={
+                    player.bus_use
+                      ? player.bus_route || 'Ja'
+                      : 'Nein'
+                  }
+                />
+              </div>
+
+              {player.notes && (
+                <div style={academyNotes}>
+                  {player.notes}
+                </div>
               )}
 
-              <div
-                style={{
-                  marginTop: '12px',
-                  color: '#0b7a3b',
-                  fontWeight: 700,
-                  fontSize: '13px'
-                }}
-              >
-                Spielerprofil öffnen →
+              <div style={academyOpenRow}>
+                Spielerprofil öffnen
+                <span aria-hidden="true">→</span>
               </div>
             </button>
           ))}
         </div>
       )}
     </section>
+  );
+}
+
+function AcademyMiniInfo({
+  label,
+  value
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={academyMiniInfo}>
+      <span style={academyMiniLabel}>
+        {label}
+      </span>
+      <strong style={academyMiniValue}>
+        {value}
+      </strong>
+    </div>
   );
 }
 
@@ -1887,6 +1978,185 @@ const primaryButton:
   borderRadius: '9px',
   cursor: 'pointer',
   fontWeight: 700
+};
+
+const academyPlayerCard:
+  React.CSSProperties = {
+  width: '100%',
+  textAlign: 'left',
+  border: '1px solid #e7e9e7',
+  borderRadius: '16px',
+  background: '#fff',
+  padding: '16px',
+  color: 'inherit',
+  font: 'inherit',
+  cursor: 'pointer',
+  boxShadow:
+    '0 3px 12px rgba(0,0,0,.035)'
+};
+
+const academyCardTop:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '12px',
+  alignItems: 'flex-start'
+};
+
+const academyAvatar:
+  React.CSSProperties = {
+  width: '54px',
+  height: '54px',
+  flex: '0 0 auto',
+  borderRadius: '14px',
+  background: '#0b7a3b',
+  color: '#fff',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  boxShadow:
+    'inset 0 0 0 1px rgba(255,255,255,.15)'
+};
+
+const academyJersey:
+  React.CSSProperties = {
+  fontSize: '20px',
+  fontWeight: 900,
+  lineHeight: 1
+};
+
+const academyInitials:
+  React.CSSProperties = {
+  fontSize: '14px',
+  fontWeight: 900,
+  letterSpacing: '.03em'
+};
+
+const academyNameRow:
+  React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'flex-start',
+  gap: '10px'
+};
+
+const academyName:
+  React.CSSProperties = {
+  fontSize: '18px',
+  lineHeight: 1.2
+};
+
+const academyBadgeRow:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '5px',
+  flexWrap: 'wrap',
+  justifyContent: 'flex-end'
+};
+
+const p12Badge:
+  React.CSSProperties = {
+  borderRadius: '999px',
+  padding: '4px 7px',
+  background: '#111',
+  color: '#fff',
+  fontSize: '10px',
+  fontWeight: 900
+};
+
+const statusBadge:
+  React.CSSProperties = {
+  borderRadius: '999px',
+  padding: '4px 7px',
+  background: '#f1f2f1',
+  color: '#666',
+  fontSize: '10px',
+  fontWeight: 800
+};
+
+const statusBadgeActive:
+  React.CSSProperties = {
+  background: '#edf7f1',
+  color: '#0b6b35'
+};
+
+const academyMetaPrimary:
+  React.CSSProperties = {
+  marginTop: '5px',
+  color: '#333',
+  fontSize: '12px',
+  fontWeight: 700,
+  lineHeight: 1.4
+};
+
+const academyMetaSecondary:
+  React.CSSProperties = {
+  marginTop: '4px',
+  color: '#777',
+  fontSize: '11px',
+  lineHeight: 1.4
+};
+
+const academyInfoGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(2, minmax(0, 1fr))',
+  gap: '8px',
+  marginTop: '14px'
+};
+
+const academyMiniInfo:
+  React.CSSProperties = {
+  minWidth: 0,
+  padding: '9px 10px',
+  borderRadius: '10px',
+  background: '#f7f8f7'
+};
+
+const academyMiniLabel:
+  React.CSSProperties = {
+  display: 'block',
+  color: '#8a8f8a',
+  fontSize: '9px',
+  fontWeight: 800,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em'
+};
+
+const academyMiniValue:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '3px',
+  color: '#222',
+  fontSize: '12px',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap'
+};
+
+const academyNotes:
+  React.CSSProperties = {
+  marginTop: '10px',
+  color: '#666',
+  fontSize: '11px',
+  lineHeight: 1.4,
+  overflow: 'hidden',
+  display: '-webkit-box',
+  WebkitLineClamp: 2,
+  WebkitBoxOrient: 'vertical'
+};
+
+const academyOpenRow:
+  React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginTop: '13px',
+  paddingTop: '11px',
+  borderTop: '1px solid #eef0ee',
+  color: '#0b7a3b',
+  fontWeight: 800,
+  fontSize: '12px'
 };
 
 const panel:
