@@ -4915,8 +4915,58 @@ export default {
           );
         }
 
+        let body:
+          Record<
+            string,
+            unknown
+          > = {};
+
+        try {
+          body =
+            await request.json<
+              Record<
+                string,
+                unknown
+              >
+            >();
+        } catch {
+          // Empty body is valid.
+        }
+
+        const restoreTarget =
+          body.target ===
+            'squad'
+            ? 'squad'
+            : 'scouting';
+
         const supabase =
           createSupabase(env);
+
+        const updateData:
+          Record<
+            string,
+            unknown
+          > = {
+            is_own_squad:
+              restoreTarget ===
+                'squad',
+            archived_at:
+              null,
+            updated_at:
+              new Date()
+                .toISOString()
+          };
+
+        if (
+          restoreTarget ===
+            'squad'
+        ) {
+          updateData.squad_status =
+            body.squad_status ===
+              'Ausgeliehen'
+              ? 'Ausgeliehen'
+              : 'Unter Vertrag';
+        }
 
         const {
           data,
@@ -4924,13 +4974,9 @@ export default {
         } =
           await supabase
             .from('players')
-            .update({
-              is_own_squad: true,
-              archived_at: null,
-              updated_at:
-                new Date()
-                  .toISOString()
-            })
+            .update(
+              updateData
+            )
             .eq(
               'id',
               playerId
