@@ -2252,7 +2252,7 @@ export default function ScoutingReports({
                   </div>
                 </div>
 
-                <div style={ratingGrid}>
+                <div style={reportRatingGrid}>
                   <RatingBox
                     label="Technik"
                     value={report.technical_rating}
@@ -3493,7 +3493,7 @@ const contextChipMuted: React.CSSProperties = {
   fontWeight: 700
 };
 
-const ratingGrid: React.CSSProperties = {
+const reportRatingGrid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
   gap: '6px',
