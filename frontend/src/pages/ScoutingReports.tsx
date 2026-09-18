@@ -1143,7 +1143,7 @@ export default function ScoutingReports({
   }
 
 
-  function openStatLibuda() {
+  function openStatsLibuda() {
     window.open(
       'https://svried.statslibuda.de/',
       '_blank',
@@ -1429,11 +1429,11 @@ export default function ScoutingReports({
 
             <button
               type="button"
-              onClick={openStatLibuda}
+              onClick={openStatsLibuda}
               style={platformButton}
-              title="StatLibuda in einem neuen Fenster oder Browser-Tab öffnen"
+              title="StatsLibuda in einem neuen Fenster oder Browser-Tab öffnen"
             >
-              StatLibuda ↗
+              StatsLibuda ↗
             </button>
 
             <button type="button" onClick={() => startNewReport()} style={primaryButton}>
