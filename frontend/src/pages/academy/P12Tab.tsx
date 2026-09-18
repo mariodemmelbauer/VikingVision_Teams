@@ -1696,6 +1696,12 @@ function TrainerAssessmentSection({
         : 'new'
     );
 
+  const [confirmDelete, setConfirmDelete] =
+    useState(false);
+
+  const [deleting, setDeleting] =
+    useState(false);
+
   const selected =
     assessments.find(
       item =>
@@ -1741,6 +1747,7 @@ function TrainerAssessmentSection({
 
   function choose(value: string) {
     setSelectedId(value);
+    setConfirmDelete(false);
 
     const item =
       assessments.find(
@@ -1863,6 +1870,55 @@ function TrainerAssessmentSection({
       );
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function deleteAssessment() {
+    if (
+      selectedId === 'new' ||
+      !selected
+    ) {
+      return;
+    }
+
+    setDeleting(true);
+    setError(undefined);
+    setSuccess(undefined);
+
+    try {
+      await api(
+        `/academy/p12/trainer-assessments/${selected.id}`,
+        {
+          method: 'DELETE'
+        }
+      );
+
+      setConfirmDelete(false);
+      setSelectedId('new');
+      setPeriodLabel('Herbst 26');
+      setAssessmentDate(
+        new Date()
+          .toISOString()
+          .slice(0, 10)
+      );
+      setCoachName('');
+      setTeamLabel('P12');
+      setNotes('');
+      setScores({});
+
+      setSuccess(
+        'Trainerbewertung wurde gelöscht.'
+      );
+
+      await onReload();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Trainerbewertung konnte nicht gelöscht werden.'
+      );
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -2043,6 +2099,62 @@ function TrainerAssessmentSection({
         label="Trainerbewertung speichern"
         onSave={save}
       />
+
+      {selectedId !== 'new' && (
+        <div style={assessmentDeleteArea}>
+          {!confirmDelete ? (
+            <button
+              type="button"
+              onClick={() =>
+                setConfirmDelete(true)
+              }
+              disabled={
+                saving ||
+                deleting
+              }
+              style={assessmentDeleteButton}
+            >
+              Bewertung löschen
+            </button>
+          ) : (
+            <div style={assessmentDeleteConfirm}>
+              <div>
+                <strong>
+                  Diese Spielerbewertung wirklich löschen?
+                </strong>
+
+                <div style={assessmentDeleteHint}>
+                  Bewertungsphase und alle zugehörigen Detailbewertungen werden dauerhaft gelöscht.
+                </div>
+              </div>
+
+              <div style={assessmentDeleteActions}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setConfirmDelete(false)
+                  }
+                  disabled={deleting}
+                  style={secondaryButton}
+                >
+                  Abbrechen
+                </button>
+
+                <button
+                  type="button"
+                  onClick={deleteAssessment}
+                  disabled={deleting}
+                  style={assessmentDeleteButton}
+                >
+                  {deleting
+                    ? 'Wird gelöscht…'
+                    : 'Ja, Bewertung löschen'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </section>
   );
 }
@@ -4265,6 +4377,63 @@ function InfoBlock({
     </div>
   );
 }
+
+const assessmentDeleteArea:
+  React.CSSProperties = {
+  marginTop: '10px',
+  paddingTop: '12px',
+  borderTop:
+    '1px solid #f0e1e1'
+};
+
+const assessmentDeleteButton:
+  React.CSSProperties = {
+  border:
+    '1px solid #e2b8b8',
+  background:
+    '#fff5f5',
+  color:
+    '#9b1c1c',
+  padding:
+    '10px 14px',
+  borderRadius:
+    '9px',
+  cursor:
+    'pointer',
+  fontWeight:
+    800
+};
+
+const assessmentDeleteConfirm:
+  React.CSSProperties = {
+  display: 'flex',
+  justifyContent:
+    'space-between',
+  alignItems:
+    'center',
+  gap: '14px',
+  flexWrap: 'wrap',
+  padding: '12px',
+  borderRadius: '10px',
+  background: '#fff5f5',
+  border:
+    '1px solid #e6c1c1'
+};
+
+const assessmentDeleteHint:
+  React.CSSProperties = {
+  marginTop: '4px',
+  color: '#7a3a3a',
+  fontSize: '11px',
+  lineHeight: 1.4
+};
+
+const assessmentDeleteActions:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '8px',
+  flexWrap: 'wrap'
+};
 
 const panel: React.CSSProperties = {
   background: '#fff',
