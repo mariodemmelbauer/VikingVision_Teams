@@ -767,96 +767,301 @@ export default function PlayerProfile({
         </section>
       )}
 
-      <section style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 320px) 1fr', gap: '20px', marginTop: '20px' }}>
-        <div style={profileCard}>
-          <div
+      <section style={profileHero}>
+        <div style={profileHeroImage}>
+          <PlayerImage
+            playerId={player.id}
+            imagePath={player.image_path}
+            accessToken={accessToken}
+            apiBase={apiBase}
+            alt={player.name ?? 'Spieler'}
             style={{
               width: '100%',
-              aspectRatio: '4 / 5',
-              borderRadius: '10px',
-              overflow: 'hidden',
-              background: '#f1f1f1'
+              height: '100%',
+              objectFit: 'cover'
             }}
-          >
-            <PlayerImage
-              playerId={player.id}
-              imagePath={player.image_path}
-              accessToken={accessToken}
-              apiBase={apiBase}
-              alt={player.name ?? 'Spieler'}
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover'
-              }}
-            />
-          </div>
-          <div style={{ marginTop: '16px', fontSize: '22px', fontWeight: 700 }}>{player.name ?? 'Unbekannt'}</div>
-          <div style={{ marginTop: '5px', color: '#666' }}>{player.primary_position ?? '–'}</div>
-          {player.current_club && <div style={{ marginTop: '4px', fontSize: '14px', color: '#777' }}>{player.current_club}</div>}
+          />
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '14px' }}>
-          <Field label="Name" value={String(form.name)} editing={editing} onChange={value => updateField('name', value)} />
-          <Field label="Geburtsdatum" type="date" value={String(form.birth_date)} editing={editing} onChange={value => updateField('birth_date', value)} />
-          <Field label="Position" value={String(form.primary_position)} editing={editing} onChange={value => updateField('primary_position', value)} />
-          <Field label="Nebenposition" value={String(form.secondary_position)} editing={editing} onChange={value => updateField('secondary_position', value)} />
-          <Field label="Liga" value={String(form.league)} editing={editing} onChange={value => updateField('league', value)} />
-          <Field label="Scouting-Rolle 1" value={String(form.scouting_role_1)} editing={editing} onChange={value => updateField('scouting_role_1', value)} />
-          <Field label="Scouting-Rolle 2" value={String(form.scouting_role_2)} editing={editing} onChange={value => updateField('scouting_role_2', value)} />
-          <Field label="Scouting-Rolle 3" value={String(form.scouting_role_3)} editing={editing} onChange={value => updateField('scouting_role_3', value)} />
-          <Field label="Fuß" value={String(form.preferred_foot)} editing={editing} onChange={value => updateField('preferred_foot', value)} />
-          <Field label="Nationalität" value={String(form.nationality)} editing={editing} onChange={value => updateField('nationality', value)} />
-          <Field label="Größe (cm)" type="number" value={String(form.height_cm)} editing={editing} onChange={value => updateField('height_cm', value)} />
-          <Field label="Aktueller Verein" value={String(form.current_club)} editing={editing} onChange={value => updateField('current_club', value)} />
-          <Field label="Vertrag bis" type="date" value={String(form.contract_until)} editing={editing} onChange={value => updateField('contract_until', value)} />
-          <Field label="Marktwert" value={String(form.market_value)} editing={editing} onChange={value => updateField('market_value', value)} />
-          <Field label="Berateragentur" value={String(form.agent_agency)} editing={editing} onChange={value => updateField('agent_agency', value)} />
-          <SelectField
-            label="Kaderstatus"
-            value={String(form.squad_status)}
-            editing={editing}
-            onChange={value =>
-              updateField(
-                'squad_status',
-                value
-              )
-            }
-            options={[
-              'Unter Vertrag',
-              'Ausgeliehen'
-            ]}
-          />
-          <Field label="Priorität" value={String(form.priority)} editing={editing} onChange={value => updateField('priority', value)} />
-          <Field label="Potenzial" value={String(form.potential)} editing={editing} onChange={value => updateField('potential', value)} />
-          <Field label="Transfermarkt" value={String(form.transfermarkt_url)} editing={editing} onChange={value => updateField('transfermarkt_url', value)} />
-          {!editing &&
-            player.transfermarkt_updated_at && (
-              <div
-                style={{
-                  gridColumn: '1 / -1',
-                  color: '#777',
-                  fontSize: '12px',
-                  marginTop: '-6px'
-                }}
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <div style={profileHeroTop}>
+            <div>
+              <div style={profileHeroName}>
+                {player.name ?? 'Unbekannt'}
+              </div>
+
+              <div style={profileHeroMeta}>
+                {[
+                  player.primary_position,
+                  player.secondary_position,
+                  player.current_club,
+                  player.league
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || 'Stammdaten offen'}
+              </div>
+            </div>
+
+            <div style={profileBadgeRow}>
+              {player.jersey_number && (
+                <span style={jerseyBadge}>
+                  #{player.jersey_number}
+                </span>
+              )}
+
+              <span
+                style={
+                  player.is_own_squad
+                    ? squadBadge
+                    : scoutingBadge
+                }
               >
-                Transfermarkt zuletzt aktualisiert:{' '}
-                {new Date(
-                  player.transfermarkt_updated_at
-                ).toLocaleString('de-DE')}
+                {player.is_own_squad
+                  ? 'Unser Kader'
+                  : 'Scouting'}
+              </span>
+
+              {player.squad_status && (
+                <span style={statusBadge}>
+                  {player.squad_status}
+                </span>
+              )}
+            </div>
+          </div>
+
+          {(player.scouting_role_1 ||
+            player.scouting_role_2 ||
+            player.scouting_role_3) && (
+              <div style={profileRoleWrap}>
+                {[
+                  player.scouting_role_1,
+                  player.scouting_role_2,
+                  player.scouting_role_3
+                ]
+                  .filter(Boolean)
+                  .map(role => (
+                    <span
+                      key={String(role)}
+                      style={profileRoleChip}
+                    >
+                      {String(role)}
+                    </span>
+                  ))}
               </div>
             )}
-          <Field label="Video" value={String(form.video_url)} editing={editing} onChange={value => updateField('video_url', value)} />
+
+          <div style={profileQuickGrid}>
+            <ProfileQuickInfo
+              label="Geburtsdatum"
+              value={
+                form.birth_date
+                  ? new Date(
+                      String(form.birth_date)
+                    ).toLocaleDateString(
+                      'de-DE'
+                    )
+                  : '–'
+              }
+            />
+
+            <ProfileQuickInfo
+              label="Nationalität"
+              value={
+                String(form.nationality) ||
+                '–'
+              }
+            />
+
+            <ProfileQuickInfo
+              label="Fuß"
+              value={
+                String(form.preferred_foot) ||
+                '–'
+              }
+            />
+
+            <ProfileQuickInfo
+              label="Größe"
+              value={
+                form.height_cm
+                  ? `${form.height_cm} cm`
+                  : '–'
+              }
+            />
+
+            <ProfileQuickInfo
+              label="Vertrag bis"
+              value={
+                String(form.contract_until) ||
+                '–'
+              }
+            />
+
+            <ProfileQuickInfo
+              label="Marktwert"
+              value={
+                String(form.market_value) ||
+                '–'
+              }
+            />
+          </div>
         </div>
       </section>
 
-      <section style={{ ...profileCard, marginTop: '20px' }}>
-        <div style={{ fontSize: '12px', textTransform: 'uppercase', color: '#777', marginBottom: '8px' }}>Notizen</div>
-        {editing ? <textarea value={String(form.notes)} onChange={event => updateField('notes', event.target.value)} rows={7} style={{ width: '100%', boxSizing: 'border-box', padding: '12px', borderRadius: '8px', border: '1px solid #ccc', font: 'inherit', resize: 'vertical' }} /> : <div style={{ whiteSpace: 'pre-wrap' }}>{form.notes || '–'}</div>}
+      <ProfileSection
+        title="Spielerdaten"
+        description="Stammdaten, Positionen und Vereinszuordnung."
+      >
+        <Field label="Name" value={String(form.name)} editing={editing} onChange={value => updateField('name', value)} />
+        <Field label="Geburtsdatum" type="date" value={String(form.birth_date)} editing={editing} onChange={value => updateField('birth_date', value)} />
+        <Field label="Position" value={String(form.primary_position)} editing={editing} onChange={value => updateField('primary_position', value)} />
+        <Field label="Nebenposition" value={String(form.secondary_position)} editing={editing} onChange={value => updateField('secondary_position', value)} />
+        <Field label="Liga" value={String(form.league)} editing={editing} onChange={value => updateField('league', value)} />
+        <Field label="Aktueller Verein" value={String(form.current_club)} editing={editing} onChange={value => updateField('current_club', value)} />
+        <Field label="Fuß" value={String(form.preferred_foot)} editing={editing} onChange={value => updateField('preferred_foot', value)} />
+        <Field label="Nationalität" value={String(form.nationality)} editing={editing} onChange={value => updateField('nationality', value)} />
+        <Field label="Größe (cm)" type="number" value={String(form.height_cm)} editing={editing} onChange={value => updateField('height_cm', value)} />
+      </ProfileSection>
+
+      <ProfileSection
+        title="Scouting-Profil"
+        description="Rollen, Priorität und Entwicklungspotenzial."
+      >
+        <Field label="Scouting-Rolle 1" value={String(form.scouting_role_1)} editing={editing} onChange={value => updateField('scouting_role_1', value)} />
+        <Field label="Scouting-Rolle 2" value={String(form.scouting_role_2)} editing={editing} onChange={value => updateField('scouting_role_2', value)} />
+        <Field label="Scouting-Rolle 3" value={String(form.scouting_role_3)} editing={editing} onChange={value => updateField('scouting_role_3', value)} />
+        <Field label="Priorität" value={String(form.priority)} editing={editing} onChange={value => updateField('priority', value)} />
+        <Field label="Potenzial" value={String(form.potential)} editing={editing} onChange={value => updateField('potential', value)} />
+      </ProfileSection>
+
+      <ProfileSection
+        title="Vertrag & Markt"
+        description="Vertragsstatus, Marktwert und Beraterdaten."
+      >
+        <Field label="Vertrag bis" type="date" value={String(form.contract_until)} editing={editing} onChange={value => updateField('contract_until', value)} />
+        <Field label="Marktwert" value={String(form.market_value)} editing={editing} onChange={value => updateField('market_value', value)} />
+        <Field label="Berateragentur" value={String(form.agent_agency)} editing={editing} onChange={value => updateField('agent_agency', value)} />
+        <SelectField
+          label="Kaderstatus"
+          value={String(form.squad_status)}
+          editing={editing}
+          onChange={value =>
+            updateField(
+              'squad_status',
+              value
+            )
+          }
+          options={[
+            'Unter Vertrag',
+            'Ausgeliehen'
+          ]}
+        />
+      </ProfileSection>
+
+      <ProfileSection
+        title="Links & Medien"
+        description="Transfermarkt- und Video-Verknüpfungen."
+      >
+        <Field label="Transfermarkt" value={String(form.transfermarkt_url)} editing={editing} onChange={value => updateField('transfermarkt_url', value)} />
+        <Field label="Video" value={String(form.video_url)} editing={editing} onChange={value => updateField('video_url', value)} />
+
+        {!editing &&
+          player.transfermarkt_updated_at && (
+            <div style={transfermarktUpdatedInfo}>
+              Transfermarkt zuletzt aktualisiert:{' '}
+              {new Date(
+                player.transfermarkt_updated_at
+              ).toLocaleString('de-DE')}
+            </div>
+          )}
+      </ProfileSection>
+
+      <section style={notesCard}>
+        <div style={sectionEyebrow}>
+          Notizen
+        </div>
+
+        <h3 style={sectionTitle}>
+          Beobachtungen & Hinweise
+        </h3>
+
+        {editing ? (
+          <textarea
+            value={String(form.notes)}
+            onChange={event =>
+              updateField(
+                'notes',
+                event.target.value
+              )
+            }
+            rows={7}
+            style={notesInput}
+          />
+        ) : (
+          <div style={notesContent}>
+            {form.notes || '–'}
+          </div>
+        )}
       </section>
     </main>
   );
 }
+
+
+function ProfileSection({
+  title,
+  description,
+  children
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section style={profileSection}>
+      <div style={profileSectionHeader}>
+        <div>
+          <div style={sectionEyebrow}>
+            Spielerprofil
+          </div>
+
+          <h3 style={sectionTitle}>
+            {title}
+          </h3>
+
+          <div style={sectionDescription}>
+            {description}
+          </div>
+        </div>
+      </div>
+
+      <div style={profileFieldGrid}>
+        {children}
+      </div>
+    </section>
+  );
+}
+
+function ProfileQuickInfo({
+  label,
+  value
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={profileQuickItem}>
+      <span style={profileQuickLabel}>
+        {label}
+      </span>
+
+      <strong style={profileQuickValue}>
+        {value}
+      </strong>
+    </div>
+  );
+}
+
 
 function Field({ label, value, editing, onChange, type = 'text' }: { label: string; value: string; editing: boolean; onChange: (value: string) => void; type?: string; }) {
   return (
@@ -940,7 +1145,218 @@ function SelectField({
   );
 }
 
-const profileCard: React.CSSProperties = { background: '#ffffff', borderRadius: '14px', padding: '16px', border: '1px solid #ececec', boxShadow: '0 3px 14px rgba(0,0,0,0.04)' };
+const profileHero: React.CSSProperties = {
+  display: 'flex',
+  gap: '20px',
+  alignItems: 'stretch',
+  marginTop: '20px',
+  padding: '18px',
+  border: '1px solid #e7e9e7',
+  borderRadius: '16px',
+  background: '#fff',
+  boxShadow: '0 3px 14px rgba(0,0,0,.035)'
+};
+
+const profileHeroImage: React.CSSProperties = {
+  width: '150px',
+  minWidth: '150px',
+  height: '188px',
+  overflow: 'hidden',
+  borderRadius: '12px',
+  background: '#f1f1f1'
+};
+
+const profileHeroTop: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'flex-start',
+  gap: '16px'
+};
+
+const profileHeroName: React.CSSProperties = {
+  fontSize: '28px',
+  fontWeight: 900,
+  lineHeight: 1.05,
+  letterSpacing: '-.025em'
+};
+
+const profileHeroMeta: React.CSSProperties = {
+  marginTop: '7px',
+  color: '#666',
+  fontSize: '13px',
+  lineHeight: 1.4
+};
+
+const profileBadgeRow: React.CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap',
+  justifyContent: 'flex-end'
+};
+
+const jerseyBadge: React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#0b7a3b',
+  color: '#fff',
+  fontSize: '11px',
+  fontWeight: 900
+};
+
+const squadBadge: React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#111',
+  color: '#fff',
+  fontSize: '11px',
+  fontWeight: 800
+};
+
+const scoutingBadge: React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#edf7f1',
+  color: '#0b6b35',
+  fontSize: '11px',
+  fontWeight: 800
+};
+
+const statusBadge: React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#f4f4f4',
+  color: '#444',
+  fontSize: '11px',
+  fontWeight: 800
+};
+
+const profileRoleWrap: React.CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap',
+  marginTop: '13px'
+};
+
+const profileRoleChip: React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#edf7f1',
+  color: '#0b6b35',
+  fontSize: '11px',
+  fontWeight: 800
+};
+
+const profileQuickGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: '8px',
+  marginTop: '16px'
+};
+
+const profileQuickItem: React.CSSProperties = {
+  padding: '9px 10px',
+  borderRadius: '10px',
+  background: '#f7f8f7',
+  minWidth: 0
+};
+
+const profileQuickLabel: React.CSSProperties = {
+  display: 'block',
+  color: '#888',
+  fontSize: '9px',
+  fontWeight: 800,
+  textTransform: 'uppercase',
+  letterSpacing: '.04em'
+};
+
+const profileQuickValue: React.CSSProperties = {
+  display: 'block',
+  marginTop: '3px',
+  fontSize: '12px',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap'
+};
+
+const profileSection: React.CSSProperties = {
+  marginTop: '18px',
+  padding: '18px',
+  border: '1px solid #e7e9e7',
+  borderRadius: '16px',
+  background: '#fff',
+  boxShadow: '0 3px 12px rgba(0,0,0,.025)'
+};
+
+const profileSectionHeader: React.CSSProperties = {
+  marginBottom: '14px'
+};
+
+const sectionEyebrow: React.CSSProperties = {
+  color: '#0b7a3b',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.08em'
+};
+
+const sectionTitle: React.CSSProperties = {
+  margin: '4px 0 0',
+  fontSize: '18px',
+  letterSpacing: '-.015em'
+};
+
+const sectionDescription: React.CSSProperties = {
+  marginTop: '4px',
+  color: '#777',
+  fontSize: '11px'
+};
+
+const profileFieldGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+  gap: '10px'
+};
+
+const transfermarktUpdatedInfo: React.CSSProperties = {
+  gridColumn: '1 / -1',
+  color: '#777',
+  fontSize: '11px',
+  paddingTop: '3px'
+};
+
+const notesCard: React.CSSProperties = {
+  marginTop: '18px',
+  padding: '18px',
+  border: '1px solid #e7e9e7',
+  borderRadius: '16px',
+  background: '#fff',
+  boxShadow: '0 3px 12px rgba(0,0,0,.025)'
+};
+
+const notesInput: React.CSSProperties = {
+  width: '100%',
+  boxSizing: 'border-box',
+  marginTop: '12px',
+  padding: '12px',
+  borderRadius: '9px',
+  border: '1px solid #ccc',
+  font: 'inherit',
+  resize: 'vertical'
+};
+
+const notesContent: React.CSSProperties = {
+  marginTop: '12px',
+  whiteSpace: 'pre-wrap',
+  lineHeight: 1.55,
+  color: '#333'
+};
+
+const profileCard: React.CSSProperties = {
+  background: '#f8f9f8',
+  borderRadius: '11px',
+  padding: '12px',
+  border: '1px solid #eef0ee'
+};
 const primaryButton: React.CSSProperties = { border: 'none', background: '#0b7a3b', color: '#ffffff', padding: '12px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 };
 const secondaryButton: React.CSSProperties = { border: '1px solid #d0d0d0', background: '#ffffff', color: '#222222', padding: '12px 18px', borderRadius: '10px', cursor: 'pointer', fontWeight: 700 };
 const archiveButton: React.CSSProperties = { ...secondaryButton, color: '#8a5500', borderColor: '#e2c98d', background: '#fffaf0' };
