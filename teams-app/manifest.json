@@ -1,47 +1,55 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.30/MicrosoftTeams.schema.json",
   "manifestVersion": "1.30",
-  "version": "0.2.0",
+  "version": "0.4.1",
   "id": "dc47e77c-a43a-4315-936d-8e674627cf33",
+
   "developer": {
     "name": "AKA SV Ried",
-    "websiteUrl": "https://YOUR-FRONTEND.example.com",
-    "privacyUrl": "https://YOUR-FRONTEND.example.com/privacy",
-    "termsOfUseUrl": "https://YOUR-FRONTEND.example.com/terms"
+    "websiteUrl": "https://vikingvision-teams.pages.dev/",
+    "privacyUrl": "https://vikingvision-teams.pages.dev/privacy",
+    "termsOfUseUrl": "https://vikingvision-teams.pages.dev/terms"
   },
+
   "name": {
     "short": "VikingVision",
     "full": "VikingVision / AKAVision"
   },
+
   "description": {
     "short": "VikingVision in Microsoft Teams",
     "full": "Interne Plattform für VikingVision und AKAVision als Microsoft Teams App."
   },
+
   "icons": {
     "outline": "outline.png",
     "color": "color.png"
   },
+
   "accentColor": "#0B7A3B",
+
   "staticTabs": [
     {
       "entityId": "vikingvision-home",
       "name": "VikingVision",
-      "contentUrl": "https://YOUR-FRONTEND.example.com/",
-      "websiteUrl": "https://YOUR-FRONTEND.example.com/",
+      "contentUrl": "https://vikingvision-teams.pages.dev/",
+      "websiteUrl": "https://vikingvision-teams.pages.dev/",
       "scopes": [
         "personal"
       ]
     }
   ],
+
   "permissions": [
     "identity"
   ],
+
   "validDomains": [
-    "YOUR-FRONTEND.example.com",
-    "YOUR-API.example.com"
+    "vikingvision-teams.pages.dev"
   ],
+
   "webApplicationInfo": {
     "id": "dd10d321-ec5e-425f-897f-1634fcf3c309",
-    "resource": "api://YOUR-FRONTEND.example.com/dd10d321-ec5e-425f-897f-1634fcf3c309"
+    "resource": "api://vikingvision-teams.pages.dev/dd10d321-ec5e-425f-897f-1634fcf3c309"
   }
 }
