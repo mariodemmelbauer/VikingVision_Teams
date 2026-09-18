@@ -494,6 +494,7 @@ export default function AKAVision({
               team={team}
               overview={overview}
               players={activePlayers}
+              onOpenTab={setTab}
             />
           )}
 
@@ -569,83 +570,442 @@ export default function AKAVision({
 function OverviewTab({
   team,
   overview,
-  players
+  players,
+  onOpenTab
 }: {
   team: AcademyTeam;
   overview: Overview | null;
   players: AcademyPlayer[];
+  onOpenTab: (
+    tab: Tab
+  ) => void;
 }) {
+  const p12Count =
+    players.filter(
+      player =>
+        Boolean(
+          player.is_p12
+        )
+    ).length;
 
+  const boardingCount =
+    players.filter(
+      player =>
+        Boolean(
+          player.boarding_school
+        )
+    ).length;
+
+  const busCount =
+    players.filter(
+      player =>
+        Boolean(
+          player.bus_use
+        )
+    ).length;
+
+  const schoolInfoCount =
+    players.filter(
+      player =>
+        Boolean(
+          player.school_type ||
+          player.school_class
+        )
+    ).length;
+
+  const positionCounts =
+    players.reduce(
+      (
+        result,
+        player
+      ) => {
+        const position =
+          player.primary_position ??
+          'Ohne Position';
+
+        result[position] =
+          (
+            result[position] ??
+            0
+          ) + 1;
+
+        return result;
+      },
+      {} as Record<
+        string,
+        number
+      >
+    );
+
+  const topPositions =
+    Object.entries(
+      positionCounts
+    )
+      .sort(
+        (a, b) =>
+          b[1] - a[1]
+      )
+      .slice(0, 5);
 
   return (
     <>
-      <section
-        style={{
-          display: 'grid',
-          gridTemplateColumns:
-            'repeat(auto-fit, minmax(170px, 1fr))',
-          gap: '12px',
-          marginTop: '18px'
-        }}
-      >
-        <Kpi
+      <section style={akaOverviewGrid}>
+        <OverviewMetric
           label="Spieler"
           value={
             overview?.playerCount ??
             players.length
           }
+          hint={`${team} aktiv`}
+          accent
+          onClick={() =>
+            onOpenTab('players')
+          }
+        />
+
+        <OverviewMetric
+          label="P12"
+          value={p12Count}
+          hint="im P12-Bereich"
+          onClick={() =>
+            onOpenTab('p12')
+          }
+        />
+
+        <OverviewMetric
+          label="Internat"
+          value={boardingCount}
+          hint="Spieler"
+        />
+
+        <OverviewMetric
+          label="Bus"
+          value={busCount}
+          hint="nutzen Bus"
+        />
+
+        <OverviewMetric
+          label="Schule"
+          value={schoolInfoCount}
+          hint="mit Schuldaten"
         />
       </section>
 
-      <section
-        style={{
-          ...panel,
-          marginTop: '18px'
-        }}
-      >
-        <h2 style={{ marginTop: 0 }}>
-          Kader {team}
-        </h2>
+      <section style={akaQuickAccessGrid}>
+        <AcademyQuickCard
+          eyebrow="Entwicklung"
+          title="Ideale"
+          description="Status quo, Potenzial und Entwicklungsfelder bearbeiten."
+          onClick={() =>
+            onOpenTab('ideals')
+          }
+        />
 
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fill, minmax(210px, 1fr))',
-            gap: '10px'
-          }}
-        >
-          {players.slice(0, 12).map(
-            player => (
-              <div
-                key={player.id}
-                style={miniPlayerCard}
-              >
-                <strong>
-                  {player.jersey_number
-                    ? `${player.jersey_number} · `
-                    : ''}
-                  {player.name}
-                </strong>
-
-                <div
-                  style={{
-                    marginTop: '4px',
-                    color: '#666',
-                    fontSize: '13px'
-                  }}
-                >
-                  {player.primary_position ??
-                    'Position offen'}
-                </div>
-              </div>
+        <AcademyQuickCard
+          eyebrow="Performance"
+          title="Sport Science"
+          description="Tests, Leistungswerte und Verlauf der Spieler ansehen."
+          onClick={() =>
+            onOpenTab(
+              'sportScience'
             )
+          }
+        />
+
+        <AcademyQuickCard
+          eyebrow="Entwicklung"
+          title="Skill / AC"
+          description="Skill-, AC- und Reflexionsformulare der Spieler öffnen."
+          onClick={() =>
+            onOpenTab('skillAc')
+          }
+        />
+
+        <AcademyQuickCard
+          eyebrow="Recruiting"
+          title="Academy-Scouting"
+          description="Externe Talente und Academy-Scoutingberichte verwalten."
+          onClick={() =>
+            onOpenTab(
+              'scouting'
+            )
+          }
+        />
+      </section>
+
+      <section style={akaOverviewColumns}>
+        <div style={panel}>
+          <div style={overviewSectionHeader}>
+            <div>
+              <div style={overviewEyebrow}>
+                Kaderstruktur
+              </div>
+
+              <h2 style={overviewTitle}>
+                Positionen
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                onOpenTab('players')
+              }
+              style={overviewLinkButton}
+            >
+              Alle Spieler →
+            </button>
+          </div>
+
+          {topPositions.length === 0 ? (
+            <div style={overviewEmpty}>
+              Noch keine Positionsdaten vorhanden.
+            </div>
+          ) : (
+            <div style={positionList}>
+              {topPositions.map(
+                ([
+                  position,
+                  count
+                ]) => (
+                  <div
+                    key={position}
+                    style={positionRow}
+                  >
+                    <span style={positionName}>
+                      {position}
+                    </span>
+
+                    <div style={positionBarTrack}>
+                      <div
+                        style={{
+                          ...positionBarFill,
+                          width:
+                            `${Math.max(
+                              8,
+                              Math.round(
+                                (
+                                  count /
+                                  Math.max(
+                                    players.length,
+                                    1
+                                  )
+                                ) *
+                                100
+                              )
+                            )}%`
+                        }}
+                      />
+                    </div>
+
+                    <strong style={positionCount}>
+                      {count}
+                    </strong>
+                  </div>
+                )
+              )}
+            </div>
+          )}
+        </div>
+
+        <div style={panel}>
+          <div style={overviewSectionHeader}>
+            <div>
+              <div style={overviewEyebrow}>
+                {team}
+              </div>
+
+              <h2 style={overviewTitle}>
+                Spieler kompakt
+              </h2>
+            </div>
+
+            <button
+              type="button"
+              onClick={() =>
+                onOpenTab('players')
+              }
+              style={overviewLinkButton}
+            >
+              Öffnen →
+            </button>
+          </div>
+
+          <div style={compactPlayerList}>
+            {players
+              .slice(0, 8)
+              .map(
+                player => (
+                  <div
+                    key={player.id}
+                    style={compactPlayerRow}
+                  >
+                    <span style={compactNumber}>
+                      {player.jersey_number ??
+                        '–'}
+                    </span>
+
+                    <div
+                      style={{
+                        minWidth: 0,
+                        flex: 1
+                      }}
+                    >
+                      <strong style={compactPlayerName}>
+                        {player.name}
+                      </strong>
+
+                      <div style={compactPlayerMeta}>
+                        {[
+                          player.primary_position,
+                          player.player_role
+                        ]
+                          .filter(Boolean)
+                          .join(' · ') ||
+                          'Position offen'}
+                      </div>
+                    </div>
+
+                    {player.is_p12 && (
+                      <span style={p12MiniBadge}>
+                        P12
+                      </span>
+                    )}
+                  </div>
+                )
+              )}
+          </div>
+
+          {players.length > 8 && (
+            <div style={morePlayersHint}>
+              + {players.length - 8} weitere Spieler
+            </div>
           )}
         </div>
       </section>
     </>
   );
 }
+
+function OverviewMetric({
+  label,
+  value,
+  hint,
+  accent = false,
+  onClick
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  accent?: boolean;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
+      <span
+        style={{
+          ...overviewMetricLabel,
+          ...(accent
+            ? overviewMetricLabelAccent
+            : {})
+        }}
+      >
+        {label}
+      </span>
+
+      <strong
+        style={{
+          ...overviewMetricValue,
+          ...(accent
+            ? overviewMetricValueAccent
+            : {})
+        }}
+      >
+        {value}
+      </strong>
+
+      <span
+        style={{
+          ...overviewMetricHint,
+          ...(accent
+            ? overviewMetricHintAccent
+            : {})
+        }}
+      >
+        {hint}
+      </span>
+    </>
+  );
+
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          ...overviewMetricCard,
+          ...(accent
+            ? overviewMetricCardAccent
+            : {})
+        }}
+      >
+        {content}
+      </button>
+    );
+  }
+
+  return (
+    <div
+      style={{
+        ...overviewMetricCard,
+        ...(accent
+          ? overviewMetricCardAccent
+          : {})
+      }}
+    >
+      {content}
+    </div>
+  );
+}
+
+function AcademyQuickCard({
+  eyebrow,
+  title,
+  description,
+  onClick
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={academyQuickCard}
+    >
+      <div>
+        <div style={quickEyebrow}>
+          {eyebrow}
+        </div>
+
+        <h3 style={quickTitle}>
+          {title}
+        </h3>
+
+        <p style={quickDescription}>
+          {description}
+        </p>
+      </div>
+
+      <span style={quickArrow}>
+        →
+      </span>
+    </button>
+  );
+}
+
 
 function PlayersTab({
   players,
@@ -2157,6 +2517,297 @@ const academyOpenRow:
   color: '#0b7a3b',
   fontWeight: 800,
   fontSize: '12px'
+};
+
+const akaOverviewGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(auto-fit, minmax(140px, 1fr))',
+  gap: '10px',
+  marginTop: '18px'
+};
+
+const overviewMetricCard:
+  React.CSSProperties = {
+  appearance: 'none',
+  border: '1px solid #e3e7e3',
+  borderRadius: '13px',
+  background: '#fff',
+  padding: '13px 14px',
+  textAlign: 'left',
+  font: 'inherit',
+  color: 'inherit'
+};
+
+const overviewMetricCardAccent:
+  React.CSSProperties = {
+  background: '#0b7a3b',
+  borderColor: '#0b7a3b',
+  cursor: 'pointer'
+};
+
+const overviewMetricLabel:
+  React.CSSProperties = {
+  display: 'block',
+  color: '#7a807a',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em'
+};
+
+const overviewMetricLabelAccent:
+  React.CSSProperties = {
+  color: 'rgba(255,255,255,.76)'
+};
+
+const overviewMetricValue:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '5px',
+  fontSize: '24px',
+  lineHeight: 1,
+  color: '#151515'
+};
+
+const overviewMetricValueAccent:
+  React.CSSProperties = {
+  color: '#fff'
+};
+
+const overviewMetricHint:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#999',
+  fontSize: '10px'
+};
+
+const overviewMetricHintAccent:
+  React.CSSProperties = {
+  color: 'rgba(255,255,255,.7)'
+};
+
+const akaQuickAccessGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(4, minmax(0, 1fr))',
+  gap: '10px',
+  marginTop: '14px'
+};
+
+const academyQuickCard:
+  React.CSSProperties = {
+  minHeight: '126px',
+  display: 'flex',
+  flexDirection: 'column',
+  justifyContent: 'space-between',
+  alignItems: 'stretch',
+  textAlign: 'left',
+  border: '1px solid #e5e8e5',
+  borderRadius: '14px',
+  padding: '14px',
+  background: '#fff',
+  color: '#171717',
+  font: 'inherit',
+  cursor: 'pointer'
+};
+
+const quickEyebrow:
+  React.CSSProperties = {
+  color: '#0b7a3b',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.06em'
+};
+
+const quickTitle:
+  React.CSSProperties = {
+  margin: '5px 0 5px',
+  fontSize: '17px'
+};
+
+const quickDescription:
+  React.CSSProperties = {
+  margin: 0,
+  color: '#777',
+  fontSize: '10px',
+  lineHeight: 1.4
+};
+
+const quickArrow:
+  React.CSSProperties = {
+  alignSelf: 'flex-end',
+  marginTop: '10px',
+  color: '#0b7a3b',
+  fontSize: '17px'
+};
+
+const akaOverviewColumns:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(2, minmax(0, 1fr))',
+  gap: '12px',
+  marginTop: '14px'
+};
+
+const overviewSectionHeader:
+  React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'flex-start',
+  justifyContent: 'space-between',
+  gap: '12px'
+};
+
+const overviewEyebrow:
+  React.CSSProperties = {
+  color: '#0b7a3b',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.06em'
+};
+
+const overviewTitle:
+  React.CSSProperties = {
+  margin: '4px 0 0',
+  fontSize: '18px'
+};
+
+const overviewLinkButton:
+  React.CSSProperties = {
+  border: 'none',
+  background: 'transparent',
+  color: '#0b7a3b',
+  cursor: 'pointer',
+  fontWeight: 800,
+  fontSize: '11px',
+  padding: 0
+};
+
+const overviewEmpty:
+  React.CSSProperties = {
+  marginTop: '14px',
+  color: '#888',
+  fontSize: '12px'
+};
+
+const positionList:
+  React.CSSProperties = {
+  display: 'grid',
+  gap: '10px',
+  marginTop: '16px'
+};
+
+const positionRow:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'minmax(90px, 1fr) 2fr 28px',
+  alignItems: 'center',
+  gap: '8px'
+};
+
+const positionName:
+  React.CSSProperties = {
+  fontSize: '11px',
+  fontWeight: 700,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap'
+};
+
+const positionBarTrack:
+  React.CSSProperties = {
+  height: '7px',
+  borderRadius: '999px',
+  background: '#eef1ee',
+  overflow: 'hidden'
+};
+
+const positionBarFill:
+  React.CSSProperties = {
+  height: '100%',
+  borderRadius: '999px',
+  background: '#0b7a3b'
+};
+
+const positionCount:
+  React.CSSProperties = {
+  textAlign: 'right',
+  fontSize: '11px'
+};
+
+const compactPlayerList:
+  React.CSSProperties = {
+  display: 'grid',
+  gap: '8px',
+  marginTop: '14px'
+};
+
+const compactPlayerRow:
+  React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: '9px',
+  paddingBottom: '8px',
+  borderBottom:
+    '1px solid #f0f1f0'
+};
+
+const compactNumber:
+  React.CSSProperties = {
+  width: '28px',
+  height: '28px',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  borderRadius: '8px',
+  background: '#edf7f1',
+  color: '#0b6b35',
+  fontSize: '10px',
+  fontWeight: 900,
+  flex: '0 0 auto'
+};
+
+const compactPlayerName:
+  React.CSSProperties = {
+  display: 'block',
+  fontSize: '12px',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap'
+};
+
+const compactPlayerMeta:
+  React.CSSProperties = {
+  marginTop: '2px',
+  color: '#888',
+  fontSize: '10px',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap'
+};
+
+const p12MiniBadge:
+  React.CSSProperties = {
+  padding: '4px 6px',
+  borderRadius: '999px',
+  background: '#111',
+  color: '#fff',
+  fontSize: '9px',
+  fontWeight: 800
+};
+
+const morePlayersHint:
+  React.CSSProperties = {
+  marginTop: '10px',
+  color: '#888',
+  fontSize: '10px'
 };
 
 const panel:
