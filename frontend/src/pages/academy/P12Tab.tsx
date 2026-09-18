@@ -4578,6 +4578,29 @@ function SaveRow({
 }
 
 
+
+function formatDate(
+  value: string
+) {
+  const date =
+    new Date(
+      `${value}T12:00:00`
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return value;
+  }
+
+  return date.toLocaleDateString(
+    'de-DE'
+  );
+}
+
+
 function P12OverviewCard({
   label,
   value,
