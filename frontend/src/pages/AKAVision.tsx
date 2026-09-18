@@ -1372,6 +1372,15 @@ function IdealsTab({
   players: AcademyPlayer[];
   assessments: IdealAssessment[];
 }) {
+  const [search, setSearch] =
+    useState('');
+  const [periodFilter, setPeriodFilter] =
+    useState('Alle');
+  const [roleFilter, setRoleFilter] =
+    useState('Alle');
+  const [sortMode, setSortMode] =
+    useState('Neueste');
+
   const playerById =
     new Map(
       players.map(player => [
@@ -1380,44 +1389,401 @@ function IdealsTab({
       ])
     );
 
-  const sorted =
-    [...assessments].sort(
-      (a, b) => {
-        const dateA =
-          a.assessment_date ?? '';
-        const dateB =
-          b.assessment_date ?? '';
-        return dateB.localeCompare(
-          dateA
-        );
-      }
-    );
+  const periods =
+    [
+      'Alle',
+      ...Array.from(
+        new Set(
+          assessments
+            .map(
+              item =>
+                item.period_label
+            )
+            .filter(
+              (value): value is string =>
+                Boolean(
+                  value?.trim()
+                )
+            )
+        )
+      ).sort(
+        (a, b) =>
+          a.localeCompare(
+            b,
+            'de'
+          )
+      )
+    ];
+
+  const roles =
+    [
+      'Alle',
+      ...Array.from(
+        new Set(
+          assessments
+            .map(
+              item =>
+                item.player_role
+            )
+            .filter(
+              (value): value is string =>
+                Boolean(
+                  value?.trim()
+                )
+            )
+        )
+      ).sort(
+        (a, b) =>
+          a.localeCompare(
+            b,
+            'de'
+          )
+      )
+    ];
+
+  const playersWithAssessments =
+    new Set(
+      assessments.map(
+        item =>
+          String(
+            item.academy_player_id
+          )
+      )
+    ).size;
+
+  const assessmentsWithScores =
+    assessments.filter(
+      item =>
+        Array.isArray(
+          item.scores
+        ) &&
+        item.scores.length >
+          0
+    ).length;
+
+  const assessmentsWithNotes =
+    assessments.filter(
+      item =>
+        (item.scores ?? [])
+          .some(
+            score =>
+              Boolean(
+                score.notes
+              )
+          )
+    ).length;
+
+  const latestDate =
+    assessments
+      .map(
+        item =>
+          item.assessment_date ??
+          ''
+      )
+      .filter(Boolean)
+      .sort(
+        (a, b) =>
+          b.localeCompare(a)
+      )[0];
+
+  const filtered =
+    [...assessments]
+      .filter(
+        assessment => {
+          const player =
+            playerById.get(
+              String(
+                assessment.academy_player_id
+              )
+            );
+
+          const query =
+            search
+              .trim()
+              .toLocaleLowerCase(
+                'de'
+              );
+
+          const matchesSearch =
+            !query ||
+            [
+              assessment.player_name,
+              player?.name,
+              assessment.player_role,
+              assessment.period_label,
+              player?.primary_position,
+              player?.player_role,
+              ...(assessment.scores ?? [])
+                .flatMap(
+                  score => [
+                    score.ideal_code,
+                    score.notes,
+                    score.measured_value
+                  ]
+                )
+            ]
+              .filter(Boolean)
+              .some(
+                value =>
+                  String(
+                    value
+                  )
+                    .toLocaleLowerCase(
+                      'de'
+                    )
+                    .includes(
+                      query
+                    )
+              );
+
+          const matchesPeriod =
+            periodFilter ===
+              'Alle' ||
+            assessment.period_label ===
+              periodFilter;
+
+          const matchesRole =
+            roleFilter ===
+              'Alle' ||
+            assessment.player_role ===
+              roleFilter;
+
+          return (
+            matchesSearch &&
+            matchesPeriod &&
+            matchesRole
+          );
+        }
+      )
+      .sort(
+        (a, b) => {
+          if (
+            sortMode ===
+            'Name'
+          ) {
+            const nameA =
+              a.player_name ??
+              playerById.get(
+                String(
+                  a.academy_player_id
+                )
+              )?.name ??
+              '';
+
+            const nameB =
+              b.player_name ??
+              playerById.get(
+                String(
+                  b.academy_player_id
+                )
+              )?.name ??
+              '';
+
+            return nameA.localeCompare(
+              nameB,
+              'de'
+            );
+          }
+
+          if (
+            sortMode ===
+            'Periode'
+          ) {
+            return String(
+              b.period_label ??
+              ''
+            ).localeCompare(
+              String(
+                a.period_label ??
+                ''
+              ),
+              'de'
+            );
+          }
+
+          return String(
+            b.assessment_date ??
+            ''
+          ).localeCompare(
+            String(
+              a.assessment_date ??
+              ''
+            )
+          );
+        }
+      );
 
   return (
     <section style={{ marginTop: '18px' }}>
-      <div
-        style={{
-          marginBottom: '12px',
-          fontWeight: 700
-        }}
-      >
-        {sorted.length} Bewertungen
+      <section style={idealOverviewGrid}>
+        <IdealOverviewCard
+          label="Bewertungen"
+          value={assessments.length}
+          hint="gesamt"
+          accent
+        />
+
+        <IdealOverviewCard
+          label="Spieler"
+          value={playersWithAssessments}
+          hint="mit Bewertung"
+        />
+
+        <IdealOverviewCard
+          label="Detailwerte"
+          value={assessmentsWithScores}
+          hint="mit Scores"
+        />
+
+        <IdealOverviewCard
+          label="Notizen"
+          value={assessmentsWithNotes}
+          hint="mit Hinweisen"
+        />
+      </section>
+
+      <section style={idealToolbar}>
+        <label>
+          <div style={filterLabel}>
+            Suche
+          </div>
+
+          <input
+            value={search}
+            onChange={event =>
+              setSearch(
+                event.target.value
+              )
+            }
+            placeholder="Spieler, Ideal, Rolle, Notiz …"
+            style={filterControl}
+          />
+        </label>
+
+        <label>
+          <div style={filterLabel}>
+            Periode
+          </div>
+
+          <select
+            value={periodFilter}
+            onChange={event =>
+              setPeriodFilter(
+                event.target.value
+              )
+            }
+            style={filterControl}
+          >
+            {periods.map(
+              period => (
+                <option
+                  key={period}
+                  value={period}
+                >
+                  {period}
+                </option>
+              )
+            )}
+          </select>
+        </label>
+
+        <label>
+          <div style={filterLabel}>
+            Rolle
+          </div>
+
+          <select
+            value={roleFilter}
+            onChange={event =>
+              setRoleFilter(
+                event.target.value
+              )
+            }
+            style={filterControl}
+          >
+            {roles.map(
+              role => (
+                <option
+                  key={role}
+                  value={role}
+                >
+                  {role}
+                </option>
+              )
+            )}
+          </select>
+        </label>
+
+        <label>
+          <div style={filterLabel}>
+            Sortierung
+          </div>
+
+          <select
+            value={sortMode}
+            onChange={event =>
+              setSortMode(
+                event.target.value
+              )
+            }
+            style={filterControl}
+          >
+            <option value="Neueste">
+              Neueste
+            </option>
+            <option value="Name">
+              Name
+            </option>
+            <option value="Periode">
+              Periode
+            </option>
+          </select>
+        </label>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSearch('');
+            setPeriodFilter(
+              'Alle'
+            );
+            setRoleFilter(
+              'Alle'
+            );
+            setSortMode(
+              'Neueste'
+            );
+          }}
+          style={secondaryButton}
+        >
+          Zurücksetzen
+        </button>
+      </section>
+
+      <div style={idealResultBar}>
+        <span>
+          {filtered.length} von {assessments.length} Bewertungen
+        </span>
+
+        {latestDate && (
+          <span>
+            Letzte Bewertung:{' '}
+            <strong>
+              {formatDate(
+                latestDate
+              )}
+            </strong>
+          </span>
+        )}
       </div>
 
-      {sorted.length === 0 ? (
+      {filtered.length === 0 ? (
         <section style={panel}>
-          Noch keine Ideale-Bewertungen vorhanden.
+          Keine Ideale-Bewertungen für die aktuelle Auswahl vorhanden.
         </section>
       ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns:
-              'repeat(auto-fill, minmax(320px, 1fr))',
-            gap: '14px'
-          }}
-        >
-          {sorted.map(
+        <div style={idealCardGrid}>
+          {filtered.map(
             assessment => {
               const player =
                 playerById.get(
@@ -1426,140 +1792,129 @@ function IdealsTab({
                   )
                 );
 
+              const scoreValues =
+                (assessment.scores ?? [])
+                  .map(
+                    score =>
+                      score.rating
+                  )
+                  .filter(
+                    (
+                      value
+                    ): value is number =>
+                      typeof value ===
+                      'number'
+                  );
+
+              const averageRating =
+                scoreValues.length >
+                0
+                  ? (
+                      scoreValues.reduce(
+                        (
+                          sum,
+                          value
+                        ) =>
+                          sum +
+                          value,
+                        0
+                      ) /
+                      scoreValues.length
+                    ).toFixed(1)
+                  : '–';
+
               return (
                 <article
                   key={assessment.id}
-                  style={panel}
+                  style={idealCard}
                 >
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent:
-                        'space-between',
-                      gap: '12px',
-                      alignItems:
-                        'flex-start'
-                    }}
-                  >
+                  <div style={idealCardHeader}>
                     <div>
-                      <strong
-                        style={{
-                          fontSize: '18px'
-                        }}
-                      >
+                      <div style={idealPlayerName}>
                         {assessment.player_name ??
                           player?.name ??
                           `Spieler ${assessment.academy_player_id}`}
-                      </strong>
+                      </div>
 
-                      <div
-                        style={{
-                          marginTop: '4px',
-                          color: '#777',
-                          fontSize: '13px'
-                        }}
-                      >
-                        {assessment.period_label}
-                        {assessment.assessment_date
-                          ? ` · ${formatDate(
-                              assessment.assessment_date
-                            )}`
-                          : ''}
+                      <div style={idealMeta}>
+                        {[
+                          assessment.period_label,
+                          assessment.assessment_date
+                            ? formatDate(
+                                assessment.assessment_date
+                              )
+                            : null,
+                          player?.primary_position
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
                       </div>
                     </div>
 
-                    {assessment.player_role && (
-                      <span style={roleBadge}>
-                        {assessment.player_role}
+                    <div style={idealHeaderBadges}>
+                      {assessment.player_role && (
+                        <span style={idealRoleBadge}>
+                          {assessment.player_role}
+                        </span>
+                      )}
+
+                      <span style={idealAverageBadge}>
+                        Ø {averageRating}
                       </span>
-                    )}
+                    </div>
                   </div>
 
-                  <div
-                    style={{
-                      display: 'grid',
-                      gap: '8px',
-                      marginTop: '14px'
-                    }}
-                  >
-                    {assessment.scores.length === 0 ? (
-                      <div
-                        style={{
-                          color: '#777'
-                        }}
-                      >
+                  <div style={idealScoreList}>
+                    {(assessment.scores ?? []).length === 0 ? (
+                      <div style={idealEmptyDetail}>
                         Keine Detailwerte vorhanden.
                       </div>
                     ) : (
-                      assessment.scores.map(
+                      (assessment.scores ?? []).map(
                         score => (
                           <div
                             key={`${assessment.id}-${score.ideal_code}`}
-                            style={scoreRow}
+                            style={idealScoreRow}
                           >
-                            <div>
-                              <strong>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={idealCode}>
                                 {score.ideal_code}
-                              </strong>
+                              </div>
 
                               {score.notes && (
-                                <div
-                                  style={{
-                                    marginTop:
-                                      '3px',
-                                    color:
-                                      '#777',
-                                    fontSize:
-                                      '12px'
-                                  }}
-                                >
+                                <div style={idealNotes}>
                                   {score.notes}
                                 </div>
                               )}
                             </div>
 
-                            <div
-                              style={{
-                                textAlign:
-                                  'right',
-                                fontSize:
-                                  '12px'
-                              }}
-                            >
+                            <div style={idealValues}>
                               {score.rating != null && (
-                                <div>
-                                  Rating:{' '}
-                                  <strong>
-                                    {score.rating}
-                                  </strong>
-                                </div>
+                                <IdealValue
+                                  label="Rating"
+                                  value={String(score.rating)}
+                                />
                               )}
 
                               {score.status_quo != null && (
-                                <div>
-                                  Status:{' '}
-                                  <strong>
-                                    {score.status_quo}
-                                  </strong>
-                                </div>
+                                <IdealValue
+                                  label="Status"
+                                  value={String(score.status_quo)}
+                                />
                               )}
 
                               {score.potential != null && (
-                                <div>
-                                  Potenzial:{' '}
-                                  <strong>
-                                    {score.potential}
-                                  </strong>
-                                </div>
+                                <IdealValue
+                                  label="Potenzial"
+                                  value={String(score.potential)}
+                                />
                               )}
 
                               {score.measured_value && (
-                                <div>
-                                  Wert:{' '}
-                                  <strong>
-                                    {score.measured_value}
-                                  </strong>
-                                </div>
+                                <IdealValue
+                                  label="Messwert"
+                                  value={String(score.measured_value)}
+                                />
                               )}
                             </div>
                           </div>
@@ -1577,6 +1932,81 @@ function IdealsTab({
   );
 }
 
+function IdealOverviewCard({
+  label,
+  value,
+  hint,
+  accent = false
+}: {
+  label: string;
+  value: number;
+  hint: string;
+  accent?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        ...idealOverviewCard,
+        ...(accent
+          ? idealOverviewCardAccent
+          : {})
+      }}
+    >
+      <span
+        style={{
+          ...idealOverviewLabel,
+          ...(accent
+            ? idealOverviewLabelAccent
+            : {})
+        }}
+      >
+        {label}
+      </span>
+
+      <strong
+        style={{
+          ...idealOverviewValue,
+          ...(accent
+            ? idealOverviewValueAccent
+            : {})
+        }}
+      >
+        {value}
+      </strong>
+
+      <span
+        style={{
+          ...idealOverviewHint,
+          ...(accent
+            ? idealOverviewHintAccent
+            : {})
+        }}
+      >
+        {hint}
+      </span>
+    </div>
+  );
+}
+
+function IdealValue({
+  label,
+  value
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div style={idealValueBox}>
+      <span style={idealValueLabel}>
+        {label}
+      </span>
+
+      <strong style={idealValueText}>
+        {value}
+      </strong>
+    </div>
+  );
+}
 
 
 function SportScienceTab({
@@ -3877,6 +4307,245 @@ const skillFooter:
     '1px solid #eef0ee',
   color: '#888',
   fontSize: '10px'
+};
+
+const idealOverviewGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(4, minmax(0, 1fr))',
+  gap: '10px'
+};
+
+const idealOverviewCard:
+  React.CSSProperties = {
+  border:
+    '1px solid #e3e7e3',
+  borderRadius: '12px',
+  background: '#fff',
+  padding: '12px 14px'
+};
+
+const idealOverviewCardAccent:
+  React.CSSProperties = {
+  background: '#0b7a3b',
+  borderColor: '#0b7a3b'
+};
+
+const idealOverviewLabel:
+  React.CSSProperties = {
+  display: 'block',
+  color: '#7a807a',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em'
+};
+
+const idealOverviewLabelAccent:
+  React.CSSProperties = {
+  color:
+    'rgba(255,255,255,.76)'
+};
+
+const idealOverviewValue:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#151515',
+  fontSize: '22px',
+  lineHeight: 1
+};
+
+const idealOverviewValueAccent:
+  React.CSSProperties = {
+  color: '#fff'
+};
+
+const idealOverviewHint:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#999',
+  fontSize: '10px'
+};
+
+const idealOverviewHintAccent:
+  React.CSSProperties = {
+  color:
+    'rgba(255,255,255,.7)'
+};
+
+const idealToolbar:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'minmax(220px, 2fr) repeat(3, minmax(130px, 1fr)) auto',
+  gap: '10px',
+  alignItems: 'end',
+  marginTop: '14px',
+  padding: '14px',
+  border:
+    '1px solid #ececec',
+  borderRadius: '12px',
+  background: '#fff'
+};
+
+const idealResultBar:
+  React.CSSProperties = {
+  display: 'flex',
+  justifyContent:
+    'space-between',
+  gap: '12px',
+  flexWrap: 'wrap',
+  marginTop: '12px',
+  marginBottom: '10px',
+  color: '#666',
+  fontSize: '11px',
+  fontWeight: 700
+};
+
+const idealCardGrid:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(auto-fill, minmax(390px, 1fr))',
+  gap: '14px'
+};
+
+const idealCard:
+  React.CSSProperties = {
+  background: '#fff',
+  border:
+    '1px solid #e7e9e7',
+  borderRadius: '15px',
+  padding: '16px',
+  boxShadow:
+    '0 3px 12px rgba(0,0,0,.03)'
+};
+
+const idealCardHeader:
+  React.CSSProperties = {
+  display: 'flex',
+  justifyContent:
+    'space-between',
+  gap: '12px',
+  alignItems: 'flex-start'
+};
+
+const idealPlayerName:
+  React.CSSProperties = {
+  fontSize: '18px',
+  fontWeight: 900
+};
+
+const idealMeta:
+  React.CSSProperties = {
+  marginTop: '4px',
+  color: '#777',
+  fontSize: '11px'
+};
+
+const idealHeaderBadges:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '6px',
+  flexWrap: 'wrap',
+  justifyContent: 'flex-end'
+};
+
+const idealRoleBadge:
+  React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#f1f2f1',
+  color: '#555',
+  fontSize: '10px',
+  fontWeight: 800
+};
+
+const idealAverageBadge:
+  React.CSSProperties = {
+  padding: '5px 8px',
+  borderRadius: '999px',
+  background: '#0b7a3b',
+  color: '#fff',
+  fontSize: '10px',
+  fontWeight: 900
+};
+
+const idealScoreList:
+  React.CSSProperties = {
+  display: 'grid',
+  gap: '8px',
+  marginTop: '14px'
+};
+
+const idealEmptyDetail:
+  React.CSSProperties = {
+  color: '#888',
+  fontSize: '11px'
+};
+
+const idealScoreRow:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'minmax(150px, 1.2fr) minmax(190px, 1fr)',
+  gap: '10px',
+  alignItems: 'start',
+  padding: '10px',
+  borderRadius: '10px',
+  background: '#f8f9f8'
+};
+
+const idealCode:
+  React.CSSProperties = {
+  fontSize: '11px',
+  fontWeight: 900
+};
+
+const idealNotes:
+  React.CSSProperties = {
+  marginTop: '4px',
+  color: '#777',
+  fontSize: '10px',
+  lineHeight: 1.4,
+  whiteSpace: 'pre-wrap'
+};
+
+const idealValues:
+  React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(2, minmax(0, 1fr))',
+  gap: '5px'
+};
+
+const idealValueBox:
+  React.CSSProperties = {
+  padding: '6px 7px',
+  borderRadius: '8px',
+  background: '#fff',
+  border:
+    '1px solid #eceeec'
+};
+
+const idealValueLabel:
+  React.CSSProperties = {
+  display: 'block',
+  color: '#888',
+  fontSize: '8px',
+  fontWeight: 800,
+  textTransform: 'uppercase'
+};
+
+const idealValueText:
+  React.CSSProperties = {
+  display: 'block',
+  marginTop: '2px',
+  color: '#222',
+  fontSize: '11px'
 };
 
 const panel:
