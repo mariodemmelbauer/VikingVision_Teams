@@ -143,6 +143,8 @@ export default function Squad({
     React.useState('');
   const [statusFilter, setStatusFilter] =
     React.useState('Alle');
+  const [positionFilter, setPositionFilter] =
+    React.useState<PositionGroup | 'Alle'>('Alle');
 
   async function syncSquadFromTransfermarkt() {
     if (!accessToken) {
@@ -314,11 +316,85 @@ export default function Squad({
         statusFilter === 'Alle' ||
         player.squad_status === statusFilter;
 
+      const matchesPosition =
+        positionFilter === 'Alle' ||
+        positionGroup(
+          player.primary_position
+        ) === positionFilter;
+
       return (
         matchesSearch &&
-        matchesStatus
+        matchesStatus &&
+        matchesPosition
       );
     });
+
+  const groupCounts:
+    Record<PositionGroup, number> = {
+    Torwart: 0,
+    Abwehr: 0,
+    Mittelfeld: 0,
+    Angriff: 0,
+    Sonstige: 0
+  };
+
+  for (
+    const player
+    of allOwnSquad
+  ) {
+    groupCounts[
+      positionGroup(
+        player.primary_position
+      )
+    ] += 1;
+  }
+
+  const loanedCount =
+    allOwnSquad.filter(
+      player =>
+        player.squad_status ===
+        'Ausgeliehen'
+    ).length;
+
+  const expiringSoonCount =
+    allOwnSquad.filter(
+      player => {
+        const raw =
+          player.contract_until ??
+          player.contract_end;
+
+        if (!raw) {
+          return false;
+        }
+
+        const end =
+          new Date(raw);
+
+        if (
+          Number.isNaN(
+            end.getTime()
+          )
+        ) {
+          return false;
+        }
+
+        const now =
+          new Date();
+
+        const withinTwelveMonths =
+          new Date(now);
+
+        withinTwelveMonths.setFullYear(
+          withinTwelveMonths.getFullYear() +
+          1
+        );
+
+        return (
+          end >= now &&
+          end <= withinTwelveMonths
+        );
+      }
+    ).length;
 
   const groups:
     Record<PositionGroup, Player[]> = {
@@ -413,6 +489,98 @@ export default function Squad({
         }
       />
 
+      <section style={overviewGrid}>
+        <SquadOverviewCard
+          label="Gesamt"
+          value={allOwnSquad.length}
+          active={
+            positionFilter ===
+            'Alle'
+          }
+          onClick={() =>
+            setPositionFilter(
+              'Alle'
+            )
+          }
+        />
+
+        <SquadOverviewCard
+          label="Torwart"
+          value={
+            groupCounts.Torwart
+          }
+          active={
+            positionFilter ===
+            'Torwart'
+          }
+          onClick={() =>
+            setPositionFilter(
+              'Torwart'
+            )
+          }
+        />
+
+        <SquadOverviewCard
+          label="Abwehr"
+          value={
+            groupCounts.Abwehr
+          }
+          active={
+            positionFilter ===
+            'Abwehr'
+          }
+          onClick={() =>
+            setPositionFilter(
+              'Abwehr'
+            )
+          }
+        />
+
+        <SquadOverviewCard
+          label="Mittelfeld"
+          value={
+            groupCounts.Mittelfeld
+          }
+          active={
+            positionFilter ===
+            'Mittelfeld'
+          }
+          onClick={() =>
+            setPositionFilter(
+              'Mittelfeld'
+            )
+          }
+        />
+
+        <SquadOverviewCard
+          label="Angriff"
+          value={
+            groupCounts.Angriff
+          }
+          active={
+            positionFilter ===
+            'Angriff'
+          }
+          onClick={() =>
+            setPositionFilter(
+              'Angriff'
+            )
+          }
+        />
+
+        <SquadInfoCard
+          label="Ausgeliehen"
+          value={loanedCount}
+        />
+
+        <SquadInfoCard
+          label="Vertrag ≤ 12 Mon."
+          value={
+            expiringSoonCount
+          }
+        />
+      </section>
+
       {syncResult && (
         <section
           style={{
@@ -489,11 +657,34 @@ export default function Squad({
             </select>
           </label>
 
+          <label>
+            <div style={filterLabel}>Bereich</div>
+            <select
+              value={positionFilter}
+              onChange={event =>
+                setPositionFilter(
+                  event.target.value as
+                    PositionGroup |
+                    'Alle'
+                )
+              }
+              style={filterControl}
+            >
+              <option value="Alle">Alle</option>
+              <option value="Torwart">Torwart</option>
+              <option value="Abwehr">Abwehr</option>
+              <option value="Mittelfeld">Mittelfeld</option>
+              <option value="Angriff">Angriff</option>
+              <option value="Sonstige">Sonstige</option>
+            </select>
+          </label>
+
           <button
             type="button"
             onClick={() => {
               setSearch('');
               setStatusFilter('Alle');
+              setPositionFilter('Alle');
             }}
             style={secondaryButton}
           >
@@ -889,11 +1080,136 @@ export default function Squad({
   );
 }
 
+
+function SquadOverviewCard({
+  label,
+  value,
+  active,
+  onClick
+}: {
+  label: string;
+  value: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        ...overviewCard,
+        ...(active
+          ? overviewCardActive
+          : {})
+      }}
+    >
+      <span
+        style={{
+          ...overviewLabel,
+          ...(active
+            ? overviewLabelActive
+            : {})
+        }}
+      >
+        {label}
+      </span>
+
+      <strong
+        style={{
+          ...overviewValue,
+          ...(active
+            ? overviewValueActive
+            : {})
+        }}
+      >
+        {value}
+      </strong>
+    </button>
+  );
+}
+
+function SquadInfoCard({
+  label,
+  value
+}: {
+  label: string;
+  value: number;
+}) {
+  return (
+    <div style={overviewInfoCard}>
+      <span style={overviewLabel}>
+        {label}
+      </span>
+
+      <strong style={overviewValue}>
+        {value}
+      </strong>
+    </div>
+  );
+}
+
+
+const overviewGrid: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(auto-fit, minmax(120px, 1fr))',
+  gap: '10px',
+  marginTop: '14px'
+};
+
+const overviewCard: React.CSSProperties = {
+  appearance: 'none',
+  border: '1px solid #e2e6e2',
+  borderRadius: '12px',
+  background: '#fff',
+  padding: '12px 14px',
+  textAlign: 'left',
+  cursor: 'pointer',
+  font: 'inherit'
+};
+
+const overviewCardActive: React.CSSProperties = {
+  background: '#0b7a3b',
+  borderColor: '#0b7a3b'
+};
+
+const overviewInfoCard: React.CSSProperties = {
+  border: '1px solid #e2e6e2',
+  borderRadius: '12px',
+  background: '#f8f9f8',
+  padding: '12px 14px'
+};
+
+const overviewLabel: React.CSSProperties = {
+  display: 'block',
+  color: '#7c827c',
+  fontSize: '9px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.05em'
+};
+
+const overviewLabelActive: React.CSSProperties = {
+  color: 'rgba(255,255,255,.78)'
+};
+
+const overviewValue: React.CSSProperties = {
+  display: 'block',
+  marginTop: '4px',
+  color: '#161616',
+  fontSize: '22px',
+  lineHeight: 1
+};
+
+const overviewValueActive: React.CSSProperties = {
+  color: '#fff'
+};
+
 const squadFilterGrid:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'minmax(240px, 2fr) minmax(160px, 1fr) auto',
+    'minmax(240px, 2fr) minmax(150px, 1fr) minmax(150px, 1fr) auto',
   gap: '10px',
   alignItems: 'end'
 };
