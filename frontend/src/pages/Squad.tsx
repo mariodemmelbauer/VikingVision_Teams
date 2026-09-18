@@ -121,6 +121,84 @@ export default function Squad({
   const [pendingArchivePlayer, setPendingArchivePlayer] =
     React.useState<Player | null>(null);
 
+  const [syncingSquad, setSyncingSquad] =
+    React.useState(false);
+
+  const [syncResult, setSyncResult] =
+    React.useState<{
+      sourceCount: number;
+      createdCount: number;
+      updatedCount: number;
+      failedCount: number;
+    } | null>(null);
+
+  async function syncSquadFromTransfermarkt() {
+    if (!accessToken) {
+      setArchiveError(
+        'Kein Teams-SSO-Token vorhanden.'
+      );
+      return;
+    }
+
+    setSyncingSquad(true);
+    setArchiveError(undefined);
+    setArchiveSuccess(undefined);
+    setSyncResult(null);
+
+    try {
+      const response =
+        await fetch(
+          `${apiBase}/squad/sync-transfermarkt`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`,
+              'Content-Type':
+                'application/json'
+            },
+            body:
+              JSON.stringify({})
+          }
+        );
+
+      const data =
+        await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ??
+          'Kader konnte nicht synchronisiert werden.'
+        );
+      }
+
+      setSyncResult({
+        sourceCount:
+          data.source_count ?? 0,
+        createdCount:
+          data.created_count ?? 0,
+        updatedCount:
+          data.updated_count ?? 0,
+        failedCount:
+          data.failed_count ?? 0
+      });
+
+      setArchiveSuccess(
+        `Transfermarkt-Kader synchronisiert: ${data.created_count ?? 0} neu, ${data.updated_count ?? 0} aktualisiert.`
+      );
+
+      await onArchived?.();
+    } catch (error) {
+      setArchiveError(
+        error instanceof Error
+          ? error.message
+          : 'Kader-Synchronisierung fehlgeschlagen.'
+      );
+    } finally {
+      setSyncingSquad(false);
+    }
+  }
+
   async function archivePlayer(
     player: Player
   ) {
@@ -262,7 +340,58 @@ export default function Squad({
             </span>
           </>
         }
+        actions={
+          <button
+            type="button"
+            onClick={
+              syncSquadFromTransfermarkt
+            }
+            disabled={
+              syncingSquad
+            }
+            style={syncButton}
+          >
+            {syncingSquad
+              ? 'Kader wird synchronisiert…'
+              : 'Kader mit Transfermarkt synchronisieren'}
+          </button>
+        }
       />
+
+      {syncResult && (
+        <section
+          style={{
+            ...syncBox,
+            marginTop: '14px'
+          }}
+        >
+          <strong>
+            Transfermarkt-Synchronisierung
+          </strong>
+
+          <div
+            style={{
+              marginTop: '6px',
+              fontSize: '13px'
+            }}
+          >
+            Transfermarkt: {syncResult.sourceCount} Spieler ·
+            {' '}Neu: {syncResult.createdCount} ·
+            {' '}Aktualisiert: {syncResult.updatedCount} ·
+            {' '}Fehler: {syncResult.failedCount}
+          </div>
+
+          <div
+            style={{
+              marginTop: '5px',
+              color: '#5f665f',
+              fontSize: '12px'
+            }}
+          >
+            Nicht gelistete Spieler werden nicht automatisch aus dem Kader entfernt.
+          </div>
+        </section>
+      )}
 
       {pendingArchivePlayer && (
         <section
@@ -660,6 +789,40 @@ const panel:
     '1px solid #ececec',
   boxShadow:
     '0 3px 14px rgba(0,0,0,0.04)'
+};
+
+const syncButton:
+  React.CSSProperties = {
+  border:
+    '1px solid #9cc8ad',
+  background:
+    '#f4faf6',
+  color:
+    '#0b6b35',
+  padding:
+    '10px 14px',
+  borderRadius:
+    '9px',
+  cursor:
+    'pointer',
+  fontWeight:
+    800,
+  fontSize:
+    '12px'
+};
+
+const syncBox:
+  React.CSSProperties = {
+  background:
+    '#f4faf6',
+  border:
+    '1px solid #b9d9c7',
+  color:
+    '#174f31',
+  borderRadius:
+    '12px',
+  padding:
+    '14px'
 };
 
 const secondaryButton:
