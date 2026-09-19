@@ -3650,7 +3650,7 @@ const akaQuickAccessGrid:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'repeat(4, minmax(0, 1fr))',
+    'repeat(auto-fit, minmax(180px, 1fr))',
   gap: '10px',
   marginTop: '14px'
 };
@@ -3707,7 +3707,7 @@ const akaOverviewColumns:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'repeat(2, minmax(0, 1fr))',
+    'repeat(auto-fit, minmax(280px, 1fr))',
   gap: '12px',
   marginTop: '14px'
 };
@@ -3871,7 +3871,7 @@ const sportOverviewGrid:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'repeat(4, minmax(0, 1fr))',
+    'repeat(auto-fit, minmax(135px, 1fr))',
   gap: '10px'
 };
 
@@ -3938,7 +3938,7 @@ const sportToolbar:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'minmax(220px, 2fr) minmax(180px, 1fr) auto',
+    'repeat(auto-fit, minmax(180px, 1fr))',
   gap: '10px',
   alignItems: 'end',
   marginTop: '14px',
@@ -4056,7 +4056,7 @@ const skillOverviewGrid:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'repeat(5, minmax(0, 1fr))',
+    'repeat(auto-fit, minmax(135px, 1fr))',
   gap: '10px'
 };
 
@@ -4123,7 +4123,7 @@ const skillToolbar:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'minmax(240px, 2fr) repeat(2, minmax(150px, 1fr)) auto',
+    'repeat(auto-fit, minmax(170px, 1fr))',
   gap: '10px',
   alignItems: 'end',
   marginTop: '14px',
@@ -4313,7 +4313,7 @@ const idealOverviewGrid:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'repeat(4, minmax(0, 1fr))',
+    'repeat(auto-fit, minmax(140px, 1fr))',
   gap: '10px'
 };
 
@@ -4380,7 +4380,7 @@ const idealToolbar:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'minmax(220px, 2fr) repeat(3, minmax(130px, 1fr)) auto',
+    'repeat(auto-fit, minmax(160px, 1fr))',
   gap: '10px',
   alignItems: 'end',
   marginTop: '14px',
