@@ -595,7 +595,7 @@ export default function Watchlist({
       // Die Objekt-Referenz bleibt dort identisch und ist beim
       // nächsten Seitenwechsel bereits als Kaderspieler markiert.
       player.is_own_squad = true;
-      player.archived_at = null;
+      player.archived_at = undefined;
       player.squad_status =
         'Unter Vertrag';
 
