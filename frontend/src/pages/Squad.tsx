@@ -1209,7 +1209,7 @@ const squadFilterGrid:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'minmax(240px, 2fr) minmax(150px, 1fr) minmax(150px, 1fr) auto',
+    'repeat(auto-fit, minmax(170px, 1fr))',
   gap: '10px',
   alignItems: 'end'
 };
