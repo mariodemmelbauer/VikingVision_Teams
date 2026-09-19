@@ -4477,7 +4477,7 @@ const academyProfileStats:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'repeat(4, minmax(0, 1fr))',
+    'repeat(auto-fit, minmax(150px, 1fr))',
   gap: '10px',
   marginTop: '12px'
 };
