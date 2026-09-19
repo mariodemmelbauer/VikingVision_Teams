@@ -756,7 +756,7 @@ export default function AcademyScoutingTab({
           style={{
             display: 'grid',
             gridTemplateColumns:
-              'minmax(220px, 2fr) repeat(3, minmax(150px, 1fr)) auto',
+              'repeat(auto-fit, minmax(165px, 1fr))',
             gap: '10px',
             alignItems: 'end',
             marginTop: '14px'
@@ -2011,7 +2011,7 @@ function formatDate(value: string) {
 const scoutingOverviewGrid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'repeat(5, minmax(0, 1fr))',
+    'repeat(auto-fit, minmax(135px, 1fr))',
   gap: '10px'
 };
 
