@@ -346,35 +346,62 @@ export default function Dashboard({
         </span>
       </section>
 
-      <button
-        type="button"
-        onClick={() =>
-          window.open(
-            'https://svried.statslibuda.de/',
-            '_blank',
-            'noopener,noreferrer'
-          )
-        }
-        style={statsLibudaCard}
-      >
-        <div>
-          <div style={cardEyebrowStyle}>
-            Analyse-Plattform
-          </div>
+      <section style={platformGrid}>
+        <PlatformCard
+          title="StatsLibuda"
+          description="SV-Ried-Analyseplattform"
+          url="https://svried.statslibuda.de/"
+          featured
+        />
 
-          <h3 style={statsLibudaTitle}>
-            StatsLibuda
-          </h3>
+        <PlatformCard
+          title="Transfermarkt"
+          description="Spieler, Vereine und Marktwerte"
+          url="https://www.transfermarkt.at/"
+        />
 
-          <p style={cardDescription}>
-            Externe SV-Ried-Analyseplattform in einem neuen Browser-Tab bzw. Fenster öffnen.
-          </p>
-        </div>
+        <PlatformCard
+          title="ÖFB"
+          description="Spieler- und Bewerbsdaten"
+          url="https://www.oefb.at/"
+        />
 
-        <div style={externalArrow}>
-          ↗
-        </div>
-      </button>
+        <PlatformCard
+          title="Wyscout"
+          description="Video, Scouting und Analyse"
+          url="https://platform.wyscout.com/"
+        />
+
+        <PlatformCard
+          title="Hudl"
+          description="Video und Performance"
+          url="https://www.hudl.com/"
+        />
+
+        <PlatformCard
+          title="Impect"
+          description="Performance- und Positionsdaten"
+          url="https://www.impect.com/"
+        />
+
+        <PlatformCard
+          title="SofaScore"
+          description="Live-Daten und Spielerstatistiken"
+          url="https://www.sofascore.com/"
+        />
+
+        <PlatformCard
+          title="FBref"
+          description="Spieler- und Teamstatistiken"
+          url="https://fbref.com/"
+        />
+
+        <PlatformCard
+          title="WhoScored"
+          description="Match- und Spielerstatistiken"
+          url="https://www.whoscored.com/"
+        />
+      </section>
 
       <section
         style={{
@@ -483,6 +510,85 @@ function StatusItem({
   );
 }
 
+
+function PlatformCard({
+  title,
+  description,
+  url,
+  featured = false
+}: {
+  title: string;
+  description: string;
+  url: string;
+  featured?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() =>
+        window.open(
+          url,
+          '_blank',
+          'noopener,noreferrer'
+        )
+      }
+      style={{
+        ...platformCard,
+        ...(featured
+          ? platformCardFeatured
+          : {})
+      }}
+    >
+      <div>
+        <div
+          style={{
+            ...platformCardEyebrow,
+            ...(featured
+              ? platformCardEyebrowFeatured
+              : {})
+          }}
+        >
+          Externe Plattform
+        </div>
+
+        <div
+          style={{
+            ...platformCardTitle,
+            ...(featured
+              ? platformCardTitleFeatured
+              : {})
+          }}
+        >
+          {title}
+        </div>
+
+        <div
+          style={{
+            ...platformCardDescription,
+            ...(featured
+              ? platformCardDescriptionFeatured
+              : {})
+          }}
+        >
+          {description}
+        </div>
+      </div>
+
+      <span
+        style={{
+          ...platformCardArrow,
+          ...(featured
+            ? platformCardArrowFeatured
+            : {})
+        }}
+      >
+        ↗
+      </span>
+    </button>
+  );
+}
+
+
 function FeatureCard({
   eyebrow: cardEyebrow,
   title: cardTitle,
@@ -578,6 +684,7 @@ const hero: CSSProperties = {
     'space-between',
   alignItems: 'center',
   gap: '24px',
+  flexWrap: 'wrap',
   background: '#fff',
   border:
     '1px solid #ececec',
@@ -703,7 +810,7 @@ const statusValue: CSSProperties = {
 const quickStats: CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'repeat(4, minmax(0, 1fr))',
+    'repeat(auto-fit, minmax(150px, 1fr))',
   gap: '10px',
   marginTop: '12px'
 };
@@ -739,42 +846,78 @@ const quickStatHint: CSSProperties = {
   fontSize: '10px'
 };
 
-const statsLibudaCard: CSSProperties = {
-  width: '100%',
-  minHeight: '120px',
+const platformGrid: CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns:
+    'repeat(auto-fit, minmax(190px, 1fr))',
+  gap: '10px'
+};
+
+const platformCard: CSSProperties = {
+  minHeight: '112px',
   display: 'flex',
   justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: '20px',
+  alignItems: 'stretch',
+  gap: '14px',
   textAlign: 'left',
-  border: '1px solid #cde0d4',
-  borderRadius: '16px',
-  padding: '20px',
-  background:
-    'linear-gradient(135deg, #f7fbf8 0%, #edf7f1 100%)',
+  border: '1px solid #e5e8e5',
+  borderRadius: '14px',
+  padding: '14px',
+  background: '#fff',
   color: '#171717',
   font: 'inherit',
   cursor: 'pointer'
 };
 
-const statsLibudaTitle: CSSProperties = {
-  margin: '6px 0 7px',
-  color: '#0b6b35',
-  fontSize: '21px',
-  letterSpacing: '-.02em'
+const platformCardFeatured: CSSProperties = {
+  background:
+    'linear-gradient(135deg, #0b7a3b 0%, #075b2d 100%)',
+  borderColor: '#0b7a3b',
+  color: '#fff'
 };
 
-const externalArrow: CSSProperties = {
-  width: '36px',
-  height: '36px',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  borderRadius: '50%',
-  border: '1px solid #a8cbb6',
-  color: '#0b6b35',
-  fontSize: '18px',
-  flex: '0 0 auto'
+const platformCardEyebrow: CSSProperties = {
+  color: '#0b7a3b',
+  fontSize: '8px',
+  fontWeight: 900,
+  textTransform: 'uppercase',
+  letterSpacing: '.06em'
+};
+
+const platformCardEyebrowFeatured: CSSProperties = {
+  color: 'rgba(255,255,255,.72)'
+};
+
+const platformCardTitle: CSSProperties = {
+  marginTop: '5px',
+  color: '#171717',
+  fontSize: '16px',
+  fontWeight: 900
+};
+
+const platformCardTitleFeatured: CSSProperties = {
+  color: '#fff'
+};
+
+const platformCardDescription: CSSProperties = {
+  marginTop: '4px',
+  color: '#777',
+  fontSize: '10px',
+  lineHeight: 1.4
+};
+
+const platformCardDescriptionFeatured: CSSProperties = {
+  color: 'rgba(255,255,255,.75)'
+};
+
+const platformCardArrow: CSSProperties = {
+  alignSelf: 'flex-end',
+  color: '#0b7a3b',
+  fontSize: '16px'
+};
+
+const platformCardArrowFeatured: CSSProperties = {
+  color: '#fff'
 };
 
 const warningBox: CSSProperties = {
@@ -821,7 +964,7 @@ const sectionHint: CSSProperties = {
 const mainGrid: CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'repeat(3, minmax(0, 1fr))',
+    'repeat(auto-fit, minmax(230px, 1fr))',
   gap: '12px'
 };
 
