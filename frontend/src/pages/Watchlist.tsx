@@ -47,6 +47,8 @@ export default function Watchlist({
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] =
     useState<number | string | null>(null);
+  const [movingId, setMovingId] =
+    useState<number | string | null>(null);
   const [error, setError] =
     useState<string | undefined>();
   const [success, setSuccess] =
@@ -512,6 +514,113 @@ export default function Watchlist({
     }
   }
 
+  async function moveToSquad(
+    entry: WatchlistEntry
+  ) {
+    if (!accessToken) {
+      setError(
+        'Kein Teams-SSO-Token vorhanden.'
+      );
+      return;
+    }
+
+    const player =
+      findPlayer(
+        entry.player_id
+      );
+
+    if (!player) {
+      setError(
+        'Der Spieler konnte nicht geladen werden.'
+      );
+      return;
+    }
+
+    setMovingId(entry.id);
+    setError(undefined);
+    setSuccess(undefined);
+
+    try {
+      const squadResponse =
+        await fetch(
+          `${apiBase}/scouting/${player.id}/to-squad`,
+          {
+            method: 'POST',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`,
+              'Content-Type':
+                'application/json'
+            },
+            body: JSON.stringify({
+              squad_status:
+                'Unter Vertrag'
+            })
+          }
+        );
+
+      const squadData =
+        await squadResponse.json();
+
+      if (!squadResponse.ok) {
+        throw new Error(
+          squadData?.error ??
+          'Spieler konnte nicht in den Kader aufgenommen werden.'
+        );
+      }
+
+      const watchlistResponse =
+        await fetch(
+          `${apiBase}/watchlist/${entry.id}`,
+          {
+            method: 'DELETE',
+            headers: {
+              Authorization:
+                `Bearer ${accessToken}`
+            }
+          }
+        );
+
+      const watchlistData =
+        await watchlistResponse.json();
+
+      if (!watchlistResponse.ok) {
+        throw new Error(
+          watchlistData?.error ??
+          'Spieler wurde in den Kader aufgenommen, konnte aber nicht aus der Watchlist entfernt werden.'
+        );
+      }
+
+      // Der zentrale Player-State liegt im App-Parent.
+      // Die Objekt-Referenz bleibt dort identisch und ist beim
+      // nächsten Seitenwechsel bereits als Kaderspieler markiert.
+      player.is_own_squad = true;
+      player.archived_at = null;
+      player.squad_status =
+        'Unter Vertrag';
+
+      setEntries(current =>
+        current.filter(
+          item =>
+            String(item.id) !==
+            String(entry.id)
+        )
+      );
+
+      setSuccess(
+        `${player.name ?? 'Spieler'} wurde in den Kader aufgenommen und aus der Watchlist entfernt.`
+      );
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : 'Aufnahme in den Kader fehlgeschlagen.'
+      );
+    } finally {
+      setMovingId(null);
+    }
+  }
+
   function findPlayer(
     playerId: number | string
   ) {
@@ -912,10 +1021,38 @@ export default function Watchlist({
                       justifyContent: 'flex-end'
                     }}
                   >
+                    {player &&
+                      !player.is_own_squad && (
+                        <button
+                          type="button"
+                          disabled={
+                            movingId ===
+                            entry.id
+                          }
+                          onClick={() =>
+                            moveToSquad(
+                              entry
+                            )
+                          }
+                          style={
+                            moveToSquadButton
+                          }
+                        >
+                          {movingId ===
+                          entry.id
+                            ? 'Wird aufgenommen…'
+                            : 'In Kader aufnehmen'}
+                        </button>
+                      )}
+
                     <button
                       type="button"
                       onClick={() =>
                         startEdit(entry)
+                      }
+                      disabled={
+                        movingId ===
+                        entry.id
                       }
                       style={smallButton}
                     >
@@ -925,7 +1062,8 @@ export default function Watchlist({
                     <button
                       type="button"
                       disabled={
-                        deletingId === entry.id
+                        deletingId === entry.id ||
+                        movingId === entry.id
                       }
                       onClick={() =>
                         deleteEntry(entry)
@@ -1330,6 +1468,19 @@ const secondaryButton: React.CSSProperties = {
   borderRadius: '10px',
   cursor: 'pointer',
   fontWeight: 700
+};
+
+const moveToSquadButton:
+  React.CSSProperties = {
+  border:
+    '1px solid #0b7a3b',
+  background: '#0b7a3b',
+  color: '#fff',
+  borderRadius: '8px',
+  padding: '7px 10px',
+  cursor: 'pointer',
+  fontWeight: 800,
+  fontSize: '11px'
 };
 
 const smallButton: React.CSSProperties = {
