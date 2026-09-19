@@ -361,12 +361,6 @@ export default function Dashboard({
         />
 
         <PlatformCard
-          title="ÖFB"
-          description="Spieler- und Bewerbsdaten"
-          url="https://www.oefb.at/"
-        />
-
-        <PlatformCard
           title="Wyscout"
           description="Video, Scouting und Analyse"
           url="https://platform.wyscout.com/"
@@ -385,21 +379,27 @@ export default function Dashboard({
         />
 
         <PlatformCard
-          title="SofaScore"
-          description="Live-Daten und Spielerstatistiken"
-          url="https://www.sofascore.com/"
+          title="Bundesliga"
+          description="Österreichische Bundesliga"
+          url="https://www.bundesliga.at/"
         />
 
         <PlatformCard
-          title="FBref"
-          description="Spieler- und Teamstatistiken"
-          url="https://fbref.com/"
+          title="SAP SportsOne"
+          description="ÖFB / SportsOne"
+          url="https://oefb1904.eu11.sportsone.cloud.sap/home"
         />
 
         <PlatformCard
-          title="WhoScored"
-          description="Match- und Spielerstatistiken"
-          url="https://www.whoscored.com/"
+          title="DieLigen"
+          description="Trainer- und Bewerbsplattform"
+          url="https://coaches.ligen.football/contest-overview"
+        />
+
+        <PlatformCard
+          title="SkillCorner"
+          description="Tracking- und Performance-Daten"
+          url="https://skillcorner.com/app/login?hsLang=en"
         />
       </section>
 
