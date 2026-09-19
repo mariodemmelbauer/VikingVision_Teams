@@ -1142,7 +1142,7 @@ function InfoBox({
 const watchOverviewGrid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'repeat(4, minmax(0, 1fr))',
+    'repeat(auto-fit, minmax(140px, 1fr))',
   gap: '10px',
   marginTop: '14px'
 };
@@ -1204,7 +1204,7 @@ const watchDate: React.CSSProperties = {
 const watchFilterGrid: React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'minmax(220px, 2fr) repeat(3, minmax(140px, 1fr)) auto',
+    'repeat(auto-fit, minmax(160px, 1fr))',
   gap: '10px',
   alignItems: 'end'
 };
