@@ -512,6 +512,8 @@ export default function P12Tab({
         profileTab={profileTab}
         setProfileTab={setProfileTab}
         api={api}
+        apiBase={apiBase}
+        accessToken={accessToken}
         onReload={reloadCurrent}
         onBack={() => {
           setSelectedId(null);
@@ -998,6 +1000,8 @@ function P12PlayerProfile({
   profileTab,
   setProfileTab,
   api,
+  apiBase,
+  accessToken,
   onReload,
   onBack
 }: {
@@ -1012,6 +1016,8 @@ function P12PlayerProfile({
   profileTab: ProfileTab;
   setProfileTab: (value: ProfileTab) => void;
   api: (path: string, init?: RequestInit) => Promise<any>;
+  apiBase: string;
+  accessToken?: string;
   onReload: () => Promise<void>;
   onBack: () => void;
 }) {
@@ -1088,7 +1094,11 @@ function P12PlayerProfile({
           <button
             type="button"
             onClick={() =>
-              printP12Profile(detail)
+              void printP12Profile(
+                detail,
+                apiBase,
+                accessToken
+              )
             }
             style={secondaryButton}
           >
@@ -2836,11 +2846,93 @@ function SelfAssessmentSection({
   );
 }
 
-function printP12Profile(
-  detail: PlayerDetail
+async function printP12Profile(
+  detail: PlayerDetail,
+  apiBase: string,
+  accessToken?: string
 ) {
   const player =
     detail.player;
+
+  const blobToDataUrl =
+    (blob: Blob) =>
+      new Promise<string>(
+        (resolve, reject) => {
+          const reader =
+            new FileReader();
+
+          reader.onload = () =>
+            resolve(
+              String(
+                reader.result ??
+                ''
+              )
+            );
+
+          reader.onerror = () =>
+            reject(
+              reader.error
+            );
+
+          reader.readAsDataURL(
+            blob
+          );
+        }
+      );
+
+  const resolvePlayerPhoto =
+    async () => {
+      if (
+        player.player_id &&
+        accessToken
+      ) {
+        try {
+          const response =
+            await fetch(
+              `${apiBase}/players/${player.player_id}/image`,
+              {
+                headers: {
+                  Authorization:
+                    `Bearer ${accessToken}`
+                }
+              }
+            );
+
+          if (response.ok) {
+            return await blobToDataUrl(
+              await response.blob()
+            );
+          }
+        } catch {
+          // Fallback to an already absolute image path below.
+        }
+      }
+
+      const imagePath =
+        player.image_path?.trim();
+
+      if (
+        imagePath &&
+        (
+          imagePath.startsWith(
+            'https://'
+          ) ||
+          imagePath.startsWith(
+            'http://'
+          ) ||
+          imagePath.startsWith(
+            'data:'
+          ) ||
+          imagePath.startsWith(
+            'blob:'
+          )
+        )
+      ) {
+        return imagePath;
+      }
+
+      return '';
+    };
 
   const escape =
     (value: unknown) =>
@@ -3740,9 +3832,7 @@ function printP12Profile(
     'https://cdn.api.everysport.com/logos/fotboll/sv_ried_127898/1705061099525.png';
 
   const playerPhoto =
-    player.image_path
-      ? escape(player.image_path)
-      : '';
+    await resolvePlayerPhoto();
 
   const html = `
     <!doctype html>
@@ -3752,70 +3842,71 @@ function printP12Profile(
       <title>P12 · ${escape(player.name ?? 'Spieler')}</title>
       <style>
         * { box-sizing: border-box; }
-        @page { size: A4 landscape; margin: 10mm; }
+        @page { size: A4 portrait; margin: 9mm; }
         body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #18201c; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         h1, h2, h3, p { margin-top: 0; }
-        h1 { font-size: 34px; margin-bottom: 4px; letter-spacing: -.03em; }
-        h2 { font-size: 25px; margin-bottom: 14px; }
-        h3 { font-size: 18px; margin-bottom: 7px; }
-        .export-page { min-height: 180mm; break-after: page; page-break-after: always; padding: 4mm 3mm; position: relative; }
+        h1 { font-size: 29px; margin-bottom: 3px; letter-spacing: -.03em; }
+        h2 { font-size: 22px; margin-bottom: 12px; }
+        h3 { font-size: 17px; margin-bottom: 6px; }
+        .export-page { min-height: 272mm; break-after: page; page-break-after: always; padding: 2mm 2mm 8mm; position: relative; }
         .export-page:last-child { break-after: auto; page-break-after: auto; }
-        .profile-head { display: grid; grid-template-columns: 78px 76px minmax(0, 1fr) auto; gap: 18px; align-items: center; border-bottom: 3px solid #0b7a3b; padding-bottom: 12px; }
-        .club-logo { width: 70px; height: 70px; object-fit: contain; }
-        .player-photo { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; background: #eef2ef; border: 1px solid #d9dfdb; }
-        .player-photo-placeholder { width: 72px; height: 72px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #0b7a3b; color: #fff; font-weight: 900; font-size: 22px; }
-        .profile-meta { color: #636a66; font-size: 14px; }
-        .profile-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 10px; background: #edf7f1; color: #0b6b35; font-weight: 800; font-size: 11px; margin-left: 6px; }
+        .profile-head { display: grid; grid-template-columns: 58px 62px minmax(0, 1fr); gap: 11px; align-items: center; border-bottom: 2px solid #0b7a3b; padding-bottom: 9px; }
+        .club-logo { width: 54px; height: 54px; object-fit: contain; }
+        .player-photo { width: 58px; height: 58px; border-radius: 9px; object-fit: cover; object-position: center top; background: #eef2ef; border: 1px solid #d9dfdb; }
+        .player-photo-placeholder { width: 58px; height: 58px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: #0b7a3b; color: #fff; font-weight: 900; font-size: 18px; }
+        .profile-meta { color: #636a66; font-size: 11px; line-height: 1.35; }
+        .profile-tags { grid-column: 3; display: flex; gap: 6px; flex-wrap: wrap; margin-top: -5px; }
+        .profile-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 9px; background: #edf7f1; color: #0b6b35; font-weight: 800; font-size: 9px; }
         .section-kicker { color: #0b7a3b; font-size: 10px; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; margin-bottom: 5px; }
-        .profile-layout { display: grid; grid-template-columns: minmax(0, .95fr) minmax(420px, 1.20fr) minmax(245px, .55fr); gap: 20px; margin-top: 18px; align-items: start; }
-        .focus-stack { display: grid; gap: 14px; }
-        .focus-card { border: 1px solid #d7e5dc; border-left: 6px solid #0b7a3b; border-radius: 14px; background: #fff; padding: 15px 17px; min-height: 82px; }
-        .focus-card strong { display: block; margin-bottom: 8px; padding-bottom: 7px; border-bottom: 1px solid #d9e7df; font-size: 14px; color: #075d32; }
-        .focus-card div { white-space: pre-wrap; line-height: 1.42; font-size: 12.5px; color: #26332c; }
+        .profile-layout { display: grid; grid-template-columns: minmax(0, .88fr) minmax(0, 1.12fr); gap: 16px; margin-top: 14px; align-items: start; }
+        .focus-stack { display: grid; gap: 9px; }
+        .focus-card { border: 1px solid #d7e5dc; border-left: 5px solid #0b7a3b; border-radius: 11px; background: #fff; padding: 11px 12px; min-height: 68px; }
+        .focus-card strong { display: block; margin-bottom: 6px; padding-bottom: 5px; border-bottom: 1px solid #d9e7df; font-size: 11px; color: #075d32; }
+        .focus-card div { white-space: pre-wrap; line-height: 1.36; font-size: 9.5px; color: #26332c; }
         .pyramid-panel { border-radius: 0; background: transparent; padding: 0; }
-        .pyramid-panel h3 { text-align: left; margin: 0 0 4px; color: #075d32; font-size: 24px; }
-        .pyramid-wrap { display: flex; justify-content: center; align-items: flex-start; min-height: 455px; }
-        .p12-pyramid-svg { display: block; width: 100%; max-width: 610px; height: auto; overflow: visible; }
-        .profile-column-title { color: #075d32; font-size: 24px; font-weight: 900; margin: 0 0 4px; }
-        .profile-column-subtitle { color: #66716a; font-size: 12px; margin-bottom: 10px; }
-        .profile-radar-panel { border-left: 1px solid #d7ddd9; padding-left: 14px; min-width: 0; }
-        .profile-radar-panel .radar-svg { width: 100%; max-width: 300px; margin: 0 auto; }
+        .pyramid-panel h3 { text-align: left; margin: 0 0 3px; color: #075d32; font-size: 20px; }
+        .pyramid-wrap { display: flex; justify-content: center; align-items: flex-start; min-height: 310px; }
+        .p12-pyramid-svg { display: block; width: 100%; max-width: 390px; height: auto; overflow: visible; }
+        .profile-column-title { color: #075d32; font-size: 18px; font-weight: 900; margin: 0 0 3px; }
+        .profile-column-subtitle { color: #66716a; font-size: 9px; margin-bottom: 7px; }
+        .profile-radar-panel { grid-column: 1 / -1; border-left: 0; border-top: 1px solid #d7ddd9; padding: 10px 0 0; min-width: 0; display: grid; grid-template-columns: 165px minmax(0, 1fr); align-items: center; gap: 14px; }
+        .profile-radar-panel .radar-svg { width: 100%; max-width: 285px; margin: 0 auto; }
         .profile-radar-empty { margin-top: 24px; padding: 18px 12px; border: 1px dashed #d4dad6; border-radius: 10px; color: #858d88; font-size: 11px; text-align: center; }
-        .assessment-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; border-bottom: 2px solid #0b7a3b; padding-bottom: 9px; margin-bottom: 14px; }
+        .assessment-head { display: flex; justify-content: space-between; gap: 14px; align-items: flex-end; border-bottom: 2px solid #0b7a3b; padding-bottom: 7px; margin-bottom: 10px; }
         .assessment-meta { color: #626964; font-size: 12px; }
-        .trainer-top-grid { display: grid; grid-template-columns: 1.55fr .65fr; gap: 14px; align-items: start; margin-bottom: 14px; }
-        .trainer-meta-card { border: 1px solid #d7ddd9; border-radius: 12px; overflow: hidden; background: #fff; font-size: 10px; }
-        .trainer-meta-row { display: grid; grid-template-columns: 90px 1fr; border-top: 1px solid #e4e8e5; }
-        .trainer-meta-row:first-child { border-top: 0; }
-        .trainer-meta-row strong, .trainer-meta-row span { padding: 7px 8px; }
+        .trainer-top-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; align-items: start; margin-bottom: 10px; }
+        .trainer-meta-card { border: 1px solid #d7ddd9; border-radius: 9px; overflow: hidden; background: #fff; font-size: 8.5px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); }
+        .trainer-meta-row { display: grid; grid-template-columns: 1fr; border-left: 1px solid #e4e8e5; }
+        .trainer-meta-row:first-child { border-left: 0; }
+        .trainer-meta-row strong, .trainer-meta-row span { padding: 5px 6px; }
         .trainer-meta-row strong { background: #f3f6f4; }
         .trainer-chart-heading { margin: 16px 0 8px; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; color: #0b6b35; }
-        .chart-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 14px; align-items: start; }
+        .chart-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; align-items: start; }
         .chart-card { border: 1px solid #d7ddd9; border-radius: 14px; background: #fff; padding: 8px; break-inside: avoid; }
         .radar-svg { display: block; width: 100%; height: auto; }
         .empty-chart { padding: 24px; color: #7b817d; text-align: center; border: 1px dashed #cfd5d1; border-radius: 12px; }
-        .data-table { margin-top: 14px; border: 1px solid #d8ddda; border-radius: 12px; overflow: hidden; font-size: 10px; }
+        .data-table { margin-top: 0; border: 1px solid #d8ddda; border-radius: 9px; overflow: hidden; font-size: 7.6px; }
         .table-head, .table-row { display: grid; grid-template-columns: 1.05fr 2.1fr 62px 62px; }
         .table-head { background: #101512; color: #fff; font-weight: 800; }
-        .table-head span, .table-row span, .table-row strong { padding: 6px 7px; border-right: 1px solid #d8ddda; }
+        .table-head span, .table-row span, .table-row strong { padding: 3px 4px; border-right: 1px solid #d8ddda; line-height: 1.2; }
         .table-row { border-top: 1px solid #e6e9e7; }
         .table-row:nth-child(odd) { background: #f8faf9; }
-        .self-layout { display: grid; grid-template-columns: 1.15fr .85fr; gap: 18px; align-items: start; }
+        .self-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; align-items: start; }
         .self-notes { display: grid; gap: 10px; }
         .note-card { border: 1px solid #dce2de; border-radius: 12px; padding: 13px; background: #f8faf9; }
         .note-card strong { display: block; color: #0b6b35; font-size: 11px; text-transform: uppercase; margin-bottom: 5px; }
-        .sport-radar-card { max-width: 760px; margin: 0 auto 14px; }
+        .sport-radar-card { max-width: 500px; margin: 0 auto 10px; }
         .sport-radar-hint { text-align: center; color: #6f7672; font-size: 9px; margin-top: -4px; padding-bottom: 6px; }
         .sport-test { border: 1px solid #d9dfdb; border-radius: 14px; padding: 12px; margin-top: 12px; break-inside: avoid; }
         .sport-test-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 10px; }
         .sport-test-head span { color: #747a76; font-size: 11px; }
-        .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 8px; }
+        .metric-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
         .metric-card { padding: 9px; border-radius: 9px; background: #f5f7f6; }
         .metric-card span { display: block; color: #747a76; font-size: 9px; text-transform: uppercase; }
         .metric-card strong { display: block; margin-top: 3px; font-size: 13px; }
-        .foot { position: absolute; left: 3mm; right: 3mm; bottom: 1mm; display: flex; justify-content: space-between; color: #8a908c; font-size: 9px; }
+        .foot { position: absolute; left: 2mm; right: 2mm; bottom: 1mm; display: flex; justify-content: space-between; color: #8a908c; font-size: 7px; }
         @media print {
-          .export-page { min-height: 180mm; }
+          .export-page { min-height: 272mm; }
           .chart-card, .data-table, .pyramid-panel { break-inside: avoid; }
         }
       </style>
@@ -3830,7 +3921,7 @@ function printP12Profile(
             <h1>${escape(player.name ?? 'P12-Spieler')}</h1>
             <div class="profile-meta">${escape(player.primary_position ?? '')}${player.player_role ? ` · ${escape(player.player_role)}` : ''}${player.birth_date ? ` · ${escape(player.birth_date)}` : ''}${player.season ? ` · ${escape(player.season)}` : ''}</div>
           </div>
-          <div>
+          <div class="profile-tags">
             ${player.p12_status ? `<span class="profile-tag">${escape(player.p12_status)}</span>` : ''}
             ${player.lead_coach ? `<span class="profile-tag">Coach: ${escape(player.lead_coach)}</span>` : ''}
           </div>
@@ -3869,8 +3960,10 @@ function printP12Profile(
           </div>
 
           <div class="profile-radar-panel">
-            <div class="profile-column-title">Bewertungsprofil</div>
-            <div class="profile-column-subtitle">Aktueller Entwicklungsstand</div>
+            <div>
+              <div class="profile-column-title">Bewertungsprofil</div>
+              <div class="profile-column-subtitle">Aktueller Entwicklungsstand</div>
+            </div>
 
             ${
               profileRadar ||
