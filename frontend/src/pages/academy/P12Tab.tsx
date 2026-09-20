@@ -3072,41 +3072,190 @@ function printP12Profile(
     `;
   };
 
-  const pyramidItems =
+  const svgText =
     (
-      value?: string[],
-      compact = false
-    ) => {
-      const items =
-        (value ?? []).filter(
-          item =>
-            Boolean(item)
-        );
+      value: string,
+      x: number,
+      y: number,
+      size = 13,
+      weight = 700
+    ) =>
+      `<text x="${x}" y="${y}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${size}" font-weight="${weight}" fill="#111">${escape(value)}</text>`;
 
-      if (!items.length) {
-        return '<div class="pyramid-empty">–</div>';
+  const pyramidItemTexts =
+    (
+      items: string[] | undefined,
+      yStart: number,
+      xCenter: number,
+      width: number,
+      rowGap: number,
+      fontSize = 12
+    ) => {
+      const values =
+        (items ?? [])
+          .filter(Boolean)
+          .slice(0, 10);
+
+      if (!values.length) {
+        return svgText('–', xCenter, yStart, fontSize, 700);
       }
 
-      return `<ul class="pyramid-items ${items.length > 4 || compact ? 'compact' : ''}">${items
-        .map(
-          item =>
-            `<li>${escape(item)}</li>`
+      const twoColumns =
+        values.length > 3;
+
+      if (!twoColumns) {
+        return values
+          .map(
+            (item, index) =>
+              svgText(
+                item,
+                xCenter,
+                yStart +
+                  index * rowGap,
+                fontSize,
+                650
+              )
+          )
+          .join('');
+      }
+
+      const left =
+        values.filter(
+          (_, index) =>
+            index % 2 === 0
+        );
+      const right =
+        values.filter(
+          (_, index) =>
+            index % 2 === 1
+        );
+
+      const leftX =
+        xCenter - width * 0.23;
+      const rightX =
+        xCenter + width * 0.23;
+
+      return [
+        ...left.map(
+          (item, index) =>
+            svgText(
+              item,
+              leftX,
+              yStart +
+                index * rowGap,
+              fontSize,
+              650
+            )
+        ),
+        ...right.map(
+          (item, index) =>
+            svgText(
+              item,
+              rightX,
+              yStart +
+                index * rowGap,
+              fontSize,
+              650
+            )
         )
-        .join('')}</ul>`;
+      ].join('');
     };
 
-  const latestTrainer =
-    [...detail.trainerAssessments]
-      .sort(
-        (a, b) =>
-          String(
-            b.assessment_date ?? ''
-          ).localeCompare(
-            String(
-              a.assessment_date ?? ''
-            )
-          )
-      )[0];
+  const pyramidSvg = () => `
+    <svg
+      class="p12-pyramid-svg"
+      viewBox="0 0 700 520"
+      role="img"
+      aria-label="P12-Pyramide"
+    >
+      <defs>
+        <linearGradient id="p12Top" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ff1d12" />
+          <stop offset="100%" stop-color="#ff7500" />
+        </linearGradient>
+        <linearGradient id="p12Middle" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#ff8f00" />
+          <stop offset="100%" stop-color="#e0d713" />
+        </linearGradient>
+        <linearGradient id="p12Bottom" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#54bd2d" />
+          <stop offset="100%" stop-color="#00ad56" />
+        </linearGradient>
+      </defs>
+
+      <polygon
+        points="350,8 485,174 215,174"
+        fill="url(#p12Top)"
+        stroke="#1d2520"
+        stroke-width="2"
+      />
+
+      <polygon
+        points="215,178 485,178 565,338 135,338"
+        fill="url(#p12Middle)"
+        stroke="#1d2520"
+        stroke-width="2"
+      />
+
+      <polygon
+        points="135,342 565,342 665,510 35,510"
+        fill="url(#p12Bottom)"
+        stroke="#1d2520"
+        stroke-width="2"
+      />
+
+      ${svgText(
+        player.pyramid_focus_title ??
+          'FOKUS & ERWARTUNGEN',
+        350,
+        72,
+        15,
+        900
+      )}
+      ${pyramidItemTexts(
+        player.pyramid_output_items,
+        108,
+        350,
+        210,
+        22,
+        12
+      )}
+
+      ${svgText(
+        player.pyramid_control_title ??
+          'WENN ICH GUT IM SPIEL BIN – 70 % KONTROLLE',
+        350,
+        214,
+        14,
+        900
+      )}
+      ${pyramidItemTexts(
+        player.pyramid_control_items,
+        252,
+        350,
+        370,
+        25,
+        12
+      )}
+
+      ${svgText(
+        player.pyramid_basics_title ??
+          'BASICS – 100 % KONTROLLE',
+        350,
+        382,
+        15,
+        900
+      )}
+      ${pyramidItemTexts(
+        player.pyramid_basics_items,
+        420,
+        350,
+        540,
+        24,
+        12
+      )}
+    </svg>
+  `;
 
   const trainerScores =
     (latestTrainer?.scores ?? [])
@@ -3549,7 +3698,7 @@ function printP12Profile(
       <style>
         * { box-sizing: border-box; }
         @page { size: A4 landscape; margin: 10mm; }
-        body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #18201c; background: #fff; }
+        body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #18201c; background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         h1, h2, h3, p { margin-top: 0; }
         h1 { font-size: 34px; margin-bottom: 4px; letter-spacing: -.03em; }
         h2 { font-size: 25px; margin-bottom: 14px; }
@@ -3570,20 +3719,17 @@ function printP12Profile(
         .focus-card div { white-space: pre-wrap; line-height: 1.35; font-size: 13px; }
         .pyramid-panel { border-radius: 16px; background: #f5f7f6; padding: 12px; }
         .pyramid-panel h3 { text-align: center; margin-bottom: 8px; }
-        .pyramid-wrap { display: flex; justify-content: center; }
-        .pyramid-diagram { position: relative; width: 520px; height: 425px; transform-origin: top center; }
-        .pyramid-level { position: absolute; left: 50%; transform: translateX(-50%); box-sizing: border-box; display: flex; flex-direction: column; align-items: center; text-align: center; color: #101410; border: 1.6px solid rgba(0,0,0,.34); }
-        .level-top { top: 0; width: 215px; height: 135px; padding: 47px 27px 17px; clip-path: polygon(50% 0%, 100% 100%, 0% 100%); background: linear-gradient(180deg, #ff2b14 0%, #f56a00 100%); }
-        .level-middle { top: 133px; width: 350px; height: 138px; padding: 20px 31px 18px; clip-path: polygon(16% 0%, 84% 0%, 100% 100%, 0% 100%); background: linear-gradient(180deg, #ffa800 0%, #e0cf13 100%); }
-        .level-bottom { top: 269px; width: 485px; height: 150px; padding: 21px 38px 18px; clip-path: polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%); background: linear-gradient(180deg, #41bd39 0%, #08aa52 100%); }
-        .pyramid-title { font-weight: 900; font-size: 13px; line-height: 1.2; }
-        .pyramid-items { list-style: none; padding: 0; margin: 7px 0 0; width: 100%; display: grid; gap: 5px; }
-        .pyramid-items.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; row-gap: 5px; }
-        .pyramid-items li { font-size: 11px; line-height: 1.12; font-weight: 600; }
-        .level-top .pyramid-items li { font-size: 11px; }
-        .pyramid-empty { margin-top: 8px; font-size: 12px; font-weight: 700; }
+        .pyramid-wrap { display: flex; justify-content: center; align-items: center; min-height: 430px; }
+        .p12-pyramid-svg { display: block; width: 100%; max-width: 560px; height: auto; overflow: visible; }
         .assessment-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; border-bottom: 2px solid #0b7a3b; padding-bottom: 9px; margin-bottom: 14px; }
         .assessment-meta { color: #626964; font-size: 12px; }
+        .trainer-top-grid { display: grid; grid-template-columns: 1.55fr .65fr; gap: 14px; align-items: start; margin-bottom: 14px; }
+        .trainer-meta-card { border: 1px solid #d7ddd9; border-radius: 12px; overflow: hidden; background: #fff; font-size: 10px; }
+        .trainer-meta-row { display: grid; grid-template-columns: 90px 1fr; border-top: 1px solid #e4e8e5; }
+        .trainer-meta-row:first-child { border-top: 0; }
+        .trainer-meta-row strong, .trainer-meta-row span { padding: 7px 8px; }
+        .trainer-meta-row strong { background: #f3f6f4; }
+        .trainer-chart-heading { margin: 16px 0 8px; font-size: 12px; font-weight: 900; text-transform: uppercase; letter-spacing: .04em; color: #0b6b35; }
         .chart-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 14px; align-items: start; }
         .chart-card { border: 1px solid #d7ddd9; border-radius: 14px; background: #fff; padding: 8px; break-inside: avoid; }
         .radar-svg { display: block; width: 100%; height: auto; }
@@ -3644,20 +3790,7 @@ function printP12Profile(
           <div class="pyramid-panel">
             <h3>P12-Pyramide</h3>
             <div class="pyramid-wrap">
-              <div class="pyramid-diagram">
-                <div class="pyramid-level level-top">
-                  <div class="pyramid-title">${escape(player.pyramid_focus_title ?? 'FOKUS & ERWARTUNGEN')}</div>
-                  ${pyramidItems(player.pyramid_output_items)}
-                </div>
-                <div class="pyramid-level level-middle">
-                  <div class="pyramid-title">${escape(player.pyramid_control_title ?? 'WENN ICH GUT IM SPIEL BIN – 70 % KONTROLLE')}</div>
-                  ${pyramidItems(player.pyramid_control_items, true)}
-                </div>
-                <div class="pyramid-level level-bottom">
-                  <div class="pyramid-title">${escape(player.pyramid_basics_title ?? 'BASICS – 100 % KONTROLLE')}</div>
-                  ${pyramidItems(player.pyramid_basics_items, true)}
-                </div>
-              </div>
+              ${pyramidSvg()}
             </div>
           </div>
         </div>
@@ -3673,12 +3806,27 @@ function printP12Profile(
           </div>
           <div class="profile-meta">${escape(player.name ?? '')}</div>
         </div>
+        <div class="trainer-top-grid">
+          <div>
+            ${trainerTable}
+          </div>
+
+          <div class="trainer-meta-card">
+            <div class="trainer-meta-row"><strong>Spieler</strong><span>${escape(player.name ?? '–')}</span></div>
+            <div class="trainer-meta-row"><strong>Phase</strong><span>${escape(latestTrainer?.period_label ?? '–')}</span></div>
+            <div class="trainer-meta-row"><strong>Datum</strong><span>${escape(latestTrainer?.assessment_date ?? '–')}</span></div>
+            <div class="trainer-meta-row"><strong>Trainer</strong><span>${escape(latestTrainer?.coach_name ?? '–')}</span></div>
+            <div class="trainer-meta-row"><strong>Team</strong><span>${escape(latestTrainer?.team_label ?? 'P12')}</span></div>
+          </div>
+        </div>
+
+        <div class="trainer-chart-heading">Spinnennetze</div>
         <div class="chart-grid">
           <div class="chart-card">${detailRadar || '<div class="empty-chart">Noch keine Detailwerte vorhanden.</div>'}</div>
           <div class="chart-card">${mainRadar || '<div class="empty-chart">Noch keine Hauptpunkt-Werte vorhanden.</div>'}</div>
         </div>
-        ${trainerTable}
-        <div class="foot"><span>Spinnennetze analog P12-Bewertungsprofil</span><span>Rot · Gelb · Grün = Referenzringe</span></div>
+
+        <div class="foot"><span>Trainerbewertung · P12Vision</span><span>Detailwerte & Hauptpunkte</span></div>
       </section>
 
       ${latestSelf ? `
