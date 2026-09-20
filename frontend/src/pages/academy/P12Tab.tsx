@@ -2850,68 +2850,695 @@ function printP12Profile(
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;');
 
-  const lines =
-    (value?: string[]) =>
-      (value ?? [])
+  const shortLabel =
+    (
+      value: string,
+      maxLength = 18
+    ) => {
+      const clean =
+        value
+          .replace(/\s+/g, ' ')
+          .trim();
+
+      return clean.length > maxLength
+        ? `${clean.slice(0, maxLength - 1)}…`
+        : clean;
+    };
+
+  const average =
+    (values: number[]) => {
+      if (!values.length) {
+        return 0;
+      }
+
+      return values.reduce(
+        (sum, value) =>
+          sum + value,
+        0
+      ) / values.length;
+    };
+
+  const radarSvg = (
+    labels: string[],
+    values: number[],
+    maxValue: number,
+    options?: {
+      title?: string;
+      secondValues?: number[];
+      secondLabel?: string;
+      firstLabel?: string;
+      compact?: boolean;
+    }
+  ) => {
+    if (
+      labels.length < 3 ||
+      values.length !== labels.length
+    ) {
+      return '<div class="empty-chart">Zu wenige Werte für ein Spinnennetz.</div>';
+    }
+
+    const width =
+      options?.compact
+        ? 450
+        : 590;
+    const height =
+      options?.compact
+        ? 400
+        : 500;
+    const centerX =
+      width / 2;
+    const centerY =
+      options?.compact
+        ? 200
+        : 245;
+    const radius =
+      options?.compact
+        ? 135
+        : 180;
+    const labelRadius =
+      radius +
+      (options?.compact
+        ? 34
+        : 48);
+    const ringCount = 3;
+
+    const point = (
+      index: number,
+      radialValue: number,
+      customRadius = radius
+    ) => {
+      const angle =
+        -Math.PI / 2 +
+        (Math.PI * 2 * index) /
+          labels.length;
+      const r =
+        customRadius *
+        Math.max(
+          0,
+          Math.min(
+            radialValue /
+              maxValue,
+            1
+          )
+        );
+
+      return {
+        x:
+          centerX +
+          Math.cos(angle) * r,
+        y:
+          centerY +
+          Math.sin(angle) * r,
+        angle
+      };
+    };
+
+    const polygon = (
+      vals: number[]
+    ) =>
+      vals
+        .map(
+          (value, index) => {
+            const p =
+              point(
+                index,
+                value
+              );
+            return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+          }
+        )
+        .join(' ');
+
+    const rings =
+      Array.from(
+        { length: ringCount },
+        (_, ringIndex) => {
+          const ratio =
+            (ringIndex + 1) /
+            ringCount;
+          const ringPoints =
+            labels
+              .map(
+                (_, index) => {
+                  const p =
+                    point(
+                      index,
+                      maxValue * ratio
+                    );
+                  return `${p.x.toFixed(1)},${p.y.toFixed(1)}`;
+                }
+              )
+              .join(' ');
+          const stroke =
+            ringIndex === 0
+              ? '#ef4444'
+              : ringIndex === 1
+                ? '#eab308'
+                : '#7cb66c';
+
+          return `<polygon points="${ringPoints}" fill="none" stroke="${stroke}" stroke-width="1.2" opacity="0.95" />`;
+        }
+      )
+      .join('');
+
+    const axes =
+      labels
+        .map(
+          (_, index) => {
+            const p =
+              point(
+                index,
+                maxValue
+              );
+            return `<line x1="${centerX}" y1="${centerY}" x2="${p.x.toFixed(1)}" y2="${p.y.toFixed(1)}" stroke="#c7cbc8" stroke-width="1" />`;
+          }
+        )
+        .join('');
+
+    const labelsSvg =
+      labels
+        .map(
+          (label, index) => {
+            const p =
+              point(
+                index,
+                maxValue,
+                labelRadius
+              );
+            const anchor =
+              Math.cos(p.angle) > 0.25
+                ? 'start'
+                : Math.cos(p.angle) < -0.25
+                  ? 'end'
+                  : 'middle';
+
+            return `<text x="${p.x.toFixed(1)}" y="${p.y.toFixed(1)}" text-anchor="${anchor}" dominant-baseline="middle" font-size="${options?.compact ? 10 : 11}" font-family="Arial, sans-serif" fill="#202522">${escape(shortLabel(label, options?.compact ? 14 : 19))}</text>`;
+          }
+        )
+        .join('');
+
+    const title =
+      options?.title
+        ? `<text x="${centerX}" y="24" text-anchor="middle" font-size="17" font-weight="700" font-family="Arial, sans-serif" fill="#26302b">${escape(options.title)}</text>`
+        : '';
+
+    const second =
+      options?.secondValues &&
+      options.secondValues.length ===
+        labels.length
+        ? `<polygon points="${polygon(options.secondValues)}" fill="rgba(11,122,59,.10)" stroke="#0b7a3b" stroke-width="2.1" stroke-dasharray="6 4" />`
+        : '';
+
+    const legend =
+      options?.secondValues
+        ? `<g transform="translate(${centerX - 94},${height - 24})">
+            <line x1="0" y1="0" x2="22" y2="0" stroke="#111" stroke-width="3" />
+            <text x="29" y="4" font-size="10" font-family="Arial">${escape(options?.firstLabel ?? 'Trainer')}</text>
+            <line x1="94" y1="0" x2="116" y2="0" stroke="#0b7a3b" stroke-width="2.2" stroke-dasharray="6 4" />
+            <text x="123" y="4" font-size="10" font-family="Arial">${escape(options?.secondLabel ?? 'P12')}</text>
+          </g>`
+        : '';
+
+    return `
+      <svg class="radar-svg" viewBox="0 0 ${width} ${height}" role="img" aria-label="${escape(options?.title ?? 'Spinnennetz')}">
+        ${title}
+        ${rings}
+        ${axes}
+        <polygon points="${polygon(values)}" fill="rgba(17,17,17,.08)" stroke="#111" stroke-width="3" stroke-linejoin="round" />
+        ${second}
+        ${labelsSvg}
+        ${legend}
+      </svg>
+    `;
+  };
+
+  const pyramidItems =
+    (
+      value?: string[],
+      compact = false
+    ) => {
+      const items =
+        (value ?? []).filter(
+          item =>
+            Boolean(item)
+        );
+
+      if (!items.length) {
+        return '<div class="pyramid-empty">–</div>';
+      }
+
+      return `<ul class="pyramid-items ${items.length > 4 || compact ? 'compact' : ''}">${items
         .map(
           item =>
             `<li>${escape(item)}</li>`
         )
-        .join('');
+        .join('')}</ul>`;
+    };
 
-  const trainerHtml =
-    detail.trainerAssessments
-      .map(
-        assessment => `
-          <section>
-            <h3>Trainerbewertung · ${escape(assessment.period_label)}</h3>
-            <div class="muted">${escape(assessment.assessment_date ?? '')} ${assessment.coach_name ? `· ${escape(assessment.coach_name)}` : ''}</div>
-            ${(assessment.scores ?? [])
-              .map(
-                score =>
-                  `<div class="row"><span>${escape(score.detail)}</span><strong>${escape(score.coach_rating ?? score.p12_rating ?? '–')}/10</strong></div>`
+  const latestTrainer =
+    [...detail.trainerAssessments]
+      .sort(
+        (a, b) =>
+          String(
+            b.assessment_date ?? ''
+          ).localeCompare(
+            String(
+              a.assessment_date ?? ''
+            )
+          )
+      )[0];
+
+  const trainerScores =
+    (latestTrainer?.scores ?? [])
+      .filter(
+        score =>
+          score.coach_rating != null ||
+          score.p12_rating != null
+      );
+
+  const trainerMax =
+    trainerScores.some(
+      score =>
+        Number(
+          score.coach_rating ??
+          score.p12_rating ??
+          0
+        ) > 3
+    )
+      ? 10
+      : 3;
+
+  const detailRadar =
+    trainerScores.length >= 3
+      ? radarSvg(
+          trainerScores.map(
+            score =>
+              score.detail
+          ),
+          trainerScores.map(
+            score =>
+              Number(
+                score.coach_rating ??
+                score.p12_rating ??
+                0
               )
-              .join('')}
-          </section>
-        `
-      )
-      .join('');
+          ),
+          trainerMax,
+          {
+            title:
+              latestTrainer
+                ? `${player.name ?? 'Spieler'} – Trainerbewertung Details`
+                : 'Trainerbewertung Details',
+            secondValues:
+              trainerScores.every(
+                score =>
+                  score.p12_rating != null
+              )
+                ? trainerScores.map(
+                    score =>
+                      Number(
+                        score.p12_rating ??
+                        0
+                      )
+                  )
+                : undefined,
+            firstLabel: 'Trainer',
+            secondLabel: 'P12'
+          }
+        )
+      : '';
 
-  const selfHtml =
-    detail.selfAssessments
-      .map(
-        assessment => `
-          <section>
-            <h3>Spielerbewertung · ${escape(assessment.period_label)}</h3>
-            <p><strong>Stärken:</strong> ${escape(assessment.strengths ?? '–')}</p>
-            <p><strong>Entwicklungsfelder:</strong> ${escape(assessment.development_areas ?? '–')}</p>
-            <p><strong>Ziele:</strong> ${escape(assessment.personal_goals ?? '–')}</p>
-          </section>
-        `
+  const groupedTrainer =
+    Array.from(
+      new Set(
+        trainerScores.map(
+          score =>
+            score.category
+        )
       )
-      .join('');
+    )
+      .map(
+        category => {
+          const rows =
+            trainerScores.filter(
+              score =>
+                score.category ===
+                category
+            );
+          const coachValues =
+            rows
+              .map(
+                row =>
+                  row.coach_rating
+              )
+              .filter(
+                (
+                  value
+                ): value is number =>
+                  typeof value ===
+                  'number'
+              );
+          const p12Values =
+            rows
+              .map(
+                row =>
+                  row.p12_rating
+              )
+              .filter(
+                (
+                  value
+                ): value is number =>
+                  typeof value ===
+                  'number'
+              );
+
+          return {
+            category,
+            coach:
+              average(
+                coachValues.length
+                  ? coachValues
+                  : rows.map(
+                      row =>
+                        Number(
+                          row.p12_rating ??
+                          0
+                        )
+                    )
+              ),
+            p12:
+              p12Values.length
+                ? average(
+                    p12Values
+                  )
+                : undefined
+          };
+        }
+      );
+
+  const mainRadar =
+    groupedTrainer.length >= 3
+      ? radarSvg(
+          groupedTrainer.map(
+            row =>
+              row.category
+          ),
+          groupedTrainer.map(
+            row =>
+              row.coach
+          ),
+          trainerMax,
+          {
+            title:
+              latestTrainer
+                ? `${player.name ?? 'Spieler'} – Trainerbewertung Hauptpunkte`
+                : 'Trainerbewertung Hauptpunkte',
+            secondValues:
+              groupedTrainer.every(
+                row =>
+                  row.p12 != null
+              )
+                ? groupedTrainer.map(
+                    row =>
+                      Number(
+                        row.p12 ??
+                        0
+                      )
+                  )
+                : undefined,
+            firstLabel: 'Trainer',
+            secondLabel: 'P12',
+            compact: true
+          }
+        )
+      : '';
+
+  const latestSelf =
+    [...detail.selfAssessments]
+      .sort(
+        (a, b) =>
+          String(
+            b.assessment_date ??
+            b.submitted_at ??
+            ''
+          ).localeCompare(
+            String(
+              a.assessment_date ??
+              a.submitted_at ??
+              ''
+            )
+          )
+      )[0];
+
+  const selfScores =
+    (latestSelf?.scores ?? [])
+      .filter(
+        score =>
+          score.rating != null
+      );
+
+  const selfMax =
+    selfScores.some(
+      score =>
+        Number(
+          score.rating ??
+          0
+        ) > 3
+    )
+      ? 10
+      : 3;
+
+  const selfRadar =
+    selfScores.length >= 3
+      ? radarSvg(
+          selfScores.map(
+            score =>
+              score.detail ||
+              score.category
+          ),
+          selfScores.map(
+            score =>
+              Number(
+                score.rating ??
+                0
+              )
+          ),
+          selfMax,
+          {
+            title:
+              `${player.name ?? 'Spieler'} – Spielerbewertung`,
+            compact: false
+          }
+        )
+      : '';
+
+  const trainerTable =
+    latestTrainer
+      ? `
+        <div class="data-table">
+          <div class="table-head"><span>Prinzip</span><span>Detail</span><span>P12</span><span>Trainer</span></div>
+          ${(latestTrainer.scores ?? [])
+            .map(
+              score => `
+                <div class="table-row">
+                  <span>${escape(score.category)}</span>
+                  <span>${escape(score.detail)}</span>
+                  <strong>${escape(score.p12_rating ?? '–')}</strong>
+                  <strong>${escape(score.coach_rating ?? '–')}</strong>
+                </div>
+              `
+            )
+            .join('')}
+        </div>
+      `
+      : '<div class="empty-chart">Noch keine Trainerbewertung vorhanden.</div>';
+
+  const sportTargets: Record<
+    string,
+    {
+      target: number;
+      lowerIsBetter?: boolean;
+    }
+  > = {
+    'TB-DL': { target: 130 },
+    'Adduktoren relativ': {
+      target: 0.8
+    },
+    'Hamstrings relativ': {
+      target: 1.0
+    },
+    'Bankdrücken': {
+      target: 80
+    },
+    CMJ: { target: 35 },
+    'Drop Jump RSI': {
+      target: 1.8
+    },
+    'IFT 30-15 Test': {
+      target: 20
+    },
+    '10-m-Sprint': {
+      target: 1.8,
+      lowerIsBetter: true
+    },
+    'Top Speed': {
+      target: 32
+    },
+    'Gesamt Distanz': {
+      target: 11500
+    },
+    'HML Distanz': {
+      target: 2000
+    },
+    'HSR Distanz': {
+      target: 900
+    },
+    "Stop & Go's": {
+      target: 70
+    }
+  };
+
+  const latestSportsTest =
+    [...detail.sportsScienceTests]
+      .sort(
+        (a, b) =>
+          String(
+            b.test_date ?? ''
+          ).localeCompare(
+            String(
+              a.test_date ?? ''
+            )
+          )
+      )[0];
+
+  const sportsRadarRows =
+    (latestSportsTest?.values ?? [])
+      .map(
+        value => {
+          const config =
+            sportTargets[
+              value.metric
+            ];
+
+          if (
+            !config ||
+            value.value == null ||
+            Number(value.value) <= 0
+          ) {
+            return null;
+          }
+
+          const actual =
+            Number(value.value);
+          const percent =
+            config.lowerIsBetter
+              ? (config.target /
+                  actual) *
+                100
+              : (actual /
+                  config.target) *
+                100;
+
+          return {
+            label: value.metric,
+            value:
+              Math.max(
+                0,
+                Math.min(
+                  percent,
+                  150
+                )
+              )
+          };
+        }
+      )
+      .filter(
+        (
+          row
+        ): row is {
+          label: string;
+          value: number;
+        } =>
+          row != null
+      );
+
+  const sportsRadar =
+    sportsRadarRows.length >= 3
+      ? radarSvg(
+          sportsRadarRows.map(
+            row =>
+              row.label
+          ),
+          sportsRadarRows.map(
+            row =>
+              row.value
+          ),
+          150,
+          {
+            title:
+              `${player.name ?? 'Spieler'} – Athletikprofil`,
+            compact: false
+          }
+        )
+      : '';
 
   const sportsHtml =
-    detail.sportsScienceTests
-      .map(
-        test => `
-          <section>
-            <h3>Sportwissenschaft · ${escape(test.test_label)}</h3>
-            <div class="muted">${escape(test.test_date ?? '')}</div>
-            ${(test.values ?? [])
-              .filter(
-                value =>
-                  value.value != null
-              )
-              .map(
-                value =>
-                  `<div class="row"><span>${escape(value.metric)}</span><strong>${escape(value.value)} ${escape(value.unit ?? '')}</strong></div>`
-              )
-              .join('')}
-          </section>
-        `
-      )
-      .join('');
+    detail.sportsScienceTests.length
+      ? `
+        <section class="export-page">
+          <div class="section-kicker">P12 · SPORTWISSENSCHAFT</div>
+          <h2>Individuelle Leistungsfähigkeit</h2>
+          ${sportsRadar ? `<div class="chart-card sport-radar-card">${sportsRadar}<div class="sport-radar-hint">Index relativ zu hinterlegten P12-/Profi-Sollwerten · 100 = Sollwert</div></div>` : ''}
+          ${[...detail.sportsScienceTests]
+            .sort(
+              (a, b) =>
+                String(
+                  b.test_date ?? ''
+                ).localeCompare(
+                  String(
+                    a.test_date ?? ''
+                  )
+                )
+            )
+            .slice(0, 4)
+            .map(
+              test => `
+                <div class="sport-test">
+                  <div class="sport-test-head">
+                    <strong>${escape(test.test_label)}</strong>
+                    <span>${escape(test.test_date ?? '')}</span>
+                  </div>
+                  <div class="metric-grid">
+                    ${(test.values ?? [])
+                      .filter(
+                        value =>
+                          value.value != null
+                      )
+                      .map(
+                        value => `
+                          <div class="metric-card">
+                            <span>${escape(value.metric)}</span>
+                            <strong>${escape(value.value)} ${escape(value.unit ?? '')}</strong>
+                          </div>
+                        `
+                      )
+                      .join('')}
+                  </div>
+                </div>
+              `
+            )
+            .join('')}
+        </section>
+      `
+      : '';
+
+  const clubLogo =
+    'https://cdn.api.everysport.com/logos/fotboll/sv_ried_127898/1705061099525.png';
+
+  const playerPhoto =
+    player.image_path
+      ? escape(player.image_path)
+      : '';
 
   const html = `
     <!doctype html>
@@ -2920,45 +3547,164 @@ function printP12Profile(
       <meta charset="utf-8" />
       <title>P12 · ${escape(player.name ?? 'Spieler')}</title>
       <style>
-        body { font-family: Arial, sans-serif; margin: 32px; color: #222; }
-        h1 { margin-bottom: 4px; }
-        h2 { border-bottom: 2px solid #0b7a3b; padding-bottom: 5px; margin-top: 28px; }
-        h3 { margin-bottom: 6px; }
-        section { break-inside: avoid; margin-top: 22px; }
-        .muted { color: #666; font-size: 12px; }
-        .row { display: flex; justify-content: space-between; gap: 20px; border-bottom: 1px solid #eee; padding: 6px 0; }
-        .pyramid { text-align: center; margin: 18px 0; }
-        .level { border: 1px solid #ccc; padding: 12px; margin: 6px auto; background: #f5f8f6; }
-        .top { width: 55%; }
-        .middle { width: 75%; }
-        .bottom { width: 95%; }
+        * { box-sizing: border-box; }
+        @page { size: A4 landscape; margin: 10mm; }
+        body { font-family: Arial, Helvetica, sans-serif; margin: 0; color: #18201c; background: #fff; }
+        h1, h2, h3, p { margin-top: 0; }
+        h1 { font-size: 34px; margin-bottom: 4px; letter-spacing: -.03em; }
+        h2 { font-size: 25px; margin-bottom: 14px; }
+        h3 { font-size: 18px; margin-bottom: 7px; }
+        .export-page { min-height: 180mm; break-after: page; page-break-after: always; padding: 4mm 3mm; position: relative; }
+        .export-page:last-child { break-after: auto; page-break-after: auto; }
+        .profile-head { display: grid; grid-template-columns: 78px 76px minmax(0, 1fr) auto; gap: 18px; align-items: center; border-bottom: 3px solid #0b7a3b; padding-bottom: 12px; }
+        .club-logo { width: 70px; height: 70px; object-fit: contain; }
+        .player-photo { width: 72px; height: 72px; border-radius: 12px; object-fit: cover; background: #eef2ef; border: 1px solid #d9dfdb; }
+        .player-photo-placeholder { width: 72px; height: 72px; border-radius: 12px; display: flex; align-items: center; justify-content: center; background: #0b7a3b; color: #fff; font-weight: 900; font-size: 22px; }
+        .profile-meta { color: #636a66; font-size: 14px; }
+        .profile-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 10px; background: #edf7f1; color: #0b6b35; font-weight: 800; font-size: 11px; margin-left: 6px; }
+        .section-kicker { color: #0b7a3b; font-size: 10px; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; margin-bottom: 5px; }
+        .profile-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(330px, .7fr); gap: 24px; margin-top: 20px; align-items: start; }
+        .focus-stack { display: grid; gap: 10px; }
+        .focus-card { border: 1px solid #dbe3de; border-left: 5px solid #0b7a3b; border-radius: 13px; background: #f8fbf9; padding: 12px 15px; }
+        .focus-card strong { display: block; margin-bottom: 5px; font-size: 13px; }
+        .focus-card div { white-space: pre-wrap; line-height: 1.35; font-size: 13px; }
+        .pyramid-panel { border-radius: 16px; background: #f5f7f6; padding: 12px; }
+        .pyramid-panel h3 { text-align: center; margin-bottom: 8px; }
+        .pyramid-wrap { display: flex; justify-content: center; }
+        .pyramid-diagram { position: relative; width: 520px; height: 425px; transform-origin: top center; }
+        .pyramid-level { position: absolute; left: 50%; transform: translateX(-50%); box-sizing: border-box; display: flex; flex-direction: column; align-items: center; text-align: center; color: #101410; border: 1.6px solid rgba(0,0,0,.34); }
+        .level-top { top: 0; width: 215px; height: 135px; padding: 47px 27px 17px; clip-path: polygon(50% 0%, 100% 100%, 0% 100%); background: linear-gradient(180deg, #ff2b14 0%, #f56a00 100%); }
+        .level-middle { top: 133px; width: 350px; height: 138px; padding: 20px 31px 18px; clip-path: polygon(16% 0%, 84% 0%, 100% 100%, 0% 100%); background: linear-gradient(180deg, #ffa800 0%, #e0cf13 100%); }
+        .level-bottom { top: 269px; width: 485px; height: 150px; padding: 21px 38px 18px; clip-path: polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%); background: linear-gradient(180deg, #41bd39 0%, #08aa52 100%); }
+        .pyramid-title { font-weight: 900; font-size: 13px; line-height: 1.2; }
+        .pyramid-items { list-style: none; padding: 0; margin: 7px 0 0; width: 100%; display: grid; gap: 5px; }
+        .pyramid-items.compact { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 14px; row-gap: 5px; }
+        .pyramid-items li { font-size: 11px; line-height: 1.12; font-weight: 600; }
+        .level-top .pyramid-items li { font-size: 11px; }
+        .pyramid-empty { margin-top: 8px; font-size: 12px; font-weight: 700; }
+        .assessment-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; border-bottom: 2px solid #0b7a3b; padding-bottom: 9px; margin-bottom: 14px; }
+        .assessment-meta { color: #626964; font-size: 12px; }
+        .chart-grid { display: grid; grid-template-columns: 1.15fr .85fr; gap: 14px; align-items: start; }
+        .chart-card { border: 1px solid #d7ddd9; border-radius: 14px; background: #fff; padding: 8px; break-inside: avoid; }
+        .radar-svg { display: block; width: 100%; height: auto; }
+        .empty-chart { padding: 24px; color: #7b817d; text-align: center; border: 1px dashed #cfd5d1; border-radius: 12px; }
+        .data-table { margin-top: 14px; border: 1px solid #d8ddda; border-radius: 12px; overflow: hidden; font-size: 10px; }
+        .table-head, .table-row { display: grid; grid-template-columns: 1.05fr 2.1fr 62px 62px; }
+        .table-head { background: #101512; color: #fff; font-weight: 800; }
+        .table-head span, .table-row span, .table-row strong { padding: 6px 7px; border-right: 1px solid #d8ddda; }
+        .table-row { border-top: 1px solid #e6e9e7; }
+        .table-row:nth-child(odd) { background: #f8faf9; }
+        .self-layout { display: grid; grid-template-columns: 1.15fr .85fr; gap: 18px; align-items: start; }
+        .self-notes { display: grid; gap: 10px; }
+        .note-card { border: 1px solid #dce2de; border-radius: 12px; padding: 13px; background: #f8faf9; }
+        .note-card strong { display: block; color: #0b6b35; font-size: 11px; text-transform: uppercase; margin-bottom: 5px; }
+        .sport-radar-card { max-width: 760px; margin: 0 auto 14px; }
+        .sport-radar-hint { text-align: center; color: #6f7672; font-size: 9px; margin-top: -4px; padding-bottom: 6px; }
+        .sport-test { border: 1px solid #d9dfdb; border-radius: 14px; padding: 12px; margin-top: 12px; break-inside: avoid; }
+        .sport-test-head { display: flex; justify-content: space-between; gap: 12px; align-items: center; margin-bottom: 10px; }
+        .sport-test-head span { color: #747a76; font-size: 11px; }
+        .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: 8px; }
+        .metric-card { padding: 9px; border-radius: 9px; background: #f5f7f6; }
+        .metric-card span { display: block; color: #747a76; font-size: 9px; text-transform: uppercase; }
+        .metric-card strong { display: block; margin-top: 3px; font-size: 13px; }
+        .foot { position: absolute; left: 3mm; right: 3mm; bottom: 1mm; display: flex; justify-content: space-between; color: #8a908c; font-size: 9px; }
         @media print {
-          body { margin: 18mm; }
-          button { display: none; }
+          .export-page { min-height: 180mm; }
+          .chart-card, .data-table, .pyramid-panel { break-inside: avoid; }
         }
       </style>
     </head>
     <body>
-      <div class="muted">SV Oberbank Ried · P12</div>
-      <h1>${escape(player.name ?? 'P12-Spieler')}</h1>
-      <div>${escape(player.primary_position ?? '')} ${player.player_role ? `· ${escape(player.player_role)}` : ''} ${player.season ? `· ${escape(player.season)}` : ''}</div>
+      <section class="export-page">
+        <div class="profile-head">
+          <img class="club-logo" src="${clubLogo}" alt="SV Ried" />
+          ${playerPhoto ? `<img class="player-photo" src="${playerPhoto}" alt="${escape(player.name ?? 'Spieler')}" />` : `<div class="player-photo-placeholder">${escape((player.name ?? 'P12').split(' ').slice(0, 2).map(part => part.charAt(0).toUpperCase()).join(''))}</div>`}
+          <div>
+            <div class="section-kicker">SV OBERBANK RIED · P12</div>
+            <h1>${escape(player.name ?? 'P12-Spieler')}</h1>
+            <div class="profile-meta">${escape(player.primary_position ?? '')}${player.player_role ? ` · ${escape(player.player_role)}` : ''}${player.birth_date ? ` · ${escape(player.birth_date)}` : ''}${player.season ? ` · ${escape(player.season)}` : ''}</div>
+          </div>
+          <div>
+            ${player.p12_status ? `<span class="profile-tag">${escape(player.p12_status)}</span>` : ''}
+            ${player.lead_coach ? `<span class="profile-tag">Coach: ${escape(player.lead_coach)}</span>` : ''}
+          </div>
+        </div>
 
-      <h2>Fokus & Erwartungen</h2>
-      <p><strong>BASICS – 100 % Kontrolle:</strong><br/>${escape(player.focus_basics ?? '–')}</p>
-      <p><strong>Wenn ich gut im Spiel bin – 70 % Kontrolle:</strong><br/>${escape(player.focus_when_good ?? '–')}</p>
-      <p><strong>Fokus & Erwartungen:</strong><br/>${escape(player.expectations ?? '–')}</p>
+        <div class="profile-layout">
+          <div>
+            <div class="section-kicker">FOKUS & ERWARTUNGEN</div>
+            <h2>Spielerprofil</h2>
+            <div class="focus-stack">
+              <div class="focus-card"><strong>BASICS – 100 % Kontrolle</strong><div>${escape(player.focus_basics ?? '–')}</div></div>
+              <div class="focus-card"><strong>Wenn ich gut im Spiel bin – 70 % Kontrolle</strong><div>${escape(player.focus_when_good ?? '–')}</div></div>
+              <div class="focus-card"><strong>Fokus & Erwartungen</strong><div>${escape(player.expectations ?? '–')}</div></div>
+            </div>
+          </div>
 
-      <h2>P12-Pyramide</h2>
-      <div class="pyramid">
-        <div class="level top"><strong>${escape(player.pyramid_focus_title ?? 'FOKUS & ERWARTUNGEN')}</strong><ul>${lines(player.pyramid_output_items)}</ul></div>
-        <div class="level middle"><strong>${escape(player.pyramid_control_title ?? 'WENN ICH GUT IM SPIEL BIN – 70% KONTROLLE')}</strong><ul>${lines(player.pyramid_control_items)}</ul></div>
-        <div class="level bottom"><strong>${escape(player.pyramid_basics_title ?? 'BASICS – 100% KONTROLLE')}</strong><ul>${lines(player.pyramid_basics_items)}</ul></div>
-      </div>
+          <div class="pyramid-panel">
+            <h3>P12-Pyramide</h3>
+            <div class="pyramid-wrap">
+              <div class="pyramid-diagram">
+                <div class="pyramid-level level-top">
+                  <div class="pyramid-title">${escape(player.pyramid_focus_title ?? 'FOKUS & ERWARTUNGEN')}</div>
+                  ${pyramidItems(player.pyramid_output_items)}
+                </div>
+                <div class="pyramid-level level-middle">
+                  <div class="pyramid-title">${escape(player.pyramid_control_title ?? 'WENN ICH GUT IM SPIEL BIN – 70 % KONTROLLE')}</div>
+                  ${pyramidItems(player.pyramid_control_items, true)}
+                </div>
+                <div class="pyramid-level level-bottom">
+                  <div class="pyramid-title">${escape(player.pyramid_basics_title ?? 'BASICS – 100 % KONTROLLE')}</div>
+                  ${pyramidItems(player.pyramid_basics_items, true)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="foot"><span>VikingVision · P12Vision</span><span>${escape(player.name ?? '')}</span></div>
+      </section>
 
-      ${trainerHtml}
-      ${selfHtml}
+      <section class="export-page">
+        <div class="section-kicker">P12 · TRAINERBEWERTUNG</div>
+        <div class="assessment-head">
+          <div>
+            <h2 style="margin-bottom:4px;">Trainerbewertung</h2>
+            <div class="assessment-meta">${escape(latestTrainer?.period_label ?? 'Noch keine Phase')} ${latestTrainer?.assessment_date ? `· ${escape(latestTrainer.assessment_date)}` : ''}${latestTrainer?.coach_name ? ` · ${escape(latestTrainer.coach_name)}` : ''}</div>
+          </div>
+          <div class="profile-meta">${escape(player.name ?? '')}</div>
+        </div>
+        <div class="chart-grid">
+          <div class="chart-card">${detailRadar || '<div class="empty-chart">Noch keine Detailwerte vorhanden.</div>'}</div>
+          <div class="chart-card">${mainRadar || '<div class="empty-chart">Noch keine Hauptpunkt-Werte vorhanden.</div>'}</div>
+        </div>
+        ${trainerTable}
+        <div class="foot"><span>Spinnennetze analog P12-Bewertungsprofil</span><span>Rot · Gelb · Grün = Referenzringe</span></div>
+      </section>
+
+      ${latestSelf ? `
+        <section class="export-page">
+          <div class="section-kicker">P12 · SPIELERBEWERTUNG</div>
+          <div class="assessment-head">
+            <div>
+              <h2 style="margin-bottom:4px;">Spielerbewertung</h2>
+              <div class="assessment-meta">${escape(latestSelf.period_label)} ${latestSelf.assessment_date ? `· ${escape(latestSelf.assessment_date)}` : ''}</div>
+            </div>
+            <div class="profile-meta">${escape(player.name ?? '')}</div>
+          </div>
+          <div class="self-layout">
+            <div class="chart-card">${selfRadar || '<div class="empty-chart">Noch keine Detailwerte für ein Spinnennetz vorhanden.</div>'}</div>
+            <div class="self-notes">
+              <div class="note-card"><strong>Stärken</strong><div>${escape(latestSelf.strengths ?? '–')}</div></div>
+              <div class="note-card"><strong>Entwicklungsfelder</strong><div>${escape(latestSelf.development_areas ?? '–')}</div></div>
+              <div class="note-card"><strong>Persönliche Ziele</strong><div>${escape(latestSelf.personal_goals ?? '–')}</div></div>
+              <div class="note-card"><strong>Notizen</strong><div>${escape(latestSelf.notes ?? '–')}</div></div>
+            </div>
+          </div>
+          <div class="foot"><span>VikingVision · P12Vision</span><span>${escape(player.name ?? '')}</span></div>
+        </section>
+      ` : ''}
+
       ${sportsHtml}
-
     </body>
     </html>
   `;
@@ -3059,7 +3805,6 @@ function printP12Profile(
     };
   }
 }
-
 
 function ComparisonHistorySection({
   trainerAssessments,
