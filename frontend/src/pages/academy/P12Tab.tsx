@@ -3257,6 +3257,23 @@ function printP12Profile(
     </svg>
   `;
 
+  const latestTrainer:
+    TrainerAssessment |
+    undefined =
+      [...detail.trainerAssessments]
+        .sort(
+          (a, b) =>
+            String(
+              b.assessment_date ??
+              ''
+            ).localeCompare(
+              String(
+                a.assessment_date ??
+                ''
+              )
+            )
+        )[0];
+
   const trainerScores =
     (latestTrainer?.scores ?? [])
       .filter(
