@@ -1825,37 +1825,97 @@ function PyramidForm({
         className="academy-p12-pyramid"
         style={pyramidGrid}
       >
-        <div style={pyramidBottom}>
-          <strong>{basicsTitle}</strong>
-          {lines(basicsItems).map(
-            item => (
-              <span key={item}>
-                {item}
-              </span>
-            )
-          )}
-        </div>
-
-        <div style={pyramidMiddle}>
-          <strong>{controlTitle}</strong>
-          {lines(controlItems).map(
-            item => (
-              <span key={item}>
-                {item}
-              </span>
-            )
-          )}
-        </div>
-
-        <div style={pyramidTop}>
+        <div
+          style={{
+            ...pyramidTop,
+            minHeight:
+              `${Math.max(
+                170,
+                125 +
+                lines(outputItems).length *
+                19
+              )}px`,
+            fontSize:
+              lines(outputItems).length >
+              6
+                ? '11px'
+                : '13px'
+          }}
+        >
           <strong>{focusTitle}</strong>
-          {lines(outputItems).map(
-            item => (
-              <span key={item}>
-                {item}
-              </span>
-            )
-          )}
+          <div style={pyramidPreviewItems}>
+            {lines(outputItems).map(
+              (item, index) => (
+                <span key={`${index}-${item}`}>
+                  {item}
+                </span>
+              )
+            )}
+          </div>
+        </div>
+
+        <div
+          style={{
+            ...pyramidMiddle,
+            minHeight:
+              `${Math.max(
+                190,
+                130 +
+                Math.ceil(
+                  lines(controlItems).length /
+                  2
+                ) *
+                26
+              )}px`,
+            fontSize:
+              lines(controlItems).length >
+              8
+                ? '11px'
+                : '13px'
+          }}
+        >
+          <strong>{controlTitle}</strong>
+          <div style={pyramidPreviewItemsTwoCols}>
+            {lines(controlItems).map(
+              (item, index) => (
+                <span key={`${index}-${item}`}>
+                  {item}
+                </span>
+              )
+            )}
+          </div>
+        </div>
+
+        <div
+          style={{
+            ...pyramidBottom,
+            minHeight:
+              `${Math.max(
+                205,
+                135 +
+                Math.ceil(
+                  lines(basicsItems).length /
+                  2
+                ) *
+                27
+              )}px`,
+            fontSize:
+              lines(basicsItems).length >
+              10
+                ? '10.5px'
+                : '12.5px'
+          }}
+        >
+          <strong>{basicsTitle}</strong>
+          <div style={pyramidPreviewItemsTwoCols}>
+            {lines(basicsItems).map(
+              (item, index) => (
+                <span key={`${index}-${item}`}>
+                  {item}
+                </span>
+              )
+            )}
+          </div>
         </div>
       </div>
 
@@ -3179,79 +3239,121 @@ async function printP12Profile(
     (
       items: string[] | undefined,
       yStart: number,
+      yEnd: number,
       xCenter: number,
       width: number,
-      rowGap: number,
-      fontSize = 12
+      fontSize = 12,
+      fill = '#111'
     ) => {
       const values =
         (items ?? [])
-          .filter(Boolean)
-          .slice(0, 10);
+          .map(item =>
+            String(item).trim()
+          )
+          .filter(Boolean);
 
       if (!values.length) {
-        return svgText('–', xCenter, yStart, fontSize, 700);
+        return svgText(
+          '–',
+          xCenter,
+          yStart,
+          fontSize,
+          700,
+          fill
+        );
       }
 
       const twoColumns =
         values.length > 3;
 
+      const columns =
+        twoColumns ? 2 : 1;
+
+      const rows =
+        Math.ceil(
+          values.length /
+          columns
+        );
+
+      const usableHeight =
+        Math.max(
+          yEnd - yStart,
+          1
+        );
+
+      const rowGap =
+        rows <= 1
+          ? 0
+          : Math.min(
+              27,
+              usableHeight /
+                (rows - 1)
+            );
+
+      const adaptiveFont =
+        Math.max(
+          8.5,
+          fontSize -
+            Math.max(
+              0,
+              rows - 4
+            ) * 0.75
+        );
+
+      const renderColumn =
+        (
+          columnValues: string[],
+          x: number
+        ) =>
+          columnValues
+            .map(
+              (item, index) =>
+                svgText(
+                  item,
+                  x,
+                  yStart +
+                    index * rowGap,
+                  adaptiveFont,
+                  650,
+                  fill
+                )
+            )
+            .join('');
+
       if (!twoColumns) {
-        return values
-          .map(
-            (item, index) =>
-              svgText(
-                item,
-                xCenter,
-                yStart +
-                  index * rowGap,
-                fontSize,
-                650
-              )
-          )
-          .join('');
+        return renderColumn(
+          values,
+          xCenter
+        );
       }
 
+      const splitIndex =
+        Math.ceil(
+          values.length / 2
+        );
+
       const left =
-        values.filter(
-          (_, index) =>
-            index % 2 === 0
+        values.slice(
+          0,
+          splitIndex
         );
       const right =
-        values.filter(
-          (_, index) =>
-            index % 2 === 1
+        values.slice(
+          splitIndex
         );
 
-      const leftX =
-        xCenter - width * 0.23;
-      const rightX =
-        xCenter + width * 0.23;
-
-      return [
-        ...left.map(
-          (item, index) =>
-            svgText(
-              item,
-              leftX,
-              yStart +
-                index * rowGap,
-              fontSize,
-              650
-            )
-        ),
-        ...right.map(
-          (item, index) =>
-            svgText(
-              item,
-              rightX,
-              yStart +
-                index * rowGap,
-              fontSize,
-              650
-            )
+      return (
+        renderColumn(
+          left,
+          xCenter -
+            width * 0.24
+        ) +
+        renderColumn(
+          right,
+          xCenter +
+            width * 0.24
         )
-      ].join('');
+      );
     };
 
   const pyramidSvg = () => `
@@ -3319,10 +3421,11 @@ async function printP12Profile(
       ${pyramidItemTexts(
         player.pyramid_output_items,
         132,
+        184,
         380,
         185,
-        25,
-        14
+        14,
+        '#fff'
       )}
 
       ${svgText(
@@ -3340,10 +3443,11 @@ async function printP12Profile(
       ${pyramidItemTexts(
         player.pyramid_control_items,
         302,
+        368,
         380,
         345,
-        27,
-        13
+        13,
+        '#111'
       )}
 
       ${svgText(
@@ -3361,10 +3465,11 @@ async function printP12Profile(
       ${pyramidItemTexts(
         player.pyramid_basics_items,
         505,
+        582,
         380,
         520,
-        28,
-        13
+        13,
+        '#fff'
       )}
     </svg>
   `;
@@ -3866,7 +3971,7 @@ async function printP12Profile(
         .pyramid-panel { border-radius: 0; background: transparent; padding: 0; }
         .pyramid-panel h3 { text-align: left; margin: 0 0 3px; color: #075d32; font-size: 20px; }
         .pyramid-wrap { display: flex; justify-content: center; align-items: flex-start; min-height: 310px; }
-        .p12-pyramid-svg { display: block; width: 100%; max-width: 390px; height: auto; overflow: visible; }
+        .p12-pyramid-svg { display: block; width: 100%; max-width: 470px; height: auto; overflow: visible; }
         .profile-column-title { color: #075d32; font-size: 18px; font-weight: 900; margin: 0 0 3px; }
         .profile-column-subtitle { color: #66716a; font-size: 9px; margin-bottom: 7px; }
         .profile-radar-panel { grid-column: 1 / -1; border-left: 0; border-top: 1px solid #d7ddd9; padding: 10px 0 0; min-width: 0; display: grid; grid-template-columns: 165px minmax(0, 1fr); align-items: center; gap: 14px; }
@@ -6510,39 +6615,80 @@ const historyRow:
 const pyramidGrid:
   React.CSSProperties = {
     display: 'grid',
-    gap: '8px',
-    maxWidth: '900px',
+    gap: '0',
+    maxWidth: '860px',
     margin:
-      '18px auto 0'
-  };
-
-const pyramidBottom:
-  React.CSSProperties = {
-    ...panel,
-    background: '#eef5f1',
-    textAlign: 'center',
-    display: 'grid',
-    gap: '5px'
-  };
-
-const pyramidMiddle:
-  React.CSSProperties = {
-    ...panel,
-    background: '#dcece3',
-    textAlign: 'center',
-    display: 'grid',
-    gap: '5px',
-    width: '78%',
-    justifySelf: 'center'
+      '22px auto 0',
+    justifyItems: 'center',
+    filter:
+      'drop-shadow(0 6px 12px rgba(0,0,0,.08))'
   };
 
 const pyramidTop:
   React.CSSProperties = {
-    ...panel,
-    background: '#c9e3d4',
+    width: '42%',
+    boxSizing: 'border-box',
+    padding:
+      '62px 44px 24px',
+    background:
+      'linear-gradient(180deg, #ff2a17 0%, #ff6a00 100%)',
+    clipPath:
+      'polygon(50% 0%, 100% 100%, 0% 100%)',
+    color: '#fff',
     textAlign: 'center',
     display: 'grid',
-    gap: '5px',
-    width: '56%',
-    justifySelf: 'center'
+    alignContent: 'center',
+    gap: '10px'
+  };
+
+const pyramidMiddle:
+  React.CSSProperties = {
+    width: '72%',
+    boxSizing: 'border-box',
+    padding:
+      '28px 70px 26px',
+    background:
+      'linear-gradient(180deg, #ff9d00 0%, #ffc91a 62%, #cbd62b 100%)',
+    clipPath:
+      'polygon(18% 0%, 82% 0%, 100% 100%, 0% 100%)',
+    color: '#111',
+    textAlign: 'center',
+    display: 'grid',
+    alignContent: 'center',
+    gap: '11px'
+  };
+
+const pyramidBottom:
+  React.CSSProperties = {
+    width: '100%',
+    boxSizing: 'border-box',
+    padding:
+      '30px 95px 28px',
+    background:
+      'linear-gradient(180deg, #1bb34a 0%, #008f50 100%)',
+    clipPath:
+      'polygon(10% 0%, 90% 0%, 100% 100%, 0% 100%)',
+    color: '#fff',
+    textAlign: 'center',
+    display: 'grid',
+    alignContent: 'center',
+    gap: '11px'
+  };
+
+const pyramidPreviewItems:
+  React.CSSProperties = {
+    display: 'grid',
+    gap: '6px',
+    lineHeight: 1.25
+  };
+
+const pyramidPreviewItemsTwoCols:
+  React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns:
+      'repeat(2, minmax(0, 1fr))',
+    columnGap: '28px',
+    rowGap: '7px',
+    lineHeight: 1.25,
+    alignItems: 'start'
   };
