@@ -3078,9 +3078,10 @@ function printP12Profile(
       x: number,
       y: number,
       size = 13,
-      weight = 700
+      weight = 700,
+      fill = '#111'
     ) =>
-      `<text x="${x}" y="${y}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${size}" font-weight="${weight}" fill="#111">${escape(value)}</text>`;
+      `<text x="${x}" y="${y}" text-anchor="middle" font-family="Arial, sans-serif" font-size="${size}" font-weight="${weight}" fill="${fill}">${escape(value)}</text>`;
 
   const pyramidItemTexts =
     (
@@ -3164,95 +3165,114 @@ function printP12Profile(
   const pyramidSvg = () => `
     <svg
       class="p12-pyramid-svg"
-      viewBox="0 0 700 520"
+      viewBox="0 0 760 620"
       role="img"
       aria-label="P12-Pyramide"
     >
       <defs>
         <linearGradient id="p12Top" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#ff1d12" />
-          <stop offset="100%" stop-color="#ff7500" />
+          <stop offset="0%" stop-color="#ff2a17" />
+          <stop offset="100%" stop-color="#ff6a00" />
         </linearGradient>
+
         <linearGradient id="p12Middle" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#ff8f00" />
-          <stop offset="100%" stop-color="#e0d713" />
+          <stop offset="0%" stop-color="#ff9d00" />
+          <stop offset="62%" stop-color="#ffc91a" />
+          <stop offset="100%" stop-color="#cbd62b" />
         </linearGradient>
+
         <linearGradient id="p12Bottom" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#54bd2d" />
-          <stop offset="100%" stop-color="#00ad56" />
+          <stop offset="0%" stop-color="#1bb34a" />
+          <stop offset="100%" stop-color="#008f50" />
         </linearGradient>
+
+        <filter id="p12Shadow" x="-10%" y="-10%" width="120%" height="125%">
+          <feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000" flood-opacity=".12"/>
+        </filter>
       </defs>
 
-      <polygon
-        points="350,8 485,174 215,174"
-        fill="url(#p12Top)"
-        stroke="#1d2520"
-        stroke-width="2"
-      />
+      <g filter="url(#p12Shadow)">
+        <polygon
+          points="380,12 505,202 255,202"
+          fill="url(#p12Top)"
+          stroke="#ffffff"
+          stroke-width="3"
+        />
 
-      <polygon
-        points="215,178 485,178 565,338 135,338"
-        fill="url(#p12Middle)"
-        stroke="#1d2520"
-        stroke-width="2"
-      />
+        <polygon
+          points="253,205 507,205 590,395 170,395"
+          fill="url(#p12Middle)"
+          stroke="#ffffff"
+          stroke-width="3"
+        />
 
-      <polygon
-        points="135,342 565,342 665,510 35,510"
-        fill="url(#p12Bottom)"
-        stroke="#1d2520"
-        stroke-width="2"
-      />
+        <polygon
+          points="168,398 592,398 730,606 30,606"
+          fill="url(#p12Bottom)"
+          stroke="#ffffff"
+          stroke-width="3"
+        />
+      </g>
 
       ${svgText(
         player.pyramid_focus_title ??
           'FOKUS & ERWARTUNGEN',
-        350,
-        72,
-        15,
-        900
+        380,
+        95,
+        19,
+        900,
+        '#fff'
       )}
+
       ${pyramidItemTexts(
         player.pyramid_output_items,
-        108,
-        350,
-        210,
-        22,
-        12
+        132,
+        380,
+        185,
+        25,
+        14
       )}
 
       ${svgText(
         player.pyramid_control_title ??
           'WENN ICH GUT IM SPIEL BIN – 70 % KONTROLLE',
-        350,
-        214,
-        14,
-        900
+        380,
+        247,
+        16,
+        900,
+        '#111'
       )}
+
+      <line x1="252" y1="266" x2="508" y2="266" stroke="rgba(255,255,255,.82)" stroke-width="2" />
+
       ${pyramidItemTexts(
         player.pyramid_control_items,
-        252,
-        350,
-        370,
-        25,
-        12
+        302,
+        380,
+        345,
+        27,
+        13
       )}
 
       ${svgText(
         player.pyramid_basics_title ??
           'BASICS – 100 % KONTROLLE',
-        350,
-        382,
-        15,
-        900
+        380,
+        443,
+        18,
+        900,
+        '#fff'
       )}
+
+      <line x1="205" y1="462" x2="555" y2="462" stroke="rgba(255,255,255,.82)" stroke-width="2" />
+
       ${pyramidItemTexts(
         player.pyramid_basics_items,
-        420,
-        350,
-        540,
-        24,
-        12
+        505,
+        380,
+        520,
+        28,
+        13
       )}
     </svg>
   `;
@@ -3434,6 +3454,24 @@ function printP12Profile(
                 : undefined,
             firstLabel: 'Trainer',
             secondLabel: 'P12',
+            compact: true
+          }
+        )
+      : '';
+
+  const profileRadar =
+    groupedTrainer.length >= 3
+      ? radarSvg(
+          groupedTrainer.map(
+            row =>
+              row.category
+          ),
+          groupedTrainer.map(
+            row =>
+              row.coach
+          ),
+          trainerMax,
+          {
             compact: true
           }
         )
@@ -3729,15 +3767,20 @@ function printP12Profile(
         .profile-meta { color: #636a66; font-size: 14px; }
         .profile-tag { display: inline-flex; align-items: center; border-radius: 999px; padding: 6px 10px; background: #edf7f1; color: #0b6b35; font-weight: 800; font-size: 11px; margin-left: 6px; }
         .section-kicker { color: #0b7a3b; font-size: 10px; font-weight: 900; letter-spacing: .11em; text-transform: uppercase; margin-bottom: 5px; }
-        .profile-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(330px, .7fr); gap: 24px; margin-top: 20px; align-items: start; }
-        .focus-stack { display: grid; gap: 10px; }
-        .focus-card { border: 1px solid #dbe3de; border-left: 5px solid #0b7a3b; border-radius: 13px; background: #f8fbf9; padding: 12px 15px; }
-        .focus-card strong { display: block; margin-bottom: 5px; font-size: 13px; }
-        .focus-card div { white-space: pre-wrap; line-height: 1.35; font-size: 13px; }
-        .pyramid-panel { border-radius: 16px; background: #f5f7f6; padding: 12px; }
-        .pyramid-panel h3 { text-align: center; margin-bottom: 8px; }
-        .pyramid-wrap { display: flex; justify-content: center; align-items: center; min-height: 430px; }
-        .p12-pyramid-svg { display: block; width: 100%; max-width: 560px; height: auto; overflow: visible; }
+        .profile-layout { display: grid; grid-template-columns: minmax(0, .95fr) minmax(420px, 1.20fr) minmax(245px, .55fr); gap: 20px; margin-top: 18px; align-items: start; }
+        .focus-stack { display: grid; gap: 14px; }
+        .focus-card { border: 1px solid #d7e5dc; border-left: 6px solid #0b7a3b; border-radius: 14px; background: #fff; padding: 15px 17px; min-height: 82px; }
+        .focus-card strong { display: block; margin-bottom: 8px; padding-bottom: 7px; border-bottom: 1px solid #d9e7df; font-size: 14px; color: #075d32; }
+        .focus-card div { white-space: pre-wrap; line-height: 1.42; font-size: 12.5px; color: #26332c; }
+        .pyramid-panel { border-radius: 0; background: transparent; padding: 0; }
+        .pyramid-panel h3 { text-align: left; margin: 0 0 4px; color: #075d32; font-size: 24px; }
+        .pyramid-wrap { display: flex; justify-content: center; align-items: flex-start; min-height: 455px; }
+        .p12-pyramid-svg { display: block; width: 100%; max-width: 610px; height: auto; overflow: visible; }
+        .profile-column-title { color: #075d32; font-size: 24px; font-weight: 900; margin: 0 0 4px; }
+        .profile-column-subtitle { color: #66716a; font-size: 12px; margin-bottom: 10px; }
+        .profile-radar-panel { border-left: 1px solid #d7ddd9; padding-left: 14px; min-width: 0; }
+        .profile-radar-panel .radar-svg { width: 100%; max-width: 300px; margin: 0 auto; }
+        .profile-radar-empty { margin-top: 24px; padding: 18px 12px; border: 1px dashed #d4dad6; border-radius: 10px; color: #858d88; font-size: 11px; text-align: center; }
         .assessment-head { display: flex; justify-content: space-between; gap: 18px; align-items: flex-end; border-bottom: 2px solid #0b7a3b; padding-bottom: 9px; margin-bottom: 14px; }
         .assessment-meta { color: #626964; font-size: 12px; }
         .trainer-top-grid { display: grid; grid-template-columns: 1.55fr .65fr; gap: 14px; align-items: start; margin-bottom: 14px; }
@@ -3797,21 +3840,49 @@ function printP12Profile(
           <div>
             <div class="section-kicker">FOKUS & ERWARTUNGEN</div>
             <h2>Spielerprofil</h2>
+
             <div class="focus-stack">
-              <div class="focus-card"><strong>BASICS – 100 % Kontrolle</strong><div>${escape(player.focus_basics ?? '–')}</div></div>
-              <div class="focus-card"><strong>Wenn ich gut im Spiel bin – 70 % Kontrolle</strong><div>${escape(player.focus_when_good ?? '–')}</div></div>
-              <div class="focus-card"><strong>Fokus & Erwartungen</strong><div>${escape(player.expectations ?? '–')}</div></div>
+              <div class="focus-card">
+                <strong>BASICS – 100 % Kontrolle</strong>
+                <div>${escape(player.focus_basics ?? '–')}</div>
+              </div>
+
+              <div class="focus-card">
+                <strong>Wenn ich gut im Spiel bin – 70 % Kontrolle</strong>
+                <div>${escape(player.focus_when_good ?? '–')}</div>
+              </div>
+
+              <div class="focus-card">
+                <strong>Fokus & Erwartungen</strong>
+                <div>${escape(player.expectations ?? '–')}</div>
+              </div>
             </div>
           </div>
 
           <div class="pyramid-panel">
             <h3>P12-Pyramide</h3>
+            <div class="profile-column-subtitle">Vom Fundament zum Fokus</div>
+
             <div class="pyramid-wrap">
               ${pyramidSvg()}
             </div>
           </div>
+
+          <div class="profile-radar-panel">
+            <div class="profile-column-title">Bewertungsprofil</div>
+            <div class="profile-column-subtitle">Aktueller Entwicklungsstand</div>
+
+            ${
+              profileRadar ||
+              '<div class="profile-radar-empty">Sobald eine Trainerbewertung vorhanden ist, erscheint hier automatisch das Spinnennetz.</div>'
+            }
+          </div>
         </div>
-        <div class="foot"><span>VikingVision · P12Vision</span><span>${escape(player.name ?? '')}</span></div>
+
+        <div class="foot">
+          <span>SV Oberbank Ried · P12Vision</span>
+          <span>${escape(player.season ?? '')}</span>
+        </div>
       </section>
 
       <section class="export-page">
