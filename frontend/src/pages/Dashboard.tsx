@@ -314,7 +314,7 @@ export default function Dashboard({
             </h3>
 
             <p style={akaText}>
-              Stammdaten, Ideale, Sport Science,
+              Stammdaten, Ideale, Sportwissenschaft,
               Skill / AC, P12 und Academy-Scouting.
             </p>
           </div>
