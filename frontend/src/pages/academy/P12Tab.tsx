@@ -1153,7 +1153,7 @@ function P12PlayerProfile({
         />
 
         <P12ProfileStat
-          label="Sport Science"
+          label="Sportwissenschaft"
           value={
             detail.sportsScienceTests.length
           }
