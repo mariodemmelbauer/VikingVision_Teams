@@ -157,26 +157,32 @@ const SPORTS_CATEGORIES = [
     name: 'Körperdaten',
     metrics: [
       { metric: 'Größe', unit: 'cm' },
-      { metric: 'Gewicht', unit: 'kg' }
+      { metric: 'Gewicht', unit: 'kg' },
+      { metric: 'BMI', unit: '' }
     ]
   },
   {
     name: 'Fmax – Unterkörper',
     metrics: [
-      { metric: 'TB-DL', unit: 'kg', target: '>130 kg' },
+      { metric: 'TB-DL 1RM', unit: 'kg', target: '>130 kg' },
       { metric: 'TB-DL relativ', unit: 'kg/BW' },
-      { metric: 'Back Squat', unit: 'kg' },
+      { metric: 'Back Squat 1RM', unit: 'kg' },
       { metric: 'Back Squat relativ', unit: 'kg/BW' },
-      { metric: 'Adduktoren', unit: 'kg' },
-      { metric: 'Adduktoren relativ', unit: 'kg/BW', target: '>0,8 kg/BW' },
-      { metric: 'Hamstrings', unit: 'kg' },
-      { metric: 'Hamstrings relativ', unit: 'kg/BW', target: '>1,0 kg/BW' }
+      { metric: 'Adduktor li', unit: 'kg' },
+      { metric: 'Adduktor re', unit: 'kg' },
+      { metric: 'Adduktor gesamt', unit: 'kg' },
+      { metric: 'Adduktor relativ', unit: 'kg/BW', target: '>0,8 kg/BW' },
+      { metric: 'Nordic Hamstring re', unit: 'kg' },
+      { metric: 'Nordic Hamstring li', unit: 'kg' },
+      { metric: 'Nordic Hamstring gesamt', unit: 'kg' },
+      { metric: 'Hamstring gesamt', unit: 'kg' },
+      { metric: 'Hamstring relativ', unit: 'kg/BW', target: '>1,0 kg/BW' }
     ]
   },
   {
     name: 'Fmax – Oberkörper',
     metrics: [
-      { metric: 'Bankdrücken', unit: 'kg', target: '>80 kg' },
+      { metric: 'Bankdrücken 1RM', unit: 'kg', target: '>80 kg' },
       { metric: 'Bankdrücken relativ', unit: 'kg/BW' }
     ]
   },
@@ -184,31 +190,37 @@ const SPORTS_CATEGORIES = [
     name: 'Schnellkraft',
     metrics: [
       { metric: 'CMJ', unit: 'cm', target: '>35 cm' },
+      { metric: 'Drop Jump', unit: 'cm' },
+      { metric: 'Drop Jump Kontaktzeit', unit: 'ms' },
       { metric: 'Drop Jump RSI', unit: '', target: '>1,8' }
     ]
   },
   {
     name: 'Ausdauer',
     metrics: [
-      { metric: 'IFT 30-15 Test', unit: 'km/h', target: '>20 km/h' }
+      { metric: 'IFT 30-15 Test', unit: 'km/h', target: '>20 km/h' },
+      { metric: 'Aerobe Schwelle', unit: 'km/h' },
+      { metric: 'Anaerobe Schwelle Laktat', unit: 'mmol/l' }
     ]
   },
   {
     name: 'Schnelligkeit',
     metrics: [
-      { metric: '10-m-Sprint', unit: 'sek', target: '<1,8 sek' },
-      { metric: '20-m-Sprint', unit: 'sek' },
-      { metric: '30-m-Sprint', unit: 'sek' },
-      { metric: 'Top Speed', unit: 'km/h', target: '>32 km/h' }
+      { metric: '10m Sprint', unit: 'sek', target: '<1,8 sek' },
+      { metric: '20m Sprint', unit: 'sek' },
+      { metric: '30m Sprint', unit: 'sek' },
+      { metric: 'Top Speed', unit: 'km/h', target: '>32 km/h' },
+      { metric: '2mmol/l Shuttle Run Test', unit: 'km/h' },
+      { metric: '4mmol/l Shuttle Run Test', unit: 'km/h' }
     ]
   },
   {
-    name: 'Spielintensität',
+    name: 'Spielintensität Match',
     metrics: [
       { metric: 'Gesamt Distanz', unit: 'm', target: '11.500 m' },
       { metric: 'HML Distanz', unit: 'm', target: '2.000 m' },
-      { metric: 'HSR Distanz', unit: 'm', target: '900 m' },
-      { metric: 'Sprintmeter', unit: 'm' },
+      { metric: 'HSR Distanz (>19,8 km/h)', unit: 'm', target: '900 m' },
+      { metric: 'Sprintmeter (>25,2 km/h)', unit: 'm' },
       { metric: "Stop & Go's", unit: 'Anzahl', target: '70' }
     ]
   }
