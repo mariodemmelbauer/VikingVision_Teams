@@ -1723,6 +1723,1805 @@ export default {
       new URL(request.url);
 
     // ============================================================
+    // Sportwissenschaft – teamübergreifende Auswertung
+    // ============================================================
+
+    if (
+      request.method === 'GET' &&
+      url.pathname ===
+        '/sport-science/analytics'
+    ) {
+      try {
+        await authenticate(request);
+
+        const metricCode =
+          url.searchParams.get(
+            'metric_code'
+          );
+
+        if (!metricCode) {
+          return json(
+            {
+              ok: false,
+              error:
+                'metric_code is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: values,
+          error: valuesError
+        } =
+          await supabase
+            .from(
+              'v_sports_science_values'
+            )
+            .select(
+              'test_id,test_date,player_id,academy_player_id,p12_player_id,metric_code,metric_label,unit,value,text_value'
+            )
+            .eq(
+              'metric_code',
+              metricCode
+            )
+            .order(
+              'test_date',
+              {
+                ascending: false
+              }
+            );
+
+        if (valuesError) {
+          return json(
+            {
+              ok: false,
+              error:
+                valuesError.message
+            },
+            500
+          );
+        }
+
+        const latest =
+          new Map<
+            string,
+            Record<string, unknown>
+          >();
+
+        for (
+          const row of
+          values ?? []
+        ) {
+          const key =
+            row.academy_player_id
+              ? `academy:${row.academy_player_id}`
+              : row.player_id
+                ? `player:${row.player_id}`
+                : '';
+
+          if (
+            key &&
+            !latest.has(key)
+          ) {
+            latest.set(
+              key,
+              row
+            );
+          }
+        }
+
+        const academyIds =
+          Array.from(
+            latest.values()
+          )
+            .map(
+              row =>
+                Number(
+                  row.academy_player_id ??
+                  0
+                )
+            )
+            .filter(Boolean);
+
+        const playerIds =
+          Array.from(
+            latest.values()
+          )
+            .map(
+              row =>
+                Number(
+                  row.player_id ??
+                  0
+                )
+            )
+            .filter(Boolean);
+
+        const academyPlayers =
+          academyIds.length
+            ? (
+                await supabase
+                  .from(
+                    'academy_players'
+                  )
+                  .select(
+                    'id,name,team,primary_position,squad_status'
+                  )
+                  .in(
+                    'id',
+                    academyIds
+                  )
+              ).data ?? []
+            : [];
+
+        const proPlayers =
+          playerIds.length
+            ? (
+                await supabase
+                  .from(
+                    'players'
+                  )
+                  .select(
+                    'id,name,primary_position,is_own_squad,archived_at'
+                  )
+                  .in(
+                    'id',
+                    playerIds
+                  )
+              ).data ?? []
+            : [];
+
+        const academyMap =
+          new Map(
+            academyPlayers.map(
+              player => [
+                Number(player.id),
+                player
+              ]
+            )
+          );
+
+        const proMap =
+          new Map(
+            proPlayers.map(
+              player => [
+                Number(player.id),
+                player
+              ]
+            )
+          );
+
+        const rows:
+          Array<Record<string, unknown>> =
+          [];
+
+        for (
+          const value of
+          latest.values()
+        ) {
+          if (
+            value.academy_player_id
+          ) {
+            const player =
+              academyMap.get(
+                Number(
+                  value.academy_player_id
+                )
+              );
+
+            if (
+              !player ||
+              ![
+                'U15',
+                'U16',
+                'U18',
+                'JWR'
+              ].includes(
+                String(
+                  player.team ??
+                  ''
+                )
+              )
+            ) {
+              continue;
+            }
+
+            rows.push({
+              subject_type:
+                'academy',
+              subject_id:
+                player.id,
+              name:
+                player.name,
+              team:
+                player.team,
+              position:
+                player.primary_position,
+              metric_code:
+                value.metric_code,
+              metric_label:
+                value.metric_label,
+              unit:
+                value.unit,
+              value:
+                value.value,
+              text_value:
+                value.text_value,
+              test_date:
+                value.test_date
+            });
+
+            continue;
+          }
+
+          if (
+            value.player_id
+          ) {
+            const player =
+              proMap.get(
+                Number(
+                  value.player_id
+                )
+              );
+
+            if (
+              !player ||
+              !player.is_own_squad ||
+              player.archived_at
+            ) {
+              continue;
+            }
+
+            rows.push({
+              subject_type:
+                'player',
+              subject_id:
+                player.id,
+              name:
+                player.name,
+              team:
+                'Profis',
+              position:
+                player.primary_position,
+              metric_code:
+                value.metric_code,
+              metric_label:
+                value.metric_label,
+              unit:
+                value.unit,
+              value:
+                value.value,
+              text_value:
+                value.text_value,
+              test_date:
+                value.test_date
+            });
+          }
+        }
+
+        return json({
+          ok: true,
+          rows
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Sport science analytics failed'
+          },
+          401
+        );
+      }
+    }
+
+    // ============================================================
+    // Academy – Spiele & Spielminuten
+    // ============================================================
+
+    if (
+      request.method === 'GET' &&
+      url.pathname ===
+        '/academy/matches'
+    ) {
+      try {
+        await authenticate(request);
+
+        const team =
+          url.searchParams.get(
+            'team'
+          ) ?? '';
+
+        if (
+          ![
+            'U15',
+            'U16',
+            'U18',
+            'JWR'
+          ].includes(team)
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Ungültiges Team.'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_matches'
+            )
+            .select('*')
+            .eq(
+              'team',
+              team
+            )
+            .order(
+              'match_date',
+              {
+                ascending: false
+              }
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          matches:
+            data ?? []
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Matches load failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/academy/matches'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<{
+            team?: string;
+            match_date?: string;
+            opponent?: string;
+            competition?: string | null;
+            result?: string | null;
+            duration_minutes?: number | null;
+            notes?: string | null;
+          }>();
+
+        const team =
+          String(
+            body.team ??
+            ''
+          );
+
+        if (
+          ![
+            'U15',
+            'U16',
+            'U18',
+            'JWR'
+          ].includes(team) ||
+          !body.match_date ||
+          !body.opponent?.trim()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Team, Datum und Gegner sind erforderlich.'
+            },
+            400
+          );
+        }
+
+        const duration =
+          Math.max(
+            1,
+            Number(
+              body.duration_minutes ??
+              (
+                team === 'U15'
+                  ? 80
+                  : 90
+              )
+            )
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_matches'
+            )
+            .insert({
+              team,
+              match_date:
+                body.match_date,
+              opponent:
+                body.opponent.trim(),
+              competition:
+                body.competition ??
+                null,
+              duration_minutes:
+                duration,
+              result:
+                body.result ??
+                null,
+              notes:
+                body.notes ??
+                null
+            })
+            .select('*')
+            .single();
+
+        if (
+          error ||
+          !data
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                error?.message ??
+                'Spiel konnte nicht angelegt werden.'
+            },
+            500
+          );
+        }
+
+        return json(
+          {
+            ok: true,
+            match: data
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Match save failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'DELETE' &&
+      /^\/academy\/matches\/\d+$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const matchId =
+          Number(
+            url.pathname
+              .split('/')
+              .pop()
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          error
+        } =
+          await supabase
+            .from(
+              'academy_matches'
+            )
+            .delete()
+            .eq(
+              'id',
+              matchId
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Match delete failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      /^\/academy\/match\/\d+\/minutes$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const parts =
+          url.pathname
+            .split('/')
+            .filter(Boolean);
+
+        const matchId =
+          Number(
+            parts[2]
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: match,
+          error: matchError
+        } =
+          await supabase
+            .from(
+              'academy_matches'
+            )
+            .select('*')
+            .eq(
+              'id',
+              matchId
+            )
+            .single();
+
+        if (
+          matchError ||
+          !match
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                matchError?.message ??
+                'Spiel nicht gefunden.'
+            },
+            404
+          );
+        }
+
+        const {
+          data: players,
+          error: playerError
+        } =
+          await supabase
+            .from(
+              'academy_players'
+            )
+            .select(
+              'id,name,jersey_number,primary_position,squad_status'
+            )
+            .eq(
+              'team',
+              match.team
+            )
+            .order(
+              'name',
+              {
+                ascending: true
+              }
+            );
+
+        if (playerError) {
+          return json(
+            {
+              ok: false,
+              error:
+                playerError.message
+            },
+            500
+          );
+        }
+
+        const {
+          data: minuteRows,
+          error: minuteError
+        } =
+          await supabase
+            .from(
+              'academy_match_minutes'
+            )
+            .select('*')
+            .eq(
+              'match_id',
+              matchId
+            );
+
+        if (minuteError) {
+          return json(
+            {
+              ok: false,
+              error:
+                minuteError.message
+            },
+            500
+          );
+        }
+
+        const minuteMap =
+          new Map(
+            (minuteRows ?? [])
+              .map(row => [
+                Number(
+                  row.academy_player_id
+                ),
+                row
+              ])
+          );
+
+        return json({
+          ok: true,
+          match,
+          players:
+            (players ?? [])
+              .map(player => {
+                const row =
+                  minuteMap.get(
+                    Number(
+                      player.id
+                    )
+                  );
+
+                return {
+                  id:
+                    player.id,
+                  name:
+                    player.name,
+                  jersey_number:
+                    player.jersey_number,
+                  primary_position:
+                    player.primary_position,
+                  squad_status:
+                    player.squad_status,
+                  minutes:
+                    Number(
+                      row?.minutes ??
+                      0
+                    ),
+                  in_squad:
+                    Boolean(
+                      row?.in_squad
+                    ),
+                  started:
+                    Boolean(
+                      row?.started
+                    ),
+                  comment:
+                    row?.comment ??
+                    ''
+                };
+              })
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Match minutes load failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      /^\/academy\/match\/\d+\/minutes$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const parts =
+          url.pathname
+            .split('/')
+            .filter(Boolean);
+
+        const matchId =
+          Number(
+            parts[2]
+          );
+
+        const body =
+          await request.json<{
+            rows?: Array<{
+              academy_player_id?: number;
+              minutes?: number;
+              in_squad?: boolean;
+              started?: boolean;
+              comment?: string | null;
+            }>;
+          }>();
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: match,
+          error: matchError
+        } =
+          await supabase
+            .from(
+              'academy_matches'
+            )
+            .select(
+              'id,duration_minutes'
+            )
+            .eq(
+              'id',
+              matchId
+            )
+            .single();
+
+        if (
+          matchError ||
+          !match
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Spiel nicht gefunden.'
+            },
+            404
+          );
+        }
+
+        const rows =
+          (body.rows ?? [])
+            .filter(
+              row =>
+                Number(
+                  row.academy_player_id ??
+                  0
+                ) > 0
+            )
+            .map(row => ({
+              match_id:
+                matchId,
+              academy_player_id:
+                Number(
+                  row.academy_player_id
+                ),
+              minutes:
+                Math.max(
+                  0,
+                  Math.min(
+                    Number(
+                      row.minutes ??
+                      0
+                    ),
+                    Number(
+                      match.duration_minutes ??
+                      90
+                    )
+                  )
+                ),
+              in_squad:
+                Boolean(
+                  row.in_squad
+                ),
+              started:
+                Boolean(
+                  row.started
+                ),
+              comment:
+                row.comment ??
+                null
+            }));
+
+        if (rows.length) {
+          const {
+            error
+          } =
+            await supabase
+              .from(
+                'academy_match_minutes'
+              )
+              .upsert(
+                rows,
+                {
+                  onConflict:
+                    'match_id,academy_player_id'
+                }
+              );
+
+          if (error) {
+            return json(
+              {
+                ok: false,
+                error:
+                  error.message
+              },
+              500
+            );
+          }
+        }
+
+        return json({
+          ok: true,
+          saved:
+            rows.length
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Match minutes save failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      /^\/academy\/player\/\d+\/minutes$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          Number(
+            url.pathname
+              .split('/')[3]
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: player,
+          error: playerError
+        } =
+          await supabase
+            .from(
+              'academy_players'
+            )
+            .select(
+              'id,name,team'
+            )
+            .eq(
+              'id',
+              playerId
+            )
+            .single();
+
+        if (
+          playerError ||
+          !player
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Spieler nicht gefunden.'
+            },
+            404
+          );
+        }
+
+        const {
+          data: matches,
+          error: matchError
+        } =
+          await supabase
+            .from(
+              'academy_matches'
+            )
+            .select('*')
+            .eq(
+              'team',
+              player.team
+            )
+            .order(
+              'match_date',
+              {
+                ascending: true
+              }
+            );
+
+        if (matchError) {
+          return json(
+            {
+              ok: false,
+              error:
+                matchError.message
+            },
+            500
+          );
+        }
+
+        const matchIds =
+          (matches ?? [])
+            .map(
+              match =>
+                match.id
+            );
+
+        const minuteRows =
+          matchIds.length
+            ? (
+                await supabase
+                  .from(
+                    'academy_match_minutes'
+                  )
+                  .select('*')
+                  .eq(
+                    'academy_player_id',
+                    playerId
+                  )
+                  .in(
+                    'match_id',
+                    matchIds
+                  )
+              ).data ?? []
+            : [];
+
+        const minuteMap =
+          new Map(
+            minuteRows.map(
+              row => [
+                Number(
+                  row.match_id
+                ),
+                row
+              ]
+            )
+          );
+
+        const today =
+          new Date()
+            .toISOString()
+            .slice(0, 10);
+
+        const completed =
+          (matches ?? [])
+            .filter(
+              match =>
+                String(
+                  match.match_date
+                ).slice(0, 10) <=
+                today
+            );
+
+        const possibleMinutes =
+          completed.reduce(
+            (
+              total,
+              match
+            ) =>
+              total +
+              Number(
+                match.duration_minutes ??
+                (
+                  player.team === 'U15'
+                    ? 80
+                    : 90
+                )
+              ),
+            0
+          );
+
+        const totalMinutes =
+          completed.reduce(
+            (
+              total,
+              match
+            ) =>
+              total +
+              Number(
+                minuteMap.get(
+                  Number(
+                    match.id
+                  )
+                )?.minutes ??
+                0
+              ),
+            0
+          );
+
+        return json({
+          ok: true,
+          player,
+          matches:
+            (matches ?? [])
+              .map(match => {
+                const row =
+                  minuteMap.get(
+                    Number(
+                      match.id
+                    )
+                  );
+
+                return {
+                  match_id:
+                    match.id,
+                  match_date:
+                    match.match_date,
+                  opponent:
+                    match.opponent,
+                  competition:
+                    match.competition,
+                  result:
+                    match.result,
+                  duration_minutes:
+                    match.duration_minutes,
+                  minutes:
+                    Number(
+                      row?.minutes ??
+                      0
+                    ),
+                  in_squad:
+                    Boolean(
+                      row?.in_squad
+                    ),
+                  started:
+                    Boolean(
+                      row?.started
+                    ),
+                  comment:
+                    row?.comment ??
+                    ''
+                };
+              }),
+          summary: {
+            minutes:
+              totalMinutes,
+            possible_minutes:
+              possibleMinutes,
+            percentage:
+              possibleMinutes > 0
+                ? Number(
+                    (
+                      (
+                        totalMinutes /
+                        possibleMinutes
+                      ) *
+                      100
+                    ).toFixed(1)
+                  )
+                : 0
+          }
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Player minutes load failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      /^\/academy\/player\/\d+\/minutes$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          Number(
+            url.pathname
+              .split('/')[3]
+          );
+
+        const body =
+          await request.json<{
+            rows?: Array<{
+              match_id?: number;
+              minutes?: number;
+              in_squad?: boolean;
+              started?: boolean;
+              comment?: string | null;
+            }>;
+          }>();
+
+        const supabase =
+          createSupabase(env);
+
+        const matchIds =
+          (body.rows ?? [])
+            .map(
+              row =>
+                Number(
+                  row.match_id ??
+                  0
+                )
+            )
+            .filter(Boolean);
+
+        const matches =
+          matchIds.length
+            ? (
+                await supabase
+                  .from(
+                    'academy_matches'
+                  )
+                  .select(
+                    'id,duration_minutes'
+                  )
+                  .in(
+                    'id',
+                    matchIds
+                  )
+              ).data ?? []
+            : [];
+
+        const durationMap =
+          new Map(
+            matches.map(
+              match => [
+                Number(
+                  match.id
+                ),
+                Number(
+                  match.duration_minutes ??
+                  90
+                )
+              ]
+            )
+          );
+
+        const rows =
+          (body.rows ?? [])
+            .filter(
+              row =>
+                Number(
+                  row.match_id ??
+                  0
+                ) > 0
+            )
+            .map(row => {
+              const matchId =
+                Number(
+                  row.match_id
+                );
+
+              return {
+                match_id:
+                  matchId,
+                academy_player_id:
+                  playerId,
+                minutes:
+                  Math.max(
+                    0,
+                    Math.min(
+                      Number(
+                        row.minutes ??
+                        0
+                      ),
+                      durationMap.get(
+                        matchId
+                      ) ?? 90
+                    )
+                  ),
+                in_squad:
+                  Boolean(
+                    row.in_squad
+                  ),
+                started:
+                  Boolean(
+                    row.started
+                  ),
+                comment:
+                  row.comment ??
+                  null
+              };
+            });
+
+        if (rows.length) {
+          const {
+            error
+          } =
+            await supabase
+              .from(
+                'academy_match_minutes'
+              )
+              .upsert(
+                rows,
+                {
+                  onConflict:
+                    'match_id,academy_player_id'
+                }
+              );
+
+          if (error) {
+            return json(
+              {
+                ok: false,
+                error:
+                  error.message
+              },
+              500
+            );
+          }
+        }
+
+        return json({
+          ok: true,
+          saved:
+            rows.length
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Player minutes save failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      url.pathname ===
+        '/academy/minutes/overview'
+    ) {
+      try {
+        await authenticate(request);
+
+        const team =
+          url.searchParams.get(
+            'team'
+          ) ?? '';
+
+        if (
+          ![
+            'U15',
+            'U16',
+            'U18',
+            'JWR'
+          ].includes(team)
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Ungültiges Team.'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: players,
+          error: playerError
+        } =
+          await supabase
+            .from(
+              'academy_players'
+            )
+            .select(
+              'id,name,jersey_number,primary_position,squad_status'
+            )
+            .eq(
+              'team',
+              team
+            )
+            .order(
+              'name',
+              {
+                ascending: true
+              }
+            );
+
+        if (playerError) {
+          return json(
+            {
+              ok: false,
+              error:
+                playerError.message
+            },
+            500
+          );
+        }
+
+        const today =
+          new Date()
+            .toISOString()
+            .slice(0, 10);
+
+        const {
+          data: matches,
+          error: matchError
+        } =
+          await supabase
+            .from(
+              'academy_matches'
+            )
+            .select(
+              'id,match_date,duration_minutes'
+            )
+            .eq(
+              'team',
+              team
+            )
+            .lte(
+              'match_date',
+              today
+            );
+
+        if (matchError) {
+          return json(
+            {
+              ok: false,
+              error:
+                matchError.message
+            },
+            500
+          );
+        }
+
+        const matchIds =
+          (matches ?? [])
+            .map(
+              match =>
+                Number(
+                  match.id
+                )
+            );
+
+        const possibleMinutes =
+          (matches ?? [])
+            .reduce(
+              (
+                total,
+                match
+              ) =>
+                total +
+                Number(
+                  match.duration_minutes ??
+                  (
+                    team === 'U15'
+                      ? 80
+                      : 90
+                  )
+                ),
+              0
+            );
+
+        const minuteRows =
+          matchIds.length
+            ? (
+                await supabase
+                  .from(
+                    'academy_match_minutes'
+                  )
+                  .select(
+                    'academy_player_id,match_id,minutes'
+                  )
+                  .in(
+                    'match_id',
+                    matchIds
+                  )
+              ).data ?? []
+            : [];
+
+        const totals =
+          new Map<
+            number,
+            number
+          >();
+
+        for (
+          const row of minuteRows
+        ) {
+          const playerId =
+            Number(
+              row.academy_player_id
+            );
+
+          totals.set(
+            playerId,
+            (
+              totals.get(
+                playerId
+              ) ?? 0
+            ) +
+            Number(
+              row.minutes ??
+              0
+            )
+          );
+        }
+
+        return json({
+          ok: true,
+          possible_minutes:
+            possibleMinutes,
+          players:
+            (players ?? [])
+              .map(player => {
+                const minutes =
+                  totals.get(
+                    Number(
+                      player.id
+                    )
+                  ) ?? 0;
+
+                return {
+                  academy_player_id:
+                    player.id,
+                  name:
+                    player.name,
+                  jersey_number:
+                    player.jersey_number,
+                  primary_position:
+                    player.primary_position,
+                  minutes,
+                  possible_minutes:
+                    possibleMinutes,
+                  percentage:
+                    possibleMinutes > 0
+                      ? Number(
+                          (
+                            (
+                              minutes /
+                              possibleMinutes
+                            ) *
+                            100
+                          ).toFixed(1)
+                        )
+                      : 0
+                };
+              })
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Minutes overview failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      url.pathname ===
+        '/academy/minutes/import'
+    ) {
+      try {
+        await authenticate(request);
+
+        const body =
+          await request.json<{
+            rows?: Array<{
+              team?: string;
+              match_date?: string;
+              opponent?: string;
+              competition?: string | null;
+              result?: string | null;
+              duration_minutes?: number;
+              player_name?: string;
+              jersey_number?: string;
+              in_squad?: boolean;
+              started?: boolean;
+              minutes?: number;
+              comment?: string | null;
+            }>;
+          }>();
+
+        const supabase =
+          createSupabase(env);
+
+        const inputRows =
+          body.rows ?? [];
+
+        let imported = 0;
+
+        for (
+          const row of
+          inputRows
+        ) {
+          const team =
+            String(
+              row.team ??
+              ''
+            );
+
+          if (
+            ![
+              'U15',
+              'U16',
+              'U18',
+              'JWR'
+            ].includes(team) ||
+            !row.match_date ||
+            !row.opponent?.trim() ||
+            !row.player_name?.trim()
+          ) {
+            continue;
+          }
+
+          const normalizedName =
+            row.player_name
+              .trim()
+              .toLowerCase();
+
+          const {
+            data: teamPlayers
+          } =
+            await supabase
+              .from(
+                'academy_players'
+              )
+              .select(
+                'id,name,jersey_number'
+              )
+              .eq(
+                'team',
+                team
+              );
+
+          const player =
+            (teamPlayers ?? [])
+              .find(candidate => {
+                const nameMatch =
+                  String(
+                    candidate.name ??
+                    ''
+                  )
+                    .trim()
+                    .toLowerCase() ===
+                  normalizedName;
+
+                const jerseyMatch =
+                  row.jersey_number &&
+                  String(
+                    candidate.jersey_number ??
+                    ''
+                  ) ===
+                  String(
+                    row.jersey_number
+                  );
+
+                return nameMatch ||
+                  (
+                    !nameMatch &&
+                    Boolean(
+                      jerseyMatch
+                    )
+                  );
+              });
+
+          if (!player) {
+            continue;
+          }
+
+          const {
+            data: existingMatches
+          } =
+            await supabase
+              .from(
+                'academy_matches'
+              )
+              .select('*')
+              .eq(
+                'team',
+                team
+              )
+              .eq(
+                'match_date',
+                row.match_date
+              )
+              .eq(
+                'opponent',
+                row.opponent.trim()
+              )
+              .limit(1);
+
+          let match =
+            existingMatches?.[0];
+
+          if (!match) {
+            const {
+              data: created,
+              error: createError
+            } =
+              await supabase
+                .from(
+                  'academy_matches'
+                )
+                .insert({
+                  team,
+                  match_date:
+                    row.match_date,
+                  opponent:
+                    row.opponent.trim(),
+                  competition:
+                    row.competition ??
+                    null,
+                  result:
+                    row.result ??
+                    null,
+                  duration_minutes:
+                    Number(
+                      row.duration_minutes ??
+                      (
+                        team === 'U15'
+                          ? 80
+                          : 90
+                      )
+                    )
+                })
+                .select('*')
+                .single();
+
+            if (
+              createError ||
+              !created
+            ) {
+              continue;
+            }
+
+            match =
+              created;
+          }
+
+          const {
+            error: upsertError
+          } =
+            await supabase
+              .from(
+                'academy_match_minutes'
+              )
+              .upsert({
+                match_id:
+                  match.id,
+                academy_player_id:
+                  player.id,
+                minutes:
+                  Math.max(
+                    0,
+                    Math.min(
+                      Number(
+                        row.minutes ??
+                        0
+                      ),
+                      Number(
+                        match.duration_minutes ??
+                        (
+                          team === 'U15'
+                            ? 80
+                            : 90
+                        )
+                      )
+                    )
+                  ),
+                in_squad:
+                  Boolean(
+                    row.in_squad
+                  ),
+                started:
+                  Boolean(
+                    row.started
+                  ),
+                comment:
+                  row.comment ??
+                  null
+              }, {
+                onConflict:
+                  'match_id,academy_player_id'
+              });
+
+          if (!upsertError) {
+            imported += 1;
+          }
+        }
+
+        return json({
+          ok: true,
+          imported
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Minutes import failed'
+          },
+          401
+        );
+      }
+    }
+
+    // ============================================================
     // Shared sport science – VikingVision / AKAVision / P12
     // ============================================================
 
