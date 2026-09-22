@@ -1,3 +1,4 @@
+import * as XLSX from 'xlsx';
 import { useEffect, useMemo, useState } from 'react';
 
 type Player = {
@@ -468,27 +469,102 @@ export default function AcademyMatchMinutesTab({
     );
   }
 
-  async function importCsv(
+  async function importMinutesFile(
     file: File
   ) {
-    const text =
-      await file.text();
-
-    const rows =
-      parseCsv(text);
-
-    if (!rows.length) {
-      setError(
-        'Die Importdatei enthält keine Daten.'
-      );
-      return;
-    }
-
     setSaving(true);
     setError(undefined);
     setSuccess(undefined);
 
     try {
+      let rows:
+        Array<Record<string, unknown>> =
+        [];
+
+      const lowerName =
+        file.name
+          .toLowerCase();
+
+      if (
+        lowerName.endsWith(
+          '.xlsx'
+        ) ||
+        lowerName.endsWith(
+          '.xls'
+        )
+      ) {
+        const buffer =
+          await file.arrayBuffer();
+
+        const workbook =
+          XLSX.read(
+            buffer,
+            {
+              type: 'array',
+              cellDates: true
+            }
+          );
+
+        const sheetName =
+          workbook.SheetNames.find(
+            name =>
+              normalizeHeader(name) ===
+              'spielminutenimport'
+          ) ??
+          workbook.SheetNames[0];
+
+        if (!sheetName) {
+          throw new Error(
+            'Die Excel-Datei enthält kein Tabellenblatt.'
+          );
+        }
+
+        const worksheet =
+          workbook.Sheets[
+            sheetName
+          ];
+
+        const raw =
+          XLSX.utils.sheet_to_json<
+            Record<string, unknown>
+          >(
+            worksheet,
+            {
+              defval: ''
+            }
+          );
+
+        rows =
+          raw
+            .map(
+              row =>
+                mapImportRow(
+                  row
+                )
+            )
+            .filter(
+              row =>
+                Boolean(
+                  row.team &&
+                  row.match_date &&
+                  row.opponent &&
+                  row.player_name
+                )
+            );
+      } else {
+        const text =
+          await file.text();
+
+        rows =
+          parseCsv(text);
+      }
+
+      if (!rows.length) {
+        throw new Error(
+          'Die Importdatei enthält keine verwertbaren Spielminuten-Zeilen.'
+        );
+      }
+
       const data =
         await api(
           '/academy/minutes/import',
@@ -535,17 +611,19 @@ export default function AcademyMatchMinutesTab({
           </div>
 
           <label style={importLabel}>
-            CSV importieren
+            Excel / CSV importieren
             <input
               type="file"
-              accept=".csv,text/csv"
+              accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
               style={{ display: 'none' }}
               onChange={event => {
                 const file =
                   event.target.files?.[0];
 
                 if (file) {
-                  void importCsv(file);
+                  void importMinutesFile(
+                    file
+                  );
                 }
 
                 event.currentTarget.value =
@@ -952,6 +1030,166 @@ export default function AcademyMatchMinutesTab({
         </div>
       </section>
     </>
+  );
+}
+
+function mapImportRow(
+  row: Record<string, unknown>
+) {
+  const normalized =
+    Object.fromEntries(
+      Object.entries(row)
+        .map(
+          ([key, value]) => [
+            normalizeHeader(key),
+            value
+          ]
+        )
+    );
+
+  const get =
+    (key: string) =>
+      normalized[key];
+
+  return {
+    team:
+      stringValue(
+        get('team')
+      ),
+    match_date:
+      normalizeImportedDate(
+        get('spieldatum')
+      ),
+    opponent:
+      stringValue(
+        get('gegner')
+      ),
+    competition:
+      stringValue(
+        get('bewerb')
+      ),
+    result:
+      stringValue(
+        get('ergebnis')
+      ),
+    duration_minutes:
+      numericValue(
+        get('spieldauer')
+      ),
+    player_name:
+      stringValue(
+        get('spieler')
+      ),
+    jersey_number:
+      stringValue(
+        get('trikotnummer')
+      ),
+    in_squad:
+      yesNo(
+        stringValue(
+          get('imkader')
+        )
+      ),
+    started:
+      yesNo(
+        stringValue(
+          get('startelf')
+        )
+      ),
+    minutes:
+      numericValue(
+        get('minuten')
+      ),
+    comment:
+      stringValue(
+        get('kommentar')
+      )
+  };
+}
+
+function stringValue(
+  value: unknown
+) {
+  if (
+    value === null ||
+    value === undefined
+  ) {
+    return '';
+  }
+
+  return String(value)
+    .trim();
+}
+
+function numericValue(
+  value: unknown
+) {
+  if (
+    typeof value ===
+      'number' &&
+    Number.isFinite(value)
+  ) {
+    return value;
+  }
+
+  const parsed =
+    Number(
+      stringValue(value)
+        .replace(',', '.')
+    );
+
+  return Number.isFinite(
+    parsed
+  )
+    ? parsed
+    : undefined;
+}
+
+function normalizeImportedDate(
+  value: unknown
+) {
+  if (
+    value instanceof Date &&
+    !Number.isNaN(
+      value.getTime()
+    )
+  ) {
+    return [
+      value.getFullYear(),
+      String(
+        value.getMonth() + 1
+      ).padStart(2, '0'),
+      String(
+        value.getDate()
+      ).padStart(2, '0')
+    ].join('-');
+  }
+
+  if (
+    typeof value ===
+      'number' &&
+    Number.isFinite(value)
+  ) {
+    const parsed =
+      XLSX.SSF.parse_date_code(
+        value
+      );
+
+    if (parsed) {
+      return [
+        parsed.y,
+        String(
+          parsed.m
+        ).padStart(2, '0'),
+        String(
+          parsed.d
+        ).padStart(2, '0')
+      ].join('-');
+    }
+  }
+
+  return normalizeDate(
+    stringValue(value)
   );
 }
 
