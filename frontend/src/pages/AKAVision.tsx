@@ -365,7 +365,7 @@ export default function AKAVision({
       <PageHeader
         section="SV Oberbank Ried · Akademie"
         title="AKAVision"
-        description="Spielerentwicklung, Ideale, Sport Science, Skill / AC, P12 und Academy-Scouting."
+        description="Spielerentwicklung, Ideale, Sportwissenschaft, Skill / AC, P12 und Academy-Scouting."
         onBack={onBack}
         backLabel="VikingVision"
         meta={
@@ -703,7 +703,7 @@ function OverviewTab({
 
         <AcademyQuickCard
           eyebrow="Performance"
-          title="Sport Science"
+          title="Sportwissenschaft"
           description="Tests, Leistungswerte und Verlauf der Spieler ansehen."
           onClick={() =>
             onOpenTab(
