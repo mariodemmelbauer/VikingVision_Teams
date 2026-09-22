@@ -3,6 +3,8 @@ import '../akavision-responsive.css';
 import AcademyPlayerProfile from './academy/AcademyPlayerProfile';
 import AcademyScoutingTab from './academy/AcademyScoutingTab';
 import P12Tab from './academy/P12Tab';
+import SportScienceAnalytics from './academy/SportScienceAnalytics';
+import AcademyMatchMinutesTab from './academy/AcademyMatchMinutesTab';
 import PageHeader from '../components/PageHeader';
 
 type AcademyTeam = 'U15' | 'U16' | 'U18' | 'JWR';
@@ -151,6 +153,8 @@ type Tab =
   | 'ideals'
   | 'scouting'
   | 'sportScience'
+  | 'sportScienceAnalysis'
+  | 'minutes'
   | 'skillAc'
   | 'p12';
 
@@ -464,6 +468,20 @@ export default function AKAVision({
         </TabButton>
 
         <TabButton
+          active={tab === 'sportScienceAnalysis'}
+          onClick={() => setTab('sportScienceAnalysis')}
+        >
+          Auswertung
+        </TabButton>
+
+        <TabButton
+          active={tab === 'minutes'}
+          onClick={() => setTab('minutes')}
+        >
+          Spielminuten
+        </TabButton>
+
+        <TabButton
           active={tab === 'skillAc'}
           onClick={() => setTab('skillAc')}
         >
@@ -529,6 +547,22 @@ export default function AKAVision({
           {tab === 'sportScience' && (
             <SportScienceTab
               tests={sportScienceTests}
+            />
+          )}
+
+          {tab === 'sportScienceAnalysis' && (
+            <SportScienceAnalytics
+              accessToken={accessToken}
+              apiBase={apiBase}
+            />
+          )}
+
+          {tab === 'minutes' && (
+            <AcademyMatchMinutesTab
+              team={team}
+              players={players}
+              accessToken={accessToken}
+              apiBase={apiBase}
             />
           )}
 
@@ -708,6 +742,28 @@ function OverviewTab({
           onClick={() =>
             onOpenTab(
               'sportScience'
+            )
+          }
+        />
+
+        <AcademyQuickCard
+          eyebrow="Performance"
+          title="Auswertung"
+          description="Messwerte teamübergreifend vergleichen – inklusive Profis."
+          onClick={() =>
+            onOpenTab(
+              'sportScienceAnalysis'
+            )
+          }
+        />
+
+        <AcademyQuickCard
+          eyebrow="Einsatzzeit"
+          title="Spielminuten"
+          description="Spiele anlegen, Minuten erfassen und Spielzeitquote überwachen."
+          onClick={() =>
+            onOpenTab(
+              'minutes'
             )
           }
         />
