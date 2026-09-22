@@ -243,22 +243,33 @@ export default function SportSciencePanel({
   const [notes, setNotes] =
     useState('');
 
+  function initialMetricValues():
+    Record<string, string> {
+    const initial:
+      Record<string, string> =
+        {};
+
+    const height =
+      parseNumber(
+        initialHeightCm
+      );
+
+    if (
+      height !== undefined
+    ) {
+      initial.height_cm =
+        String(height);
+    }
+
+    return initial;
+  }
+
   const [values, setValues] =
     useState<
       Record<string, string>
-    >(() => {
-      const height =
-        parseNumber(
-          initialHeightCm
-        );
-
-      return height
-        ? {
-            height_cm:
-              String(height)
-          }
-        : {};
-    });
+    >(() =>
+      initialMetricValues()
+    );
 
   async function api(
     path: string,
@@ -395,11 +406,6 @@ export default function SportSciencePanel({
   }
 
   function resetForm() {
-    const height =
-      parseNumber(
-        initialHeightCm
-      );
-
     setTestDate(
       new Date()
         .toISOString()
@@ -409,12 +415,7 @@ export default function SportSciencePanel({
     setSeason('');
     setNotes('');
     setValues(
-      height
-        ? {
-            height_cm:
-              String(height)
-          }
-        : {}
+      initialMetricValues()
     );
   }
 
