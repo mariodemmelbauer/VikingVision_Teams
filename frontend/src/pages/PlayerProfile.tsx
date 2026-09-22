@@ -1,5 +1,7 @@
 import PageHeader from '../components/PageHeader';
 import { useState } from 'react';
+import SportSciencePanel from '../components/SportSciencePanel';
+import PlayerIdealsPanel from '../components/PlayerIdealsPanel';
 import PlayerImage from '../components/PlayerImage';
 
 export type Player = {
@@ -1003,6 +1005,29 @@ export default function PlayerProfile({
           </div>
         )}
       </section>
+
+      {player.is_own_squad && (
+        <PlayerIdealsPanel
+          playerId={player.id}
+          playerRole={
+            player.player_role
+          }
+          accessToken={accessToken}
+          apiBase={apiBase}
+        />
+      )}
+
+      <SportSciencePanel
+        subjectType="player"
+        subjectId={player.id}
+        accessToken={accessToken}
+        apiBase={apiBase}
+        initialHeightCm={
+          player.height_cm ??
+          player.height
+        }
+        title="Sportwissenschaft"
+      />
     </main>
   );
 }
