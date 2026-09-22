@@ -1,4 +1,12 @@
 import { useState } from 'react';
+import IdealScoreEditor from '../../components/IdealScoreEditor';
+import {
+  IDEAL_CATALOG,
+  IDEAL_CODES,
+  createIdealScoreForms,
+  normalizeDetailRatings,
+  type IdealScoreForm as SharedIdealScoreForm
+} from '../../components/idealCatalog';
 import SportSciencePanel from '../../components/SportSciencePanel';
 
 type AcademyPlayer = {
@@ -79,14 +87,7 @@ type SkillAcForm = {
   biggest_changes?: string;
 };
 
-type IdealScoreForm = {
-  ideal_code: string;
-  status_quo: string;
-  potential: string;
-  rating: string;
-  measured_value: string;
-  notes: string;
-};
+type IdealScoreForm = SharedIdealScoreForm;
 
 type ProfileTab =
   | 'stammdaten'
@@ -95,36 +96,24 @@ type ProfileTab =
   | 'skillAc';
 
 
-const IDEAL_META = {
-  OFF1: {
-    label: 'Rücken finden',
-    group: 'Mit Ball'
-  },
-  OFF2: {
-    label: 'Manipulieren',
-    group: 'Mit Ball'
-  },
-  OFF3: {
-    label: 'Ball als Verbündeter',
-    group: 'Mit Ball'
-  },
-  DEF1: {
-    label: 'Rücken sichern & Ball erobern',
-    group: 'Gegen den Ball'
-  },
-  DEF3: {
-    label: 'Ball gehört uns & Tor verteidigen',
-    group: 'Gegen den Ball'
-  }
-} as const;
-
-const IDEAL_CODES = [
-  'OFF1',
-  'OFF2',
-  'OFF3',
-  'DEF1',
-  'DEF3'
-] as const;
+const IDEAL_META =
+  Object.fromEntries(
+    IDEAL_CATALOG.map(
+      ideal => [
+        ideal.code,
+        {
+          label: ideal.title,
+          group: ideal.group
+        }
+      ]
+    )
+  ) as Record<
+    string,
+    {
+      label: string;
+      group: string;
+    }
+  >;
 
 export default function AcademyPlayerProfile({
   player,
@@ -210,48 +199,7 @@ export default function AcademyPlayerProfile({
           .slice(0, 10),
       player_role:
         player.player_role ?? '',
-      scores: [
-        {
-          ideal_code: 'OFF1',
-          status_quo: '',
-          potential: '',
-          rating: '',
-          measured_value: '',
-          notes: ''
-        },
-        {
-          ideal_code: 'OFF2',
-          status_quo: '',
-          potential: '',
-          rating: '',
-          measured_value: '',
-          notes: ''
-        },
-        {
-          ideal_code: 'OFF3',
-          status_quo: '',
-          potential: '',
-          rating: '',
-          measured_value: '',
-          notes: ''
-        },
-        {
-          ideal_code: 'DEF1',
-          status_quo: '',
-          potential: '',
-          rating: '',
-          measured_value: '',
-          notes: ''
-        },
-        {
-          ideal_code: 'DEF3',
-          status_quo: '',
-          potential: '',
-          rating: '',
-          measured_value: '',
-          notes: ''
-        }
-      ] as IdealScoreForm[]
+      scores: createIdealScoreForms()
     });
 
   const [playerForm, setPlayerForm] =
@@ -707,75 +655,23 @@ export default function AcademyPlayerProfile({
           .slice(0, 10),
       player_role:
         player.player_role ?? '',
-      scores: [
-        {
-          ideal_code: 'OFF1',
-          status_quo: '',
-          potential: '',
-          rating: '',
-          measured_value: '',
-          notes: ''
-        },
-        {
-          ideal_code: 'OFF2',
-          status_quo: '',
-          potential: '',
-          rating: '',
-          measured_value: '',
-          notes: ''
-        },
-        {
-          ideal_code: 'OFF3',
-          status_quo: '',
-          potential: '',
-          rating: '',
-          measured_value: '',
-          notes: ''
-        },
-        {
-          ideal_code: 'DEF1',
-          status_quo: '',
-          potential: '',
-          rating: '',
-          measured_value: '',
-          notes: ''
-        },
-        {
-          ideal_code: 'DEF3',
-          status_quo: '',
-          potential: '',
-          rating: '',
-          measured_value: '',
-          notes: ''
-        }
-      ]
+      scores: createIdealScoreForms()
     });
   }
 
-  function updateIdealScore(
-    index: number,
-    field: keyof IdealScoreForm,
-    value: string
+  function setIdealScores(
+    scores: IdealScoreForm[]
   ) {
     setIdealForm(current => ({
       ...current,
-      scores: current.scores.map(
-        (score, scoreIndex) =>
-          scoreIndex === index
-            ? {
-                ...score,
-                [field]: value
-              }
-            : score
-      )
+      scores
     }));
   }
+
 
   function editIdealAssessment(
     assessment: IdealAssessment
   ) {
-    const knownCodes = [...IDEAL_CODES];
-
     const byCode =
       new Map(
         assessment.scores.map(
@@ -799,43 +695,49 @@ export default function AcademyPlayerProfile({
         assessment.player_role ??
         player.player_role ??
         '',
-      scores: knownCodes.map(code => {
-        const existing =
-          byCode.get(code);
+      scores:
+        IDEAL_CODES.map(code => {
+          const existing =
+            byCode.get(code);
 
-        return {
-          ideal_code: code,
-          status_quo:
-            existing?.status_quo != null
-              ? String(
-                  existing.status_quo
-                )
-              : '',
-          potential:
-            existing?.potential != null
-              ? String(
-                  existing.potential
-                )
-              : '',
-          rating:
-            existing?.rating != null
-              ? String(
-                  existing.rating
-                )
-              : '',
-          measured_value:
-            existing?.measured_value ??
-            '',
-          notes:
-            existing?.notes ?? ''
-        };
-      })
+          return {
+            ideal_code: code,
+            status_quo:
+              existing?.status_quo != null
+                ? String(
+                    existing.status_quo
+                  )
+                : '50',
+            potential:
+              existing?.potential != null
+                ? String(
+                    existing.potential
+                  )
+                : '70',
+            rating:
+              existing?.rating != null
+                ? String(
+                    existing.rating
+                  )
+                : '',
+            measured_value:
+              existing?.measured_value ??
+              '',
+            notes:
+              existing?.notes ?? '',
+            detail_ratings:
+              normalizeDetailRatings(
+                code,
+                existing?.detail_ratings
+              )
+          };
+        })
     });
 
     setShowIdealForm(true);
     setProfileError(undefined);
-    setProfileSuccess(undefined);
   }
+
 
   async function saveIdealAssessment() {
     if (!accessToken) {
@@ -890,7 +792,9 @@ export default function AcademyPlayerProfile({
               score.measured_value ||
               null,
             notes:
-              score.notes || null
+              score.notes || null,
+            detail_ratings:
+              score.detail_ratings
           })
         )
     };
@@ -1910,103 +1814,17 @@ export default function AcademyPlayerProfile({
 
             <div
               style={{
-                display: 'grid',
-                gap: '10px',
                 marginTop: '16px'
               }}
             >
-              {idealForm.scores.map(
-                (score, index) => (
-                  <div
-                    key={score.ideal_code}
-                    style={idealEditRow}
-                  >
-                    <div
-                      style={{
-                        fontWeight: 800,
-                        fontSize: '16px'
-                      }}
-                    >
-                      {score.ideal_code}
-                    </div>
-
-                    <Field label="Status quo">
-                      <input
-                        type="number"
-                        value={
-                          score.status_quo
-                        }
-                        onChange={event =>
-                          updateIdealScore(
-                            index,
-                            'status_quo',
-                            event.target.value
-                          )
-                        }
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Potenzial">
-                      <input
-                        type="number"
-                        value={
-                          score.potential
-                        }
-                        onChange={event =>
-                          updateIdealScore(
-                            index,
-                            'potential',
-                            event.target.value
-                          )
-                        }
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <Field label="Rating">
-                      <input
-                        type="number"
-                        value={score.rating}
-                        onChange={event =>
-                          updateIdealScore(
-                            index,
-                            'rating',
-                            event.target.value
-                          )
-                        }
-                        style={inputStyle}
-                      />
-                    </Field>
-
-                    <TextInput
-                      label="Messwert"
-                      value={
-                        score.measured_value
-                      }
-                      onChange={value =>
-                        updateIdealScore(
-                          index,
-                          'measured_value',
-                          value
-                        )
-                      }
-                    />
-
-                    <TextInput
-                      label="Notiz"
-                      value={score.notes}
-                      onChange={value =>
-                        updateIdealScore(
-                          index,
-                          'notes',
-                          value
-                        )
-                      }
-                    />
-                  </div>
-                )
-              )}
+              <IdealScoreEditor
+                scores={
+                  idealForm.scores
+                }
+                onChange={
+                  setIdealScores
+                }
+              />
             </div>
 
             <button
