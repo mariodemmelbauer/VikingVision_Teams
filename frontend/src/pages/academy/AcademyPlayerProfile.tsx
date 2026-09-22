@@ -8,6 +8,7 @@ import {
   type IdealScoreForm as SharedIdealScoreForm
 } from '../../components/idealCatalog';
 import SportSciencePanel from '../../components/SportSciencePanel';
+import AcademyPlayerMinutesPanel from './AcademyPlayerMinutesPanel';
 
 type AcademyPlayer = {
   id: number;
@@ -93,6 +94,7 @@ type ProfileTab =
   | 'stammdaten'
   | 'ideale'
   | 'sportScience'
+  | 'minutes'
   | 'skillAc';
 
 
@@ -1229,7 +1231,7 @@ export default function AcademyPlayerProfile({
           />
 
           <AcademyProfileStat
-            label="Sportwissenschaft"
+            label="Sport Science"
             value={playerTests.length}
             hint={
               latestSportTest?.test_date
@@ -2203,6 +2205,13 @@ export default function AcademyPlayerProfile({
           </ProfileTabButton>
 
           <ProfileTabButton
+            active={profileTab === 'minutes'}
+            onClick={() => setProfileTab('minutes')}
+          >
+            Spielminuten
+          </ProfileTabButton>
+
+          <ProfileTabButton
             active={profileTab === 'skillAc'}
             onClick={() => setProfileTab('skillAc')}
           >
@@ -3124,6 +3133,15 @@ export default function AcademyPlayerProfile({
               player.height
             }
             title="Sportwissenschaft · vollständiges Profil"
+          />
+        )}
+
+        {profileTab === 'minutes' && (
+          <AcademyPlayerMinutesPanel
+            playerId={player.id}
+            team={player.team}
+            accessToken={accessToken}
+            apiBase={apiBase}
           />
         )}
 
