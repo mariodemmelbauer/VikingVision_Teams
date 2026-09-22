@@ -460,7 +460,7 @@ export default function AKAVision({
           active={tab === 'sportScience'}
           onClick={() => setTab('sportScience')}
         >
-          Sport Science
+          Sportwissenschaft
         </TabButton>
 
         <TabButton
@@ -2224,7 +2224,7 @@ function SportScienceTab({
 
       {playerGroups.length === 0 ? (
         <section style={panel}>
-          Keine Sport-Science-Daten für die aktuelle Auswahl vorhanden.
+          Keine sportwissenschaftlichen Daten für die aktuelle Auswahl vorhanden.
         </section>
       ) : (
         <div style={sportPlayerGrid}>
