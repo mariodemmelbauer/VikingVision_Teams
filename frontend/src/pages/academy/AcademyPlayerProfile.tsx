@@ -1176,7 +1176,7 @@ export default function AcademyPlayerProfile({
               }
               style={academyProfileActionButton}
             >
-              + Sport Science
+              + Sportwissenschaft
             </button>
 
             <button
@@ -1229,7 +1229,7 @@ export default function AcademyPlayerProfile({
           />
 
           <AcademyProfileStat
-            label="Sport Science"
+            label="Sportwissenschaft"
             value={playerTests.length}
             hint={
               latestSportTest?.test_date
@@ -2199,7 +2199,7 @@ export default function AcademyPlayerProfile({
             active={profileTab === 'sportScience'}
             onClick={() => setProfileTab('sportScience')}
           >
-            Sport Science · {playerTests.length}
+            Sportwissenschaft · {playerTests.length}
           </ProfileTabButton>
 
           <ProfileTabButton
