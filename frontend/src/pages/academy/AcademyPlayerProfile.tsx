@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import SportSciencePanel from '../../components/SportSciencePanel';
 
 type AcademyPlayer = {
   id: number;
@@ -3293,6 +3294,19 @@ export default function AcademyPlayerProfile({
               </>
             )}
           </section>
+        )}
+
+        {profileTab === 'sportScience' && (
+          <SportSciencePanel
+            subjectType="academy"
+            subjectId={player.id}
+            accessToken={accessToken}
+            apiBase={apiBase}
+            initialHeightCm={
+              player.height
+            }
+            title="Sportwissenschaft · vollständiges Profil"
+          />
         )}
 
         {profileTab === 'skillAc' && (
