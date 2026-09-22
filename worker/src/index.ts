@@ -1722,6 +1722,775 @@ export default {
     const url =
       new URL(request.url);
 
+    // ============================================================
+    // Shared sport science – VikingVision / AKAVision / P12
+    // ============================================================
+
+    if (
+      request.method === 'GET' &&
+      url.pathname ===
+        '/sport-science/catalog'
+    ) {
+      try {
+        await authenticate(request);
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data,
+          error
+        } =
+          await supabase
+            .from(
+              'sports_science_metric_catalog'
+            )
+            .select('*')
+            .eq(
+              'active',
+              true
+            )
+            .order(
+              'sort_order',
+              {
+                ascending: true
+              }
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true,
+          metrics:
+            data ?? []
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Sport science catalog failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'GET' &&
+      /^\/sport-science\/(player|academy|p12)\/\d+$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const parts =
+          url.pathname
+            .split('/')
+            .filter(Boolean);
+
+        const subjectType =
+          parts[1];
+
+        const subjectId =
+          Number(
+            parts[2]
+          );
+
+        const subjectField =
+          subjectType === 'player'
+            ? 'player_id'
+            : subjectType === 'academy'
+              ? 'academy_player_id'
+              : 'p12_player_id';
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: tests,
+          error: testError
+        } =
+          await supabase
+            .from(
+              'sports_science_tests'
+            )
+            .select('*')
+            .eq(
+              subjectField,
+              subjectId
+            )
+            .order(
+              'test_date',
+              {
+                ascending: false
+              }
+            );
+
+        if (testError) {
+          return json(
+            {
+              ok: false,
+              error:
+                testError.message
+            },
+            500
+          );
+        }
+
+        const testIds =
+          (tests ?? [])
+            .map(test => test.id);
+
+        let values:
+          Array<Record<string, unknown>> =
+          [];
+
+        if (
+          testIds.length > 0
+        ) {
+          const {
+            data,
+            error
+          } =
+            await supabase
+              .from(
+                'v_sports_science_values'
+              )
+              .select('*')
+              .in(
+                'test_id',
+                testIds
+              )
+              .order(
+                'sort_order',
+                {
+                  ascending: true
+                }
+              );
+
+          if (error) {
+            return json(
+              {
+                ok: false,
+                error:
+                  error.message
+              },
+              500
+            );
+          }
+
+          values =
+            data ?? [];
+        }
+
+        const enriched =
+          (tests ?? [])
+            .map(test => ({
+              ...test,
+              values:
+                values.filter(
+                  value =>
+                    value.test_id ===
+                    test.id
+                )
+            }));
+
+        return json({
+          ok: true,
+          tests:
+            enriched
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Sport science profile failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      /^\/sport-science\/(player|academy|p12)\/\d+$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const parts =
+          url.pathname
+            .split('/')
+            .filter(Boolean);
+
+        const subjectType =
+          parts[1];
+
+        const subjectId =
+          Number(
+            parts[2]
+          );
+
+        const subjectField =
+          subjectType === 'player'
+            ? 'player_id'
+            : subjectType === 'academy'
+              ? 'academy_player_id'
+              : 'p12_player_id';
+
+        const body =
+          await request.json<{
+            test_date?: string;
+            test_label?: string | null;
+            season?: string | null;
+            notes?: string | null;
+            values?: Array<{
+              metric_code?: string;
+              value?: number | null;
+              text_value?: string | null;
+              notes?: string | null;
+            }>;
+          }>();
+
+        if (!body.test_date) {
+          return json(
+            {
+              ok: false,
+              error:
+                'test_date is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const testPayload:
+          Record<string, unknown> =
+          {
+            [subjectField]:
+              subjectId,
+            test_date:
+              body.test_date,
+            test_label:
+              body.test_label ??
+              null,
+            season:
+              body.season ??
+              null,
+            notes:
+              body.notes ??
+              null,
+            source:
+              'manual',
+            updated_at:
+              new Date()
+                .toISOString()
+          };
+
+        const {
+          data: test,
+          error: testError
+        } =
+          await supabase
+            .from(
+              'sports_science_tests'
+            )
+            .insert(
+              testPayload
+            )
+            .select('*')
+            .single();
+
+        if (
+          testError ||
+          !test
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                testError?.message ??
+                'Test konnte nicht angelegt werden.'
+            },
+            500
+          );
+        }
+
+        const valueRows =
+          (body.values ?? [])
+            .filter(
+              value =>
+                Boolean(
+                  value.metric_code
+                ) &&
+                (
+                  value.value != null ||
+                  Boolean(
+                    value.text_value
+                  )
+                )
+            )
+            .map(value => ({
+              test_id:
+                test.id,
+              metric_code:
+                value.metric_code!,
+              value:
+                value.value ??
+                null,
+              text_value:
+                value.text_value ??
+                null,
+              notes:
+                value.notes ??
+                null
+            }));
+
+        if (
+          valueRows.length > 0
+        ) {
+          const {
+            error
+          } =
+            await supabase
+              .from(
+                'sports_science_values'
+              )
+              .insert(
+                valueRows
+              );
+
+          if (error) {
+            await supabase
+              .from(
+                'sports_science_tests'
+              )
+              .delete()
+              .eq(
+                'id',
+                test.id
+              );
+
+            return json(
+              {
+                ok: false,
+                error:
+                  error.message
+              },
+              500
+            );
+          }
+        }
+
+        return json(
+          {
+            ok: true,
+            test
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Sport science save failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'DELETE' &&
+      /^\/sport-science\/tests\/\d+$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const testId =
+          Number(
+            url.pathname
+              .split('/')
+              .pop()
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          error
+        } =
+          await supabase
+            .from(
+              'sports_science_tests'
+            )
+            .delete()
+            .eq(
+              'id',
+              testId
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Sport science delete failed'
+          },
+          401
+        );
+      }
+    }
+
+    // ============================================================
+    // VikingVision / Profis – Ideale analog AKAVision
+    // ============================================================
+
+    if (
+      request.method === 'GET' &&
+      /^\/players\/\d+\/ideals$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          Number(
+            url.pathname
+              .split('/')[2]
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: assessments,
+          error
+        } =
+          await supabase
+            .from(
+              'player_ideal_assessments'
+            )
+            .select('*')
+            .eq(
+              'player_id',
+              playerId
+            )
+            .order(
+              'assessment_date',
+              {
+                ascending: false
+              }
+            )
+            .order(
+              'created_at',
+              {
+                ascending: false
+              }
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        const ids =
+          (assessments ?? [])
+            .map(
+              assessment =>
+                assessment.id
+            );
+
+        let scores:
+          Array<Record<string, unknown>> =
+          [];
+
+        if (ids.length > 0) {
+          const {
+            data,
+            error: scoreError
+          } =
+            await supabase
+              .from(
+                'player_ideal_scores'
+              )
+              .select('*')
+              .in(
+                'assessment_id',
+                ids
+              );
+
+          if (scoreError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  scoreError.message
+              },
+              500
+            );
+          }
+
+          scores =
+            data ?? [];
+        }
+
+        return json({
+          ok: true,
+          assessments:
+            (assessments ?? [])
+              .map(
+                assessment => ({
+                  ...assessment,
+                  scores:
+                    scores.filter(
+                      score =>
+                        score.assessment_id ===
+                        assessment.id
+                    )
+                })
+              )
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Player ideals failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      /^\/players\/\d+\/ideals$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          Number(
+            url.pathname
+              .split('/')[2]
+          );
+
+        const body =
+          await request.json<{
+            period_label?: string;
+            assessment_date?: string | null;
+            player_role?: string | null;
+            scores?: Array<{
+              ideal_code?: string;
+              status_quo?: number | null;
+              potential?: number | null;
+              rating?: number | null;
+              measured_value?: string | null;
+              notes?: string | null;
+              detail_ratings?: Record<string, unknown>;
+            }>;
+          }>();
+
+        if (
+          !body.period_label?.trim()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'period_label is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: assessment,
+          error
+        } =
+          await supabase
+            .from(
+              'player_ideal_assessments'
+            )
+            .insert({
+              player_id:
+                playerId,
+              period_label:
+                body.period_label.trim(),
+              assessment_date:
+                body.assessment_date ??
+                null,
+              player_role:
+                body.player_role ??
+                null,
+              updated_at:
+                new Date()
+                  .toISOString()
+            })
+            .select('*')
+            .single();
+
+        if (
+          error ||
+          !assessment
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                error?.message ??
+                'Bewertung konnte nicht gespeichert werden.'
+            },
+            500
+          );
+        }
+
+        const scoreRows =
+          (body.scores ?? [])
+            .filter(
+              score =>
+                Boolean(
+                  score.ideal_code
+                )
+            )
+            .map(score => ({
+              assessment_id:
+                assessment.id,
+              ideal_code:
+                score.ideal_code!,
+              status_quo:
+                score.status_quo ??
+                null,
+              potential:
+                score.potential ??
+                null,
+              rating:
+                score.rating ??
+                null,
+              measured_value:
+                score.measured_value ??
+                null,
+              notes:
+                score.notes ??
+                null,
+              detail_ratings:
+                score.detail_ratings ??
+                {}
+            }));
+
+        if (
+          scoreRows.length > 0
+        ) {
+          const {
+            error: scoreError
+          } =
+            await supabase
+              .from(
+                'player_ideal_scores'
+              )
+              .insert(
+                scoreRows
+              );
+
+          if (scoreError) {
+            await supabase
+              .from(
+                'player_ideal_assessments'
+              )
+              .delete()
+              .eq(
+                'id',
+                assessment.id
+              );
+
+            return json(
+              {
+                ok: false,
+                error:
+                  scoreError.message
+              },
+              500
+            );
+          }
+        }
+
+        return json(
+          {
+            ok: true,
+            assessment
+          },
+          201
+        );
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Player ideals save failed'
+          },
+          401
+        );
+      }
+    }
+
     if (
       request.method === 'GET' &&
       /^\/public\/p12\/self\/[^/]+$/.test(
