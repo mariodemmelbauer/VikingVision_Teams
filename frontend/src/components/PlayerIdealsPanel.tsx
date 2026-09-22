@@ -1,4 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
+import IdealScoreEditor from './IdealScoreEditor';
+import {
+  IDEAL_CATALOG,
+  createIdealScoreForms,
+  normalizeDetailRatings,
+  type IdealScoreForm
+} from './idealCatalog';
 
 type IdealScore = {
   ideal_code: string;
@@ -7,6 +14,7 @@ type IdealScore = {
   rating?: number | null;
   measured_value?: string | null;
   notes?: string | null;
+  detail_ratings?: unknown;
 };
 
 type IdealAssessment = {
@@ -24,37 +32,6 @@ type Props = {
   accessToken?: string;
   apiBase: string;
 };
-
-const IDEALS = [
-  ['OFF1', 'Rücken finden', 'Mit Ball'],
-  ['OFF2', 'Manipulieren', 'Mit Ball'],
-  ['OFF3', 'Ball als Verbündeter', 'Mit Ball'],
-  ['DEF1', 'Rücken sichern & Ball erobern', 'Gegen den Ball'],
-  ['DEF3', 'Ball gehört uns & Tor verteidigen', 'Gegen den Ball']
-] as const;
-
-type DraftScore = {
-  ideal_code: string;
-  status_quo: string;
-  potential: string;
-  rating: string;
-  measured_value: string;
-  notes: string;
-};
-
-function emptyScores():
-  DraftScore[] {
-  return IDEALS.map(
-    ([code]) => ({
-      ideal_code: code,
-      status_quo: '',
-      potential: '',
-      rating: '',
-      measured_value: '',
-      notes: ''
-    })
-  );
-}
 
 export default function PlayerIdealsPanel({
   playerId,
@@ -81,8 +58,8 @@ export default function PlayerIdealsPanel({
     );
 
   const [scores, setScores] =
-    useState<DraftScore[]>(
-      emptyScores()
+    useState<IdealScoreForm[]>(
+      createIdealScoreForms()
     );
 
   const [loading, setLoading] =
@@ -175,7 +152,7 @@ export default function PlayerIdealsPanel({
   const latest =
     assessments[0];
 
-  const scoreMap =
+  const latestMap =
     useMemo(
       () =>
         new Map(
@@ -187,28 +164,6 @@ export default function PlayerIdealsPanel({
         ),
       [latest]
     );
-
-  function updateScore(
-    code: string,
-    field:
-      | 'status_quo'
-      | 'potential'
-      | 'rating'
-      | 'measured_value'
-      | 'notes',
-    value: string
-  ) {
-    setScores(current =>
-      current.map(score =>
-        score.ideal_code === code
-          ? {
-              ...score,
-              [field]: value
-            }
-          : score
-      )
-    );
-  }
 
   function numberOrNull(
     value: string
@@ -273,7 +228,9 @@ export default function PlayerIdealsPanel({
                     null,
                   notes:
                     score.notes ||
-                    null
+                    null,
+                  detail_ratings:
+                    score.detail_ratings
                 })
               )
           })
@@ -282,7 +239,7 @@ export default function PlayerIdealsPanel({
 
       setPeriod('');
       setScores(
-        emptyScores()
+        createIdealScoreForms()
       );
       setSuccess(
         'Ideale-Bewertung wurde gespeichert.'
@@ -307,11 +264,13 @@ export default function PlayerIdealsPanel({
           <div style={eyebrow}>
             Spielerentwicklung
           </div>
+
           <h3 style={title}>
             Ideale
           </h3>
+
           <div style={subtitle}>
-            Analog AKAVision · OFF1 / OFF2 / OFF3 / DEF1 / DEF3
+            Struktur entsprechend Ideale.xlsx · Skala 0–100
           </div>
         </div>
 
@@ -336,8 +295,9 @@ export default function PlayerIdealsPanel({
         <div style={latestBox}>
           <div style={latestHead}>
             <strong>
-              Aktueller Stand
+              Letzte Bewertung
             </strong>
+
             <span style={muted}>
               {latest.period_label}
               {latest.assessment_date
@@ -351,30 +311,35 @@ export default function PlayerIdealsPanel({
           </div>
 
           <div style={summaryGrid}>
-            {IDEALS.map(
-              ([code, label]) => {
+            {IDEAL_CATALOG.map(
+              ideal => {
                 const score =
-                  scoreMap.get(code);
-
-                const value =
-                  score?.rating ??
-                  score?.status_quo ??
-                  '–';
+                  latestMap.get(
+                    ideal.code
+                  );
 
                 return (
                   <div
-                    key={code}
+                    key={ideal.code}
                     style={summaryCard}
                   >
                     <span style={codeBadge}>
-                      {code}
+                      {ideal.code}
                     </span>
-                    <strong>
-                      {label}
+
+                    <span style={summaryLabel}>
+                      {ideal.title}
+                    </span>
+
+                    <strong style={summaryValue}>
+                      {score?.status_quo ??
+                        '–'}
+                      <span style={potential}>
+                        {' / '}
+                        {score?.potential ??
+                          '–'}
+                      </span>
                     </strong>
-                    <span style={summaryValue}>
-                      {value}
-                    </span>
                   </div>
                 );
               }
@@ -385,7 +350,7 @@ export default function PlayerIdealsPanel({
 
       <div style={formMeta}>
         <label>
-          <div style={labelStyle}>
+          <div style={label}>
             Bewertungsperiode
           </div>
           <input
@@ -401,7 +366,7 @@ export default function PlayerIdealsPanel({
         </label>
 
         <label>
-          <div style={labelStyle}>
+          <div style={label}>
             Datum
           </div>
           <input
@@ -417,7 +382,7 @@ export default function PlayerIdealsPanel({
         </label>
 
         <label>
-          <div style={labelStyle}>
+          <div style={label}>
             Spielerrolle
           </div>
           <input
@@ -432,115 +397,26 @@ export default function PlayerIdealsPanel({
         </label>
       </div>
 
-      <div style={idealGrid}>
-        {IDEALS.map(
-          ([code, label, group]) => {
-            const score =
-              scores.find(
-                item =>
-                  item.ideal_code ===
-                  code
-              )!;
-
-            return (
-              <article
-                key={code}
-                style={idealCard}
-              >
-                <div style={idealTitle}>
-                  <span style={codeBadge}>
-                    {code}
-                  </span>
-                  <div>
-                    <strong>
-                      {label}
-                    </strong>
-                    <div style={muted}>
-                      {group}
-                    </div>
-                  </div>
-                </div>
-
-                <div style={scoreGrid}>
-                  <SmallInput
-                    label="Status quo"
-                    value={
-                      score.status_quo
-                    }
-                    onChange={value =>
-                      updateScore(
-                        code,
-                        'status_quo',
-                        value
-                      )
-                    }
-                  />
-                  <SmallInput
-                    label="Potenzial"
-                    value={
-                      score.potential
-                    }
-                    onChange={value =>
-                      updateScore(
-                        code,
-                        'potential',
-                        value
-                      )
-                    }
-                  />
-                  <SmallInput
-                    label="Rating"
-                    value={
-                      score.rating
-                    }
-                    onChange={value =>
-                      updateScore(
-                        code,
-                        'rating',
-                        value
-                      )
-                    }
-                  />
-                  <SmallInput
-                    label="Messwert"
-                    value={
-                      score.measured_value
-                    }
-                    numeric={false}
-                    onChange={value =>
-                      updateScore(
-                        code,
-                        'measured_value',
-                        value
-                      )
-                    }
-                  />
-                </div>
-
-                <textarea
-                  rows={3}
-                  value={score.notes}
-                  onChange={event =>
-                    updateScore(
-                      code,
-                      'notes',
-                      event.target.value
-                    )
-                  }
-                  placeholder="Notizen"
-                  style={{
-                    ...input,
-                    marginTop: '8px',
-                    resize: 'vertical'
-                  }}
-                />
-              </article>
-            );
-          }
-        )}
+      <div style={{ marginTop: '15px' }}>
+        <IdealScoreEditor
+          scores={scores}
+          onChange={setScores}
+        />
       </div>
 
       <div style={actions}>
+        <button
+          type="button"
+          onClick={() =>
+            setScores(
+              createIdealScoreForms()
+            )
+          }
+          style={secondaryButton}
+        >
+          Eingaben zurücksetzen
+        </button>
+
         <button
           type="button"
           onClick={save}
@@ -559,47 +435,6 @@ export default function PlayerIdealsPanel({
         </div>
       )}
     </section>
-  );
-}
-
-function SmallInput({
-  label,
-  value,
-  onChange,
-  numeric = true
-}: {
-  label: string;
-  value: string;
-  onChange: (
-    value: string
-  ) => void;
-  numeric?: boolean;
-}) {
-  return (
-    <label>
-      <div style={labelStyle}>
-        {label}
-      </div>
-      <input
-        type={
-          numeric
-            ? 'number'
-            : 'text'
-        }
-        step={
-          numeric
-            ? '0.1'
-            : undefined
-        }
-        value={value}
-        onChange={event =>
-          onChange(
-            event.target.value
-          )
-        }
-        style={input}
-      />
-    </label>
   );
 }
 
@@ -677,7 +512,7 @@ const summaryGrid:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'repeat(auto-fit, minmax(170px, 1fr))',
+    'repeat(auto-fit, minmax(210px, 1fr))',
   gap: '7px',
   marginTop: '10px'
 };
@@ -686,7 +521,7 @@ const summaryCard:
   React.CSSProperties = {
   display: 'grid',
   gridTemplateColumns:
-    'auto 1fr auto',
+    'auto minmax(0, 1fr) auto',
   alignItems: 'center',
   gap: '7px',
   padding: '8px',
@@ -695,10 +530,22 @@ const summaryCard:
   border: '1px solid #e7ebe8'
 };
 
+const summaryLabel:
+  React.CSSProperties = {
+  minWidth: 0,
+  fontSize: '10px',
+  fontWeight: 800
+};
+
 const summaryValue:
   React.CSSProperties = {
-  fontSize: '18px',
-  fontWeight: 900
+  fontSize: '14px',
+  color: '#222'
+};
+
+const potential:
+  React.CSSProperties = {
+  color: '#0b7a3b'
 };
 
 const formMeta:
@@ -710,50 +557,7 @@ const formMeta:
   marginTop: '18px'
 };
 
-const idealGrid:
-  React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns:
-    'repeat(auto-fit, minmax(300px, 1fr))',
-  gap: '10px',
-  marginTop: '14px'
-};
-
-const idealCard:
-  React.CSSProperties = {
-  padding: '12px',
-  borderRadius: '11px',
-  background: '#fbfcfb',
-  border: '1px solid #e6eae7'
-};
-
-const idealTitle:
-  React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: '8px'
-};
-
-const codeBadge:
-  React.CSSProperties = {
-  padding: '4px 7px',
-  borderRadius: '999px',
-  background: '#0b7a3b',
-  color: '#fff',
-  fontSize: '9px',
-  fontWeight: 900
-};
-
-const scoreGrid:
-  React.CSSProperties = {
-  display: 'grid',
-  gridTemplateColumns:
-    'repeat(2, minmax(0, 1fr))',
-  gap: '7px',
-  marginTop: '10px'
-};
-
-const labelStyle:
+const label:
   React.CSSProperties = {
   marginBottom: '4px',
   color: '#707671',
@@ -773,10 +577,21 @@ const input:
   font: 'inherit'
 };
 
+const codeBadge:
+  React.CSSProperties = {
+  padding: '4px 7px',
+  borderRadius: '999px',
+  background: '#0b7a3b',
+  color: '#fff',
+  fontSize: '9px',
+  fontWeight: 900
+};
+
 const actions:
   React.CSSProperties = {
   display: 'flex',
   justifyContent: 'flex-end',
+  gap: '8px',
   marginTop: '14px'
 };
 
@@ -787,6 +602,17 @@ const primaryButton:
   padding: '10px 14px',
   background: '#0b7a3b',
   color: '#fff',
+  cursor: 'pointer',
+  fontWeight: 800
+};
+
+const secondaryButton:
+  React.CSSProperties = {
+  border: '1px solid #d5dad7',
+  borderRadius: '9px',
+  padding: '10px 14px',
+  background: '#fff',
+  color: '#333',
   cursor: 'pointer',
   fontWeight: 800
 };
