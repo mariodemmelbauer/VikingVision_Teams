@@ -1723,6 +1723,479 @@ export default {
       new URL(request.url);
 
     // ============================================================
+    // AKAVision – Spielerbewertung / Selbsteinschätzung
+    // ============================================================
+
+    if (
+      request.method === 'GET' &&
+      /^\/academy\/player\/\d+\/self-assessments$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          Number(
+            url.pathname
+              .split('/')[3]
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: assessments,
+          error
+        } =
+          await supabase
+            .from(
+              'academy_self_assessments'
+            )
+            .select('*')
+            .eq(
+              'academy_player_id',
+              playerId
+            )
+            .order(
+              'assessment_date',
+              {
+                ascending: false,
+                nullsFirst: false
+              }
+            )
+            .order(
+              'created_at',
+              {
+                ascending: false
+              }
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        const ids =
+          (assessments ?? [])
+            .map(
+              assessment =>
+                assessment.id
+            );
+
+        let scores:
+          Array<Record<string, unknown>> =
+          [];
+
+        if (ids.length > 0) {
+          const {
+            data,
+            error: scoreError
+          } =
+            await supabase
+              .from(
+                'academy_self_scores'
+              )
+              .select('*')
+              .in(
+                'assessment_id',
+                ids
+              );
+
+          if (scoreError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  scoreError.message
+              },
+              500
+            );
+          }
+
+          scores =
+            data ?? [];
+        }
+
+        return json({
+          ok: true,
+          assessments:
+            (assessments ?? [])
+              .map(
+                assessment => ({
+                  ...assessment,
+                  scores:
+                    scores.filter(
+                      score =>
+                        Number(
+                          score.assessment_id
+                        ) ===
+                        Number(
+                          assessment.id
+                        )
+                    )
+                })
+              )
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy self assessment load failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'POST' &&
+      /^\/academy\/player\/\d+\/self-assessments$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const playerId =
+          Number(
+            url.pathname
+              .split('/')[3]
+          );
+
+        const body =
+          await request.json<{
+            assessment_id?: number | null;
+            period_label?: string;
+            assessment_date?: string | null;
+            strengths?: string | null;
+            development_areas?: string | null;
+            personal_goals?: string | null;
+            notes?: string | null;
+            scores?: Array<{
+              category?: string;
+              detail?: string;
+              rating?: number;
+            }>;
+          }>();
+
+        if (
+          !body.period_label?.trim()
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'period_label is required'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        let assessment:
+          Record<string, unknown> |
+          null = null;
+
+        if (
+          body.assessment_id
+        ) {
+          const {
+            data,
+            error
+          } =
+            await supabase
+              .from(
+                'academy_self_assessments'
+              )
+              .update({
+                period_label:
+                  body.period_label.trim(),
+                assessment_date:
+                  body.assessment_date ??
+                  null,
+                strengths:
+                  body.strengths ??
+                  null,
+                development_areas:
+                  body.development_areas ??
+                  null,
+                personal_goals:
+                  body.personal_goals ??
+                  null,
+                notes:
+                  body.notes ??
+                  null,
+                updated_at:
+                  new Date()
+                    .toISOString()
+              })
+              .eq(
+                'id',
+                body.assessment_id
+              )
+              .eq(
+                'academy_player_id',
+                playerId
+              )
+              .select('*')
+              .single();
+
+          if (
+            error ||
+            !data
+          ) {
+            return json(
+              {
+                ok: false,
+                error:
+                  error?.message ??
+                  'Bewertung konnte nicht aktualisiert werden.'
+              },
+              500
+            );
+          }
+
+          assessment =
+            data;
+
+          const {
+            error: deleteScoreError
+          } =
+            await supabase
+              .from(
+                'academy_self_scores'
+              )
+              .delete()
+              .eq(
+                'assessment_id',
+                body.assessment_id
+              );
+
+          if (deleteScoreError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  deleteScoreError.message
+              },
+              500
+            );
+          }
+        } else {
+          const {
+            data,
+            error
+          } =
+            await supabase
+              .from(
+                'academy_self_assessments'
+              )
+              .insert({
+                academy_player_id:
+                  playerId,
+                period_label:
+                  body.period_label.trim(),
+                assessment_date:
+                  body.assessment_date ??
+                  null,
+                strengths:
+                  body.strengths ??
+                  null,
+                development_areas:
+                  body.development_areas ??
+                  null,
+                personal_goals:
+                  body.personal_goals ??
+                  null,
+                notes:
+                  body.notes ??
+                  null,
+                updated_at:
+                  new Date()
+                    .toISOString()
+              })
+              .select('*')
+              .single();
+
+          if (
+            error ||
+            !data
+          ) {
+            return json(
+              {
+                ok: false,
+                error:
+                  error?.message ??
+                  'Bewertung konnte nicht gespeichert werden.'
+              },
+              500
+            );
+          }
+
+          assessment =
+            data;
+        }
+
+        const assessmentId =
+          Number(
+            assessment.id
+          );
+
+        const scoreRows =
+          (body.scores ?? [])
+            .filter(
+              score =>
+                Boolean(
+                  score.category
+                ) &&
+                Boolean(
+                  score.detail
+                )
+            )
+            .map(score => ({
+              assessment_id:
+                assessmentId,
+              category:
+                String(
+                  score.category
+                ),
+              detail:
+                String(
+                  score.detail
+                ),
+              rating:
+                Math.max(
+                  0,
+                  Math.min(
+                    10,
+                    Number(
+                      score.rating ??
+                      0
+                    )
+                  )
+                ),
+              updated_at:
+                new Date()
+                  .toISOString()
+            }));
+
+        if (
+          scoreRows.length > 0
+        ) {
+          const {
+            error: scoreError
+          } =
+            await supabase
+              .from(
+                'academy_self_scores'
+              )
+              .insert(
+                scoreRows
+              );
+
+          if (scoreError) {
+            return json(
+              {
+                ok: false,
+                error:
+                  scoreError.message
+              },
+              500
+            );
+          }
+        }
+
+        return json({
+          ok: true,
+          assessment
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy self assessment save failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
+      request.method === 'DELETE' &&
+      /^\/academy\/self-assessments\/\d+$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const assessmentId =
+          Number(
+            url.pathname
+              .split('/')
+              .pop()
+          );
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          error
+        } =
+          await supabase
+            .from(
+              'academy_self_assessments'
+            )
+            .delete()
+            .eq(
+              'id',
+              assessmentId
+            );
+
+        if (error) {
+          return json(
+            {
+              ok: false,
+              error:
+                error.message
+            },
+            500
+          );
+        }
+
+        return json({
+          ok: true
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Academy self assessment delete failed'
+          },
+          401
+        );
+      }
+    }
+
+    // ============================================================
     // Sportwissenschaft – teamübergreifende Auswertung
     // ============================================================
 
