@@ -1,5 +1,6 @@
 import {
   IDEAL_CATALOG,
+  type IdealDefinition,
   type IdealDetailRatings,
   type IdealHighlightState,
   type IdealScoreForm
@@ -10,11 +11,13 @@ type Props = {
   onChange: (
     scores: IdealScoreForm[]
   ) => void;
+  catalog?: IdealDefinition[];
 };
 
 export default function IdealScoreEditor({
   scores,
-  onChange
+  onChange,
+  catalog = IDEAL_CATALOG
 }: Props) {
   function updateTopLevel(
     idealCode: string,
@@ -140,7 +143,7 @@ export default function IdealScoreEditor({
         </span>
       </div>
 
-      {IDEAL_CATALOG.map(
+      {catalog.map(
         ideal => {
           const score =
             scores.find(
@@ -193,7 +196,7 @@ export default function IdealScoreEditor({
                     }
                   />
                   <ScoreInput
-                    label="Potential"
+                    label="Potenzial"
                     value={
                       score.potential
                     }
@@ -253,7 +256,7 @@ export default function IdealScoreEditor({
                           />
 
                           <ScoreInput
-                            label="Potential"
+                            label="Potenzial"
                             value={
                               rating?.potential ??
                               ''
@@ -280,7 +283,7 @@ export default function IdealScoreEditor({
                                 Status Quo
                               </span>
                               <span>
-                                Potential
+                                Potenzial
                               </span>
                             </div>
 
