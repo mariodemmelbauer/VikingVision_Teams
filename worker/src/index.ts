@@ -2811,6 +2811,175 @@ export default {
     }
 
     if (
+      request.method === 'POST' &&
+      /^\/academy\/matches\/\d+\/delete$/.test(
+        url.pathname
+      )
+    ) {
+      try {
+        await authenticate(request);
+
+        const parts =
+          url.pathname
+            .split('/')
+            .filter(Boolean);
+
+        const matchId =
+          Number(
+            parts[2]
+          );
+
+        if (
+          !Number.isFinite(
+            matchId
+          ) ||
+          matchId <= 0
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Ungültige Spiel-ID.'
+            },
+            400
+          );
+        }
+
+        const supabase =
+          createSupabase(env);
+
+        const {
+          data: existingMatch,
+          error: lookupError
+        } =
+          await supabase
+            .from(
+              'academy_matches'
+            )
+            .select(
+              'id,team,match_date,opponent'
+            )
+            .eq(
+              'id',
+              matchId
+            )
+            .maybeSingle();
+
+        if (lookupError) {
+          return json(
+            {
+              ok: false,
+              error:
+                lookupError.message
+            },
+            500
+          );
+        }
+
+        if (!existingMatch) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Spiel wurde nicht gefunden.'
+            },
+            404
+          );
+        }
+
+        const {
+          error:
+            minuteDeleteError
+        } =
+          await supabase
+            .from(
+              'academy_match_minutes'
+            )
+            .delete()
+            .eq(
+              'match_id',
+              matchId
+            );
+
+        if (
+          minuteDeleteError
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                minuteDeleteError.message
+            },
+            500
+          );
+        }
+
+        const {
+          data: deletedRows,
+          error: matchDeleteError
+        } =
+          await supabase
+            .from(
+              'academy_matches'
+            )
+            .delete()
+            .eq(
+              'id',
+              matchId
+            )
+            .select(
+              'id'
+            );
+
+        if (
+          matchDeleteError
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                matchDeleteError.message
+            },
+            500
+          );
+        }
+
+        if (
+          !deletedRows ||
+          deletedRows.length === 0
+        ) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Das Spiel konnte in der Datenbank nicht gelöscht werden.'
+            },
+            409
+          );
+        }
+
+        return json({
+          ok: true,
+          deleted_match_id:
+            matchId,
+          deleted:
+            existingMatch
+        });
+      } catch (error) {
+        return json(
+          {
+            ok: false,
+            error:
+              error instanceof Error
+                ? error.message
+                : 'Match delete failed'
+          },
+          401
+        );
+      }
+    }
+
+    if (
       request.method === 'GET' &&
       /^\/academy\/match\/\d+\/minutes$/.test(
         url.pathname
