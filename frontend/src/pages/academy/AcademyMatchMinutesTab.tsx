@@ -419,6 +419,10 @@ export default function AcademyMatchMinutesTab({
       return;
     }
 
+    setSaving(true);
+    setError(undefined);
+    setSuccess(undefined);
+
     try {
       await api(
         `/academy/matches/${selectedMatchId}`,
@@ -430,6 +434,7 @@ export default function AcademyMatchMinutesTab({
       setSelectedMatchId(
         null
       );
+      setMatchPlayers([]);
       setSuccess(
         'Spiel wurde gelöscht.'
       );
@@ -441,6 +446,8 @@ export default function AcademyMatchMinutesTab({
           ? err.message
           : 'Spiel konnte nicht gelöscht werden.'
       );
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -924,9 +931,12 @@ export default function AcademyMatchMinutesTab({
               <button
                 type="button"
                 onClick={deleteMatch}
+                disabled={saving}
                 style={dangerButton}
               >
-                Spiel löschen
+                {saving
+                  ? 'Bitte warten…'
+                  : 'Spiel löschen'}
               </button>
 
               <button
