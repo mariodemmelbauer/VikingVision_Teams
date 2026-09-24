@@ -157,32 +157,26 @@ const SPORTS_CATEGORIES = [
     name: 'Körperdaten',
     metrics: [
       { metric: 'Größe', unit: 'cm' },
-      { metric: 'Gewicht', unit: 'kg' },
-      { metric: 'BMI', unit: '' }
+      { metric: 'Gewicht', unit: 'kg' }
     ]
   },
   {
     name: 'Fmax – Unterkörper',
     metrics: [
-      { metric: 'TB-DL 1RM', unit: 'kg', target: '>130 kg' },
+      { metric: 'TB-DL', unit: 'kg', target: '>130 kg' },
       { metric: 'TB-DL relativ', unit: 'kg/BW' },
-      { metric: 'Back Squat 1RM', unit: 'kg' },
+      { metric: 'Back Squat', unit: 'kg' },
       { metric: 'Back Squat relativ', unit: 'kg/BW' },
-      { metric: 'Adduktor li', unit: 'kg' },
-      { metric: 'Adduktor re', unit: 'kg' },
-      { metric: 'Adduktor gesamt', unit: 'kg' },
-      { metric: 'Adduktor relativ', unit: 'kg/BW', target: '>0,8 kg/BW' },
-      { metric: 'Nordic Hamstring re', unit: 'kg' },
-      { metric: 'Nordic Hamstring li', unit: 'kg' },
-      { metric: 'Nordic Hamstring gesamt', unit: 'kg' },
-      { metric: 'Hamstring gesamt', unit: 'kg' },
-      { metric: 'Hamstring relativ', unit: 'kg/BW', target: '>1,0 kg/BW' }
+      { metric: 'Adduktoren', unit: 'kg' },
+      { metric: 'Adduktoren relativ', unit: 'kg/BW', target: '>0,8 kg/BW' },
+      { metric: 'Hamstrings', unit: 'kg' },
+      { metric: 'Hamstrings relativ', unit: 'kg/BW', target: '>1,0 kg/BW' }
     ]
   },
   {
     name: 'Fmax – Oberkörper',
     metrics: [
-      { metric: 'Bankdrücken 1RM', unit: 'kg', target: '>80 kg' },
+      { metric: 'Bankdrücken', unit: 'kg', target: '>80 kg' },
       { metric: 'Bankdrücken relativ', unit: 'kg/BW' }
     ]
   },
@@ -190,37 +184,31 @@ const SPORTS_CATEGORIES = [
     name: 'Schnellkraft',
     metrics: [
       { metric: 'CMJ', unit: 'cm', target: '>35 cm' },
-      { metric: 'Drop Jump', unit: 'cm' },
-      { metric: 'Drop Jump Kontaktzeit', unit: 'ms' },
       { metric: 'Drop Jump RSI', unit: '', target: '>1,8' }
     ]
   },
   {
     name: 'Ausdauer',
     metrics: [
-      { metric: 'IFT 30-15 Test', unit: 'km/h', target: '>20 km/h' },
-      { metric: 'Aerobe Schwelle', unit: 'km/h' },
-      { metric: 'Anaerobe Schwelle Laktat', unit: 'mmol/l' }
+      { metric: 'IFT 30-15 Test', unit: 'km/h', target: '>20 km/h' }
     ]
   },
   {
     name: 'Schnelligkeit',
     metrics: [
-      { metric: '10m Sprint', unit: 'sek', target: '<1,8 sek' },
-      { metric: '20m Sprint', unit: 'sek' },
-      { metric: '30m Sprint', unit: 'sek' },
-      { metric: 'Top Speed', unit: 'km/h', target: '>32 km/h' },
-      { metric: '2mmol/l Shuttle Run Test', unit: 'km/h' },
-      { metric: '4mmol/l Shuttle Run Test', unit: 'km/h' }
+      { metric: '10-m-Sprint', unit: 'sek', target: '<1,8 sek' },
+      { metric: '20-m-Sprint', unit: 'sek' },
+      { metric: '30-m-Sprint', unit: 'sek' },
+      { metric: 'Top Speed', unit: 'km/h', target: '>32 km/h' }
     ]
   },
   {
-    name: 'Spielintensität Match',
+    name: 'Spielintensität',
     metrics: [
       { metric: 'Gesamt Distanz', unit: 'm', target: '11.500 m' },
       { metric: 'HML Distanz', unit: 'm', target: '2.000 m' },
-      { metric: 'HSR Distanz (>19,8 km/h)', unit: 'm', target: '900 m' },
-      { metric: 'Sprintmeter (>25,2 km/h)', unit: 'm' },
+      { metric: 'HSR Distanz', unit: 'm', target: '900 m' },
+      { metric: 'Sprintmeter', unit: 'm' },
       { metric: "Stop & Go's", unit: 'Anzahl', target: '70' }
     ]
   }
@@ -1153,7 +1141,7 @@ function P12PlayerProfile({
         />
 
         <P12ProfileStat
-          label="Sportwissenschaft"
+          label="Sport Science"
           value={
             detail.sportsScienceTests.length
           }
@@ -2516,6 +2504,77 @@ function SelfAssessmentSection({
   const [deleteSuccess, setDeleteSuccess] =
     useState<string | undefined>();
 
+  const orderedAssessments =
+    useMemo(
+      () =>
+        [...assessments]
+          .sort(
+            (a, b) =>
+              String(
+                b.assessment_date ??
+                b.submitted_at ??
+                ''
+              ).localeCompare(
+                String(
+                  a.assessment_date ??
+                  a.submitted_at ??
+                  ''
+                )
+              )
+          ),
+      [assessments]
+    );
+
+  const [selectedAssessmentId, setSelectedAssessmentId] =
+    useState<string>(
+      orderedAssessments[0]?.id
+        ? String(
+            orderedAssessments[0].id
+          )
+        : ''
+    );
+
+  useEffect(() => {
+    if (
+      orderedAssessments.length ===
+      0
+    ) {
+      setSelectedAssessmentId(
+        ''
+      );
+      return;
+    }
+
+    const stillExists =
+      orderedAssessments.some(
+        assessment =>
+          String(
+            assessment.id
+          ) ===
+          selectedAssessmentId
+      );
+
+    if (!stillExists) {
+      setSelectedAssessmentId(
+        String(
+          orderedAssessments[0].id
+        )
+      );
+    }
+  }, [
+    orderedAssessments,
+    selectedAssessmentId
+  ]);
+
+  const selectedAssessment =
+    orderedAssessments.find(
+      assessment =>
+        String(
+          assessment.id
+        ) ===
+        selectedAssessmentId
+    );
+
   async function createInvite() {
     setWorking(true);
     setInviteError(undefined);
@@ -2724,197 +2783,372 @@ function SelfAssessmentSection({
         )}
       </section>
 
-      {assessments.length === 0 ? (
-        <section
-          style={{
-            ...panel,
-            marginTop: '14px'
-          }}
-        >
-          Noch keine Spielerbewertung vorhanden.
-        </section>
-      ) : (
+      <section
+        style={{
+          ...panel,
+          marginTop: '14px'
+        }}
+      >
         <div
           style={{
-            display: 'grid',
+            display: 'flex',
+            justifyContent:
+              'space-between',
             gap: '12px',
-            marginTop: '14px'
+            alignItems:
+              'flex-end',
+            flexWrap: 'wrap'
           }}
         >
-          {assessments.map(
-            assessment => (
-              <section
-                key={assessment.id}
-                style={panel}
+          <div
+            style={{
+              minWidth: '260px',
+              flex: '1 1 340px'
+            }}
+          >
+            <SelectField
+              label="Spielerbewertung auswählen"
+              value={
+                selectedAssessmentId
+              }
+              options={
+                orderedAssessments.map(
+                  assessment =>
+                    String(
+                      assessment.id
+                    )
+                )
+              }
+              optionLabel={value => {
+                const assessment =
+                  orderedAssessments.find(
+                    item =>
+                      String(
+                        item.id
+                      ) ===
+                      value
+                  );
+
+                if (!assessment) {
+                  return value;
+                }
+
+                const date =
+                  assessment.assessment_date ??
+                  assessment.submitted_at ??
+                  '';
+
+                return [
+                  assessment.period_label,
+                  date
+                    ? formatDateForSelfAssessment(
+                        date
+                      )
+                    : ''
+                ]
+                  .filter(Boolean)
+                  .join(' · ');
+              }}
+              onChange={
+                setSelectedAssessmentId
+              }
+            />
+          </div>
+
+          <div style={subtle}>
+            {orderedAssessments.length}
+            {' '}
+            gespeicherte
+            {' '}
+            {orderedAssessments.length ===
+            1
+              ? 'Bewertung'
+              : 'Bewertungen'}
+          </div>
+        </div>
+
+        {orderedAssessments.length ===
+        0 ? (
+          <div
+            style={{
+              marginTop: '16px'
+            }}
+          >
+            Noch keine vom Spieler ausgefüllte Selbstbewertung vorhanden.
+          </div>
+        ) : selectedAssessment ? (
+          <div
+            style={{
+              marginTop: '16px'
+            }}
+          >
+            <div style={toolbar}>
+              <div>
+                <strong>
+                  {selectedAssessment.period_label}
+                </strong>
+
+                <div style={subtle}>
+                  {formatDateForSelfAssessment(
+                    selectedAssessment.assessment_date ??
+                    selectedAssessment.submitted_at ??
+                    ''
+                  )}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingDeleteId(
+                    selectedAssessment.id
+                  );
+                  setDeleteError(undefined);
+                  setDeleteSuccess(undefined);
+                }}
+                disabled={
+                  deletingId ===
+                  selectedAssessment.id
+                }
+                style={assessmentDeleteButton}
               >
-                <div style={toolbar}>
-                  <div>
-                    <strong>
-                      {assessment.period_label}
-                    </strong>
-                    <div style={subtle}>
-                      {assessment.assessment_date ??
-                        '–'}
-                    </div>
+                {deletingId ===
+                selectedAssessment.id
+                  ? 'Wird gelöscht…'
+                  : 'Selbstbewertung löschen'}
+              </button>
+            </div>
+
+            {pendingDeleteId ===
+              selectedAssessment.id && (
+              <div
+                style={{
+                  ...assessmentDeleteConfirm,
+                  marginTop: '12px'
+                }}
+              >
+                <div>
+                  <strong>
+                    Diese Spielerselbstbewertung wirklich löschen?
+                  </strong>
+
+                  <div style={assessmentDeleteHint}>
+                    Die Bewertungsphase und alle dazugehörigen Einzelbewertungen werden dauerhaft gelöscht. Ein bereits verwendeter Einladungslink bleibt verbraucht; für eine neue Selbsteinschätzung kann anschließend ein neuer Link erstellt werden.
                   </div>
+                </div>
+
+                <div style={assessmentDeleteActions}>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPendingDeleteId(
+                        null
+                      )
+                    }
+                    disabled={
+                      deletingId ===
+                      selectedAssessment.id
+                    }
+                    style={secondaryButton}
+                  >
+                    Abbrechen
+                  </button>
 
                   <button
                     type="button"
-                    onClick={() => {
-                      setPendingDeleteId(
-                        assessment.id
-                      );
-                      setDeleteError(undefined);
-                      setDeleteSuccess(undefined);
-                    }}
+                    onClick={() =>
+                      deleteSelfAssessment(
+                        selectedAssessment
+                      )
+                    }
                     disabled={
                       deletingId ===
-                      assessment.id
+                      selectedAssessment.id
                     }
                     style={assessmentDeleteButton}
                   >
                     {deletingId ===
-                    assessment.id
+                    selectedAssessment.id
                       ? 'Wird gelöscht…'
-                      : 'Selbstbewertung löschen'}
+                      : 'Ja, Selbstbewertung löschen'}
                   </button>
                 </div>
+              </div>
+            )}
 
-                {pendingDeleteId ===
-                  assessment.id && (
-                  <div
-                    style={{
-                      ...assessmentDeleteConfirm,
-                      marginTop: '12px'
-                    }}
-                  >
-                    <div>
-                      <strong>
-                        Diese Spielerselbstbewertung wirklich löschen?
-                      </strong>
+            <div
+              className="academy-p12-form-grid"
+              style={{
+                ...formGrid,
+                marginTop: '12px'
+              }}
+            >
+              <InfoBlock
+                label="Stärken"
+                value={
+                  selectedAssessment.strengths
+                }
+              />
 
-                      <div style={assessmentDeleteHint}>
-                        Die Bewertungsphase und alle dazugehörigen Einzelbewertungen werden dauerhaft gelöscht. Ein bereits verwendeter Einladungslink bleibt verbraucht; für eine neue Selbsteinschätzung kann anschließend ein neuer Link erstellt werden.
-                      </div>
-                    </div>
+              <InfoBlock
+                label="Entwicklungsfelder"
+                value={
+                  selectedAssessment.development_areas
+                }
+              />
 
-                    <div style={assessmentDeleteActions}>
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setPendingDeleteId(
-                            null
-                          )
-                        }
-                        disabled={
-                          deletingId ===
-                          assessment.id
-                        }
-                        style={secondaryButton}
-                      >
-                        Abbrechen
-                      </button>
+              <InfoBlock
+                label="Persönliche Ziele"
+                value={
+                  selectedAssessment.personal_goals
+                }
+              />
 
-                      <button
-                        type="button"
-                        onClick={() =>
-                          deleteSelfAssessment(
-                            assessment
-                          )
-                        }
-                        disabled={
-                          deletingId ===
-                          assessment.id
-                        }
-                        style={assessmentDeleteButton}
-                      >
-                        {deletingId ===
-                        assessment.id
-                          ? 'Wird gelöscht…'
-                          : 'Ja, Selbstbewertung löschen'}
-                      </button>
-                    </div>
-                  </div>
-                )}
+              <InfoBlock
+                label="Weitere Notizen"
+                value={
+                  selectedAssessment.notes
+                }
+              />
+            </div>
 
-                <div
-                  className="academy-p12-form-grid"
-                  style={{
-                    ...formGrid,
-                    marginTop: '12px'
-                  }}
-                >
-                  <InfoBlock
-                    label="Stärken"
-                    value={
-                      assessment.strengths
-                    }
-                  />
-                  <InfoBlock
-                    label="Entwicklungsfelder"
-                    value={
-                      assessment.development_areas
-                    }
-                  />
-                  <InfoBlock
-                    label="Persönliche Ziele"
-                    value={
-                      assessment.personal_goals
-                    }
-                  />
-                  <InfoBlock
-                    label="Weitere Notizen"
-                    value={
-                      assessment.notes
-                    }
-                  />
-                </div>
-
-                {(assessment.scores ?? []).length > 0 && (
-                  <div
-                    style={{
-                      marginTop: '12px',
-                      display: 'grid',
-                      gap: '6px'
-                    }}
-                  >
-                    {(assessment.scores ?? [])
+            {(selectedAssessment.scores ?? []).length >
+              0 && (
+              <div
+                style={{
+                  marginTop: '16px',
+                  display: 'grid',
+                  gap: '14px'
+                }}
+              >
+                {Array.from(
+                  new Set(
+                    (selectedAssessment.scores ?? [])
+                      .map(
+                        score =>
+                          score.category
+                      )
+                  )
+                ).map(category => {
+                  const categoryScores =
+                    (
+                      selectedAssessment.scores ??
+                      []
+                    )
                       .filter(
                         score =>
+                          score.category ===
+                          category &&
                           score.rating != null
-                      )
-                      .map(
-                        score => (
-                          <div
-                            key={`${score.category}-${score.detail}`}
-                            style={{
-                              display: 'grid',
-                              gridTemplateColumns:
-                                'minmax(0,1fr) 60px',
-                              gap: '10px',
-                              padding:
-                                '7px 0',
-                              borderBottom:
-                                '1px solid #f0f0f0'
-                            }}
-                          >
-                            <span>
-                              {score.detail}
-                            </span>
-                            <strong>
-                              {score.rating}/10
-                            </strong>
-                          </div>
-                        )
-                      )}
-                  </div>
-                )}
-              </section>
-            )
-          )}
-        </div>
-      )}
+                      );
+
+                  if (
+                    categoryScores.length ===
+                    0
+                  ) {
+                    return null;
+                  }
+
+                  return (
+                    <div
+                      key={category}
+                    >
+                      <h4
+                        style={{
+                          margin:
+                            '0 0 8px',
+                          fontSize:
+                            '14px'
+                        }}
+                      >
+                        {category}
+                      </h4>
+
+                      <div
+                        style={{
+                          display:
+                            'grid',
+                          gap: '6px'
+                        }}
+                      >
+                        {categoryScores.map(
+                          score => (
+                            <div
+                              key={`${score.category}-${score.detail}`}
+                              style={{
+                                display:
+                                  'grid',
+                                gridTemplateColumns:
+                                  'minmax(0,1fr) 64px',
+                                gap: '10px',
+                                alignItems:
+                                  'center',
+                                padding:
+                                  '8px 10px',
+                                borderRadius:
+                                  '8px',
+                                background:
+                                  '#f8faf8',
+                                border:
+                                  '1px solid #edf0ed'
+                              }}
+                            >
+                              <span>
+                                {score.detail}
+                              </span>
+
+                              <strong
+                                style={{
+                                  textAlign:
+                                    'right'
+                                }}
+                              >
+                                {score.rating}/10
+                              </strong>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : null}
+      </section>
     </>
+  );
+}
+
+function formatDateForSelfAssessment(
+  value?: string
+) {
+  if (!value) {
+    return '–';
+  }
+
+  const normalized =
+    value.slice(
+      0,
+      10
+    );
+
+  const date =
+    new Date(
+      `${normalized}T12:00:00`
+    );
+
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return value;
+  }
+
+  return date.toLocaleDateString(
+    'de-DE'
   );
 }
 
