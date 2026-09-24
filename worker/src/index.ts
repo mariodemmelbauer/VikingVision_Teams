@@ -2726,7 +2726,35 @@ export default {
         const supabase =
           createSupabase(env);
 
+        // Zuerst abhängige Minutenzeilen entfernen.
+        // Die bestehende DB-Struktur garantiert nicht in jeder
+        // Umgebung ON DELETE CASCADE auf academy_match_minutes.
         const {
+          error: minutesDeleteError
+        } =
+          await supabase
+            .from(
+              'academy_match_minutes'
+            )
+            .delete()
+            .eq(
+              'match_id',
+              matchId
+            );
+
+        if (minutesDeleteError) {
+          return json(
+            {
+              ok: false,
+              error:
+                minutesDeleteError.message
+            },
+            500
+          );
+        }
+
+        const {
+          data: deletedMatch,
           error
         } =
           await supabase
@@ -2737,7 +2765,9 @@ export default {
             .eq(
               'id',
               matchId
-            );
+            )
+            .select('id')
+            .maybeSingle();
 
         if (error) {
           return json(
@@ -2750,8 +2780,21 @@ export default {
           );
         }
 
+        if (!deletedMatch) {
+          return json(
+            {
+              ok: false,
+              error:
+                'Spiel wurde nicht gefunden oder bereits gelöscht.'
+            },
+            404
+          );
+        }
+
         return json({
-          ok: true
+          ok: true,
+          deleted_match_id:
+            matchId
         });
       } catch (error) {
         return json(
