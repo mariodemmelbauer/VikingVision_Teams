@@ -2,7 +2,7 @@ import { useState } from 'react';
 import IdealScoreEditor from '../../components/IdealScoreEditor';
 import {
   IDEAL_CATALOG,
-  IDEAL_CODES,
+  getIdealCatalog,
   createIdealScoreForms,
   normalizeDetailRatings,
   type IdealScoreForm as SharedIdealScoreForm
@@ -100,25 +100,6 @@ type ProfileTab =
   | 'skillAc';
 
 
-const IDEAL_META =
-  Object.fromEntries(
-    IDEAL_CATALOG.map(
-      ideal => [
-        ideal.code,
-        {
-          label: ideal.title,
-          group: ideal.group
-        }
-      ]
-    )
-  ) as Record<
-    string,
-    {
-      label: string;
-      group: string;
-    }
-  >;
-
 export default function AcademyPlayerProfile({
   player,
   idealAssessments,
@@ -138,6 +119,36 @@ export default function AcademyPlayerProfile({
   onSaved: () => Promise<void>;
   onClose: () => void;
 }) {
+
+  const idealCatalog =
+    getIdealCatalog(
+      player.primary_position
+    );
+
+  const idealCodes =
+    idealCatalog.map(
+      ideal => ideal.code
+    );
+
+  const idealMeta =
+    Object.fromEntries(
+      idealCatalog.map(
+        ideal => [
+          ideal.code,
+          {
+            label: ideal.title,
+            group: ideal.group
+          }
+        ]
+      )
+    ) as Record<
+      string,
+      {
+        label: string;
+        group: string;
+      }
+    >;
+
   const [editing, setEditing] =
     useState(false);
 
@@ -203,7 +214,7 @@ export default function AcademyPlayerProfile({
           .slice(0, 10),
       player_role:
         player.player_role ?? '',
-      scores: createIdealScoreForms()
+      scores: createIdealScoreForms(idealCatalog)
     });
 
   const [playerForm, setPlayerForm] =
@@ -659,7 +670,7 @@ export default function AcademyPlayerProfile({
           .slice(0, 10),
       player_role:
         player.player_role ?? '',
-      scores: createIdealScoreForms()
+      scores: createIdealScoreForms(idealCatalog)
     });
   }
 
@@ -700,7 +711,7 @@ export default function AcademyPlayerProfile({
         player.player_role ??
         '',
       scores:
-        IDEAL_CODES.map(code => {
+        idealCodes.map(code => {
           const existing =
             byCode.get(code);
 
@@ -732,7 +743,8 @@ export default function AcademyPlayerProfile({
             detail_ratings:
               normalizeDetailRatings(
                 code,
-                existing?.detail_ratings
+                existing?.detail_ratings,
+                idealCatalog
               )
           };
         })
@@ -1828,6 +1840,9 @@ export default function AcademyPlayerProfile({
                 onChange={
                   setIdealScores
                 }
+                catalog={
+                  idealCatalog
+                }
               />
             </div>
 
@@ -2492,7 +2507,7 @@ export default function AcademyPlayerProfile({
                         >
                           {IDEAL_CODES
                             .filter(code =>
-                              IDEAL_META[code].group === group
+                              idealMeta[code].group === group
                             )
                             .map(code => {
                               const score =
@@ -2527,7 +2542,7 @@ export default function AcademyPlayerProfile({
                                       </span>
 
                                       <strong>
-                                        {IDEAL_META[code].label}
+                                        {idealMeta[code].label}
                                       </strong>
                                     </div>
 
@@ -2617,7 +2632,7 @@ export default function AcademyPlayerProfile({
                         marginTop: '9px'
                       }}
                     >
-                      {IDEAL_CODES.map(code => {
+                      {idealCodes.map(code => {
                         const trend =
                           getTrendForCode(code);
 
@@ -2665,7 +2680,7 @@ export default function AcademyPlayerProfile({
                                 fontSize: '11px'
                               }}
                             >
-                              {IDEAL_META[code].label}
+                              {idealMeta[code].label}
                             </div>
                           </div>
                         );
@@ -2750,7 +2765,7 @@ export default function AcademyPlayerProfile({
                             marginTop: '12px'
                           }}
                         >
-                          {IDEAL_CODES.map(code => {
+                          {idealCodes.map(code => {
                             const score =
                               assessment.scores.find(
                                 item =>
@@ -2789,7 +2804,7 @@ export default function AcademyPlayerProfile({
                                     fontSize: '11px'
                                   }}
                                 >
-                                  {IDEAL_META[code].label}
+                                  {idealMeta[code].label}
                                 </div>
                               </div>
                             );
