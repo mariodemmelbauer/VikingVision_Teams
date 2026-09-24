@@ -47,7 +47,7 @@ export type IdealDefinition = {
   criteria: IdealCriterion[];
 };
 
-export const IDEAL_CATALOG:
+export const FIELD_IDEAL_CATALOG:
   IdealDefinition[] = [
   {
     code: 'OFF1',
@@ -565,8 +565,149 @@ export const IDEAL_CATALOG:
   }
 ];
 
+
+export const GOALKEEPER_IDEAL_CATALOG:
+  IdealDefinition[] = [
+  {
+    code: 'DEF1',
+    title: 'Tor- und Raumverteidigung',
+    group: 'Defensive',
+    criteria: [
+      { id: 'positionsspiel', description: 'Positionsspiel', highlights: [] },
+      { id: 'fangtechniken', description: 'Fangtechniken', highlights: [] },
+      { id: 'falltechniken', description: 'Falltechniken', highlights: [] },
+      { id: 'fangen_hoher_baelle', description: 'Fangen hoher Bälle', highlights: [] },
+      { id: 'abdruck', description: 'Abdruck', highlights: [] },
+      { id: 'ablenken', description: 'Ablenken', highlights: [] },
+      { id: 'bewegungsablauf', description: 'Bewegungsablauf', highlights: [] },
+      { id: 'organisation', description: 'Organisation', highlights: [] },
+      { id: 'timing', description: 'Timing', highlights: [] },
+      { id: 'fausten', description: 'Fausten', highlights: [] },
+      { id: 'standards', description: 'Standards', highlights: [] }
+    ]
+  },
+  {
+    code: 'DEF2',
+    title: 'situative Torverteidigung',
+    group: 'Defensive',
+    criteria: [
+      { id: 'reaktion_hand_fuss', description: 'Reaktion Hand / Fuß', highlights: [] },
+      { id: 'block_kurz', description: 'Block kurz', highlights: [] },
+      { id: 'block_lang', description: 'Block Lang', highlights: [] },
+      { id: 'ballangriff', description: 'Ballangriff', highlights: [] }
+    ]
+  },
+  {
+    code: 'DEF3',
+    title: 'Entschlossenheit Torverteidigung',
+    group: 'Defensive',
+    criteria: [
+      { id: 'erobern_des_ball', description: 'Erobern des Ball', highlights: [] },
+      { id: 'kaempfer', description: 'Kämpfer', highlights: [] }
+    ]
+  },
+  {
+    code: 'OFF1',
+    title: 'Spieleröffnung',
+    group: 'Offensive',
+    criteria: [
+      { id: 'abschlag', description: 'Abschlag', highlights: [] },
+      { id: 'ausschuesse', description: 'Ausschüsse', highlights: [] },
+      { id: 'auswuerfe', description: 'Auswürfe', highlights: [] },
+      { id: 'genauigkeit', description: 'Genauigkeit', highlights: [] },
+      { id: 'ballweite', description: 'Ballweite', highlights: [] }
+    ]
+  },
+  {
+    code: 'OFF2',
+    title: 'Spieleröffnung Manipulieren',
+    group: 'Offensive',
+    criteria: [
+      { id: 'finten', description: 'Finten', highlights: [] },
+      { id: 'rythmus', description: 'Rythmus', highlights: [] }
+    ]
+  },
+  {
+    code: 'OFF3',
+    title: 'Ball als Verbündeter',
+    group: 'Offensive',
+    criteria: [
+      { id: 'ballan_mitnahme_re', description: 'Ballan + Mitnahme re.', highlights: [] },
+      { id: 'ballan_mitnahme_li', description: 'Ballan + Mitnahme li.', highlights: [] },
+      { id: 'passspiel_kurz_rechts', description: 'Passspiel kurz rechts', highlights: [] },
+      { id: 'passspiel_kurz_links', description: 'Passspiel kurz links', highlights: [] },
+      { id: 'gehobene_pass_rechts', description: 'Gehobene Pass rechts', highlights: [] },
+      { id: 'gehobene_pass_links', description: 'Gehobene Pass links', highlights: [] }
+    ]
+  },
+  {
+    code: 'H1',
+    title: 'Kampf',
+    group: 'Haltung',
+    criteria: [
+      { id: 'ausstrahlung', description: 'Ausstrahlung', highlights: [] },
+      { id: 'bodenstaendig', description: 'Bodenständig', highlights: [] },
+      { id: 'aufmerksam', description: 'Aufmerksam', highlights: [] },
+      { id: 'pflichtbewusst', description: 'Pflichtbewusst', highlights: [] },
+      { id: 'entschlossenheit', description: 'Entschlossenheit', highlights: [] }
+    ]
+  },
+  {
+    code: 'H2',
+    title: 'Kunst',
+    group: 'Haltung',
+    criteria: [
+      { id: 'unangepasst', description: 'Unangepasst', highlights: [] },
+      { id: 'exzentrische', description: 'Exzentrische', highlights: [] }
+    ]
+  },
+  {
+    code: 'K1',
+    title: 'Körper Fix',
+    group: 'Körper',
+    criteria: []
+  },
+  {
+    code: 'K2',
+    title: 'Körper Variabel',
+    group: 'Körper',
+    criteria: []
+  }
+];
+
+export const IDEAL_CATALOG =
+  FIELD_IDEAL_CATALOG;
+
+export function isGoalkeeperPosition(
+  position?: string | null
+) {
+  const normalized =
+    String(
+      position ?? ''
+    )
+      .trim()
+      .toLowerCase();
+
+  return (
+    normalized === 'tw' ||
+    normalized.includes('torwart') ||
+    normalized.includes('goalkeeper') ||
+    normalized.includes('keeper')
+  );
+}
+
+export function getIdealCatalog(
+  position?: string | null
+) {
+  return isGoalkeeperPosition(
+    position
+  )
+    ? GOALKEEPER_IDEAL_CATALOG
+    : FIELD_IDEAL_CATALOG;
+}
+
 export const IDEAL_CODES =
-  IDEAL_CATALOG.map(
+  FIELD_IDEAL_CATALOG.map(
     ideal => ideal.code
   );
 
@@ -594,10 +735,13 @@ function emptyCriterion(
 }
 
 export function createIdealDetailRatings(
-  idealCode: string
+  idealCode: string,
+  catalog:
+    IdealDefinition[] =
+      FIELD_IDEAL_CATALOG
 ): IdealDetailRatings {
   const definition =
-    IDEAL_CATALOG.find(
+    catalog.find(
       item =>
         item.code ===
         idealCode
@@ -617,9 +761,13 @@ export function createIdealDetailRatings(
   };
 }
 
-export function createIdealScoreForms():
+export function createIdealScoreForms(
+  catalog:
+    IdealDefinition[] =
+      FIELD_IDEAL_CATALOG
+):
   IdealScoreForm[] {
-  return IDEAL_CATALOG.map(
+  return catalog.map(
     ideal => ({
       ideal_code:
         ideal.code,
@@ -630,7 +778,8 @@ export function createIdealScoreForms():
       notes: '',
       detail_ratings:
         createIdealDetailRatings(
-          ideal.code
+          ideal.code,
+          catalog
         )
     })
   );
@@ -638,11 +787,15 @@ export function createIdealScoreForms():
 
 export function normalizeDetailRatings(
   idealCode: string,
-  source: unknown
+  source: unknown,
+  catalog:
+    IdealDefinition[] =
+      FIELD_IDEAL_CATALOG
 ): IdealDetailRatings {
   const base =
     createIdealDetailRatings(
-      idealCode
+      idealCode,
+      catalog
     );
 
   if (
