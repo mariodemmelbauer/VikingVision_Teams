@@ -77,6 +77,12 @@ export default function AcademyMatchMinutesTab({
   const [success, setSuccess] =
     useState<string>();
 
+  const [pendingDelete, setPendingDelete] =
+    useState(false);
+
+  const [deleteStatus, setDeleteStatus] =
+    useState<string>();
+
   const [form, setForm] =
     useState({
       match_date:
@@ -240,6 +246,9 @@ export default function AcademyMatchMinutesTab({
   ]);
 
   useEffect(() => {
+    setPendingDelete(false);
+    setDeleteStatus(undefined);
+
     if (
       selectedMatchId != null
     ) {
@@ -411,41 +420,61 @@ export default function AcademyMatchMinutesTab({
 
   async function deleteMatch() {
     if (
-      selectedMatchId == null ||
-      !window.confirm(
-        'Dieses Spiel inklusive aller eingetragenen Minuten löschen?'
-      )
+      selectedMatchId == null
     ) {
+      setError(
+        'Kein Spiel zum Löschen ausgewählt.'
+      );
       return;
     }
 
     setSaving(true);
     setError(undefined);
     setSuccess(undefined);
+    setDeleteStatus(
+      'Spiel wird gelöscht…'
+    );
 
     try {
-      await api(
-        `/academy/matches/${selectedMatchId}`,
-        {
-          method: 'DELETE'
-        }
-      );
+      const data =
+        await api(
+          `/academy/matches/${selectedMatchId}/delete`,
+          {
+            method: 'POST',
+            body: JSON.stringify({})
+          }
+        );
 
+      if (!data?.ok) {
+        throw new Error(
+          data?.error ??
+          'Spiel konnte nicht gelöscht werden.'
+        );
+      }
+
+      setDeleteStatus(
+        'Spiel wurde gelöscht.'
+      );
+      setSuccess(
+        'Spiel wurde gelöscht.'
+      );
+      setPendingDelete(false);
       setSelectedMatchId(
         null
       );
       setMatchPlayers([]);
-      setSuccess(
-        'Spiel wurde gelöscht.'
-      );
 
       await loadBase();
     } catch (err) {
-      setError(
+      const message =
         err instanceof Error
           ? err.message
-          : 'Spiel konnte nicht gelöscht werden.'
+          : 'Spiel konnte nicht gelöscht werden.';
+
+      setDeleteStatus(
+        `Löschen fehlgeschlagen: ${message}`
       );
+      setError(message);
     } finally {
       setSaving(false);
     }
@@ -649,6 +678,23 @@ export default function AcademyMatchMinutesTab({
         {success && (
           <div style={successBox}>
             {success}
+          </div>
+        )}
+
+        {deleteStatus && (
+          <div
+            style={
+              deleteStatus.startsWith(
+                'Löschen fehlgeschlagen'
+              )
+                ? errorBox
+                : deleteStatus ===
+                  'Spiel wurde gelöscht.'
+                  ? successBox
+                  : infoBox
+            }
+          >
+            {deleteStatus}
           </div>
         )}
 
@@ -928,16 +974,48 @@ export default function AcademyMatchMinutesTab({
             </div>
 
             <div style={actionsBetween}>
-              <button
-                type="button"
-                onClick={deleteMatch}
-                disabled={saving}
-                style={dangerButton}
-              >
-                {saving
-                  ? 'Bitte warten…'
-                  : 'Spiel löschen'}
-              </button>
+              {!pendingDelete ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPendingDelete(true);
+                    setDeleteStatus(
+                      'Löschen bestätigen.'
+                    );
+                    setError(undefined);
+                    setSuccess(undefined);
+                  }}
+                  disabled={saving}
+                  style={dangerButton}
+                >
+                  Spiel löschen
+                </button>
+              ) : (
+                <div style={deleteConfirmActions}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPendingDelete(false);
+                      setDeleteStatus(undefined);
+                    }}
+                    disabled={saving}
+                    style={secondaryButton}
+                  >
+                    Abbrechen
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={deleteMatch}
+                    disabled={saving}
+                    style={dangerButton}
+                  >
+                    {saving
+                      ? 'Wird gelöscht…'
+                      : 'Ja, Spiel löschen'}
+                  </button>
+                </div>
+              )}
 
               <button
                 type="button"
@@ -1642,6 +1720,34 @@ const primaryButton:
   color: '#fff',
   fontWeight: 800,
   cursor: 'pointer'
+};
+
+const secondaryButton:
+  React.CSSProperties = {
+  border: '1px solid #d3d8d5',
+  borderRadius: '9px',
+  padding: '10px 14px',
+  background: '#fff',
+  color: '#333',
+  fontWeight: 800,
+  cursor: 'pointer'
+};
+
+const deleteConfirmActions:
+  React.CSSProperties = {
+  display: 'flex',
+  gap: '8px',
+  alignItems: 'center'
+};
+
+const infoBox:
+  React.CSSProperties = {
+  marginTop: '12px',
+  padding: '9px 11px',
+  borderRadius: '9px',
+  background: '#f4f6f5',
+  color: '#47504a',
+  fontSize: '11px'
 };
 
 const dangerButton:
