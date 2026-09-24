@@ -2505,7 +2505,7 @@ export default function AcademyPlayerProfile({
                             gap: '8px'
                           }}
                         >
-                          {IDEAL_CODES
+                          {idealCodes
                             .filter(code =>
                               idealMeta[code].group === group
                             )
