@@ -9,6 +9,7 @@ import {
 } from '../../components/idealCatalog';
 import SportSciencePanel from '../../components/SportSciencePanel';
 import AcademyPlayerMinutesPanel from './AcademyPlayerMinutesPanel';
+import AcademySelfAssessmentPanel from './AcademySelfAssessmentPanel';
 
 type AcademyPlayer = {
   id: number;
@@ -93,6 +94,7 @@ type IdealScoreForm = SharedIdealScoreForm;
 type ProfileTab =
   | 'stammdaten'
   | 'ideale'
+  | 'selfAssessment'
   | 'sportScience'
   | 'minutes'
   | 'skillAc';
@@ -2198,6 +2200,13 @@ export default function AcademyPlayerProfile({
           </ProfileTabButton>
 
           <ProfileTabButton
+            active={profileTab === 'selfAssessment'}
+            onClick={() => setProfileTab('selfAssessment')}
+          >
+            Spielerbewertung
+          </ProfileTabButton>
+
+          <ProfileTabButton
             active={profileTab === 'sportScience'}
             onClick={() => setProfileTab('sportScience')}
           >
@@ -2793,6 +2802,15 @@ export default function AcademyPlayerProfile({
               </>
             )}
           </section>
+        )}
+
+        {profileTab === 'selfAssessment' && (
+          <AcademySelfAssessmentPanel
+            playerId={player.id}
+            playerName={player.name}
+            accessToken={accessToken}
+            apiBase={apiBase}
+          />
         )}
 
         {profileTab === 'sportScience' && (
